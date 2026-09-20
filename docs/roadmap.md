@@ -72,23 +72,26 @@ Not milestones, but not forgotten.
 - **The remaining three lattices** — brick, quarter-drop, mirror — are a
   constructor each, unbuilt because neither M1 nor M2 calls for them. Mirror is
   more than a constructor: it needs a reflected 2 × 2 super-tile.
-- **Nothing has met a real illustration.** Every test and every example uses
-  artwork drawn in code. The pipeline is built against synthetic input by an
-  explicit decision, taken to avoid holding up the project while real Peel Club
-  artwork is gathered, and the parts most likely to need adjusting when it
-  arrives are the matting threshold, the feather width, and whether redmean
-  quantisation is good enough. M3's own acceptance test — the existing
-  illustrations go in unmodified and come out clean and recolourable — cannot be
-  run yet.
+- **Real Peel Club files have not been through the pipeline.** Downgraded from
+  the largest debt on 2026-09-20, when the artwork was confirmed to be
+  **digital rather than scanned**: that is the easy route through ingest and is
+  well covered by artwork of the same kind. What real exports may still bring is
+  very large dimensions, embedded colour profiles, CMYK, semi-transparent
+  texture layers, and baked-in drop shadows. M3's stated acceptance test still
+  cannot be ticked until the files exist.
 - **Quantisation uses an approximate colour metric.** Redmean rather than Oklab
   or CIELAB, because a perceptual space needs a cube root and `f32`
   transcendentals carry no cross-platform bit-exactness guarantee. Ingest runs
   once and stores its result, so the stakes are lower here than in placement;
   worth revisiting if real artwork quantises badly.
-- **No background-removal model.** Luminance thresholding only. Fine for
-  illustration on paper and for generated motifs on flat backgrounds, which is
-  what the spec says to expect; it will not cope with a photographed subject or
-  a busy background.
+- **No background-removal model.** Paper measurement and alpha only. Fine for
+  digital artwork and for generated motifs on flat backgrounds, which is what
+  both brands actually supply; it will not cope with a photographed subject on a
+  busy background.
+- **A hard-edged cast shadow across a page is not handled.** The illumination
+  estimate is a plane, which models gradual falloff rather than a step, so the
+  shadow survives as motif. Detected and warned about rather than silently
+  wrong. Not on either brand's path today.
 - **Whether a scatter tracks is still judged by eye.** M2 removes clumps and
   bald patches, both of which are measurable and tested. Corridors are neither,
   until [M6](./roadmap.md#m6--mockups-and-tracking-detection) builds the Radon

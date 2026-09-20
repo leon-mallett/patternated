@@ -4,7 +4,9 @@ members = [
     "crates/pattern-core",
     "crates/pattern-render",
     "crates/motif-ingest",
+    "crates/pattern-doc",
     "crates/pattern-cli",
+    "app/src-tauri",
 ]
 
 [workspace.package]
@@ -17,6 +19,7 @@ publish = false
 pattern-core = { path = "crates/pattern-core" }
 pattern-render = { path = "crates/pattern-render" }
 motif-ingest = { path = "crates/motif-ingest" }
+pattern-doc = { path = "crates/pattern-doc" }
 
 glam = { version = "0.33", features = ["serde"] }
 rand_chacha = "0.9"

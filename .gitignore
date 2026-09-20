@@ -11,3 +11,8 @@ dist/
 
 # Local scratch
 /out/
+
+# Tauri shell
+/app/node_modules/
+/app/dist/
+/app/src-tauri/gen/

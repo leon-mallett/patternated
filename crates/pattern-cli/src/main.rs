@@ -4,16 +4,13 @@
 //! which is what lets `pattern-core` stay a pure function from parameters to
 //! placements.
 
-mod document;
-mod png_out;
-
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use document::Document;
 use motif_ingest::library::IngestParams;
 use motif_ingest::MatteMethod;
+use pattern_doc::{document, png_out, Document};
 
 #[derive(Parser)]
 #[command(

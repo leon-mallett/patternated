@@ -14,8 +14,8 @@ live) and **Dreamwoven** (bespoke children's pyjamas, concept).
 and toroidal Poisson-disc scatter, motif ingest with a versioned library, and
 working colourways. PNG output at any resolution. Next is M4, the Tauri shell.
 
-Motifs have not yet met real artwork — M3 was built against synthetic input by
-choice, so the pipeline was not blocked on gathering illustrations. See
+Real Peel Club files have not been through the pipeline yet, though artwork of
+the same kind — digital, flat-colour illustration — has. See
 [Test strategy](./docs/test-strategy.md#what-is-deliberately-not-tested).
 
 ## Try it

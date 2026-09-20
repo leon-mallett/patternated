@@ -101,36 +101,32 @@ test pass discards the only record of what the renderer used to produce.
 
 Stated rather than left as silence, since silence reads as coverage.
 
-- **Scanned illustrations.** Narrowed, not closed. Five flat-vector fruit
-  motifs were generated and put through the pipeline on 2026-09-20, and that
-  found four defects nothing synthetic had: a motif dissolving into the ground
-  slot, a speck filter that did not scale with motif size, a circular load when
-  seeding a library from a document, and a colour count that reported one
-  colour for an eight-colour print.
+- **Scanned illustrations — not on Peel Club's path.** Confirmed on
+  2026-09-20: **Peel Club's artwork is digital**, not scanned. That makes its
+  route through ingest the easy one — artwork exported with an alpha channel
+  takes `ExistingAlpha`, and artwork on flat white is trivial for the paper
+  measurement to handle. Neither meets uneven illumination, paper grain or ink
+  bleed.
 
-  A second round on 2026-09-20 targeted the scan path directly, with generated
-  photographs of painted artwork on textured paper. That found the matting
-  path broken for the case it existed for, and the fix is now pinned by five
-  synthetic scan fixtures — cream paper, a sheet lit from one side, heavy
-  grain, a pale subject on pale paper, and the two grain extremes at once. All
-  five were verified to fail against the threshold they replaced.
+  The scan work is therefore insurance rather than a prerequisite: it serves
+  the spec's third entry point, and Dreamwoven if generated motifs ever arrive
+  on anything but a flat background. It was still worth doing — it found the
+  trimming defect, which affected *every* path including digital artwork, since
+  a bounding box over every covered pixel is fragile whatever produced the
+  pixels.
 
-  What none of this tests is a *real* scan: a real scanner's noise
-  characteristics, real ink bleed, a real sheet's warp and its interaction with
-  a platen. Generated photographs approximate those and are not them.
+  What remains untested is a real scanner's own noise, real ink bleed, and a
+  sheet's warp against a platen. Those are approximated by generated
+  photographs, not reproduced. Nothing currently planned depends on them.
 
-- **Real illustrations.** This is the largest gap and it is a deliberate one:
-  M3 was built against synthetic input so the project would not stall waiting
-  for artwork. Every test and every example uses a motif drawn in code. Nothing
-  has met a real alpha edge, a scanned texture, paper that is not evenly lit, or
-  artwork whose colours were not chosen by the test.
+- **Real Peel Club artwork.** Still not seen, but the gap is now much smaller
+  than it was described as. Digital illustration is well covered by the
+  flat-vector motifs already put through the pipeline, which are digital
+  artwork in every respect that matters to ingest. What real files may still
+  bring: very large dimensions, embedded colour profiles, CMYK exports,
+  semi-transparent airbrush or texture layers, and drop shadows baked into the
+  export.
 
-  So M3's own acceptance test — the existing Peel Club illustrations go in
-  unmodified and come out clean and recolourable — **has not been run**. What is
-  proven is that the pipeline does what it was designed to do on input designed
-  to exercise it, which is not the same claim. The parts most likely to need
-  adjusting are the matting threshold and feather width, and whether redmean
-  quantisation is good enough on real colour.
 - **Cross-platform determinism, in the renderer.** Byte-identical output is
   asserted within a run on one machine (macOS, Apple silicon, 2026-09-20). The
   spec asks for identical output *across* platforms, and that is still
