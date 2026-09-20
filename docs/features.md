@@ -98,8 +98,16 @@ motif's scale depend on how much paper it was drawn on.
 
 **Quantise** maps every pixel onto a palette slot. Colour is flattened; coverage
 is not, so a motif's edge stays as soft as it was while its interior becomes
-strictly flat. Fit is measured and reported — see the caveat under
-[colourways](#colourways-by-palette-slot).
+strictly flat. Two things are measured and reported: how far each pixel moved,
+and **how much of the motif became the ground**. The second is tracked
+separately because it is a worse failure that scores as a mediocre one — a motif
+that quantises onto slot 0 is the background colour in the shape of a lemon, and
+will not read on fabric at all.
+
+**Derive a palette** from the artwork itself rather than guessing one:
+`pattern derive-palette <files…> --colours N`. Median cut over the matted
+pixels, so the paper does not dominate. Slot 0 is supplied rather than derived,
+because the ground is a design decision.
 
 **Vectorise** traces each slot into outlines, via `visioncortex`. It works from
 the quantised raster rather than the original artwork, which is why it is
@@ -165,15 +173,18 @@ and motif.
 
 ## Colour-count reporting
 
-The CLI reports how many palette slots a pattern resolves to, counting slots
-used rather than the palette's length. Screen printing charges per colour and
-stops being available past a certain count, so this is a manufacturing cost
-rather than a statistic — see the open question in
-[Commercialisation](./commercialisation.md).
+The CLI reports how many palette slots a print resolves to — the ground plus
+every slot the placed motifs actually use, rather than the palette's length. A
+house palette of twenty colours drawn on four at a time is a four-colour print.
+
+Screen printing charges per colour and stops being available past a certain
+count, so this is a quotable manufacturing cost rather than a statistic — see
+the open question in [Commercialisation](./commercialisation.md).
 
 ## Command line
 
 ```
+pattern derive-palette <source.png…> [--colours N] [--ground RRGGBB]
 pattern ingest <source.png> --library <dir> --id <name> [--size-mm N] [--from-paper]
 pattern info   <document.json> [--dpi N]
 pattern render <document.json> --out <file.png> [--dpi N] [--cols N] [--rows N] [--seed N]

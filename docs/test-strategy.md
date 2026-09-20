@@ -101,6 +101,18 @@ test pass discards the only record of what the renderer used to produce.
 
 Stated rather than left as silence, since silence reads as coverage.
 
+- **Scanned illustrations.** Narrowed, not closed. Five flat-vector fruit
+  motifs were generated and put through the pipeline on 2026-09-20, and that
+  found four defects nothing synthetic had: a motif dissolving into the ground
+  slot, a speck filter that did not scale with motif size, a circular load when
+  seeding a library from a document, and a colour count that reported one
+  colour for an eight-colour print.
+
+  What they did **not** test is a scan. They arrive on near-white with clean
+  edges; real artwork has uneven illumination, paper that is not uniformly
+  white, sensor noise and ink bleed. The `--from-paper` matting path was
+  exercised, but against an easy case.
+
 - **Real illustrations.** This is the largest gap and it is a deliberate one:
   M3 was built against synthetic input so the project would not stall waiting
   for artwork. Every test and every example uses a motif drawn in code. Nothing
@@ -149,7 +161,7 @@ Stated rather than left as silence, since silence reads as coverage.
 ## Running them
 
 ```bash
-cargo test                                  # whole workspace, 114 tests
+cargo test                                  # whole workspace, 112 tests
 cargo test -p pattern-core                  # fast, run constantly
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all

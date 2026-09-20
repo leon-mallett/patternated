@@ -351,3 +351,51 @@ non-determinism, to solve a problem this project does not yet have.
 a textured ground, or a scan with heavy shadow. It would arrive as another
 `MatteMethod` variant rather than as a rewrite, which is why that type is an
 enum.
+
+---
+
+## Removing `Placement::palette_slot` once motifs carried their own
+
+**Decided.** The per-placement palette slot is gone. Colour comes from a
+motif's per-pixel slots.
+
+**Why.** It was carried from the first commit so colourways would need no
+migration, and it did that job: the machinery it justified is what M3 built on.
+Once motifs became slot-indexed it had no remaining meaning, and the renderer
+never read it.
+
+It was not harmless. The colour-count report was reading it, and so reported
+**one colour for an eight-colour print** — which is the number somebody would
+quote a screen printer from. A dead field is not neutral when something else
+still trusts it.
+
+**Rejected.** Keeping it as a per-placement colour override, which is a real
+feature — a scatter where some cherries are gold — but one nothing has asked
+for and no milestone specifies. Same reasoning as `draw_operations` in M1:
+partial implementations get forgotten and then trusted.
+
+**Would reopen if.** A per-placement recolour is genuinely wanted, at which
+point it comes back with a caller and a test rather than as a field waiting for
+a purpose.
+
+---
+
+## Reporting how much of a motif became the ground
+
+**Decided.** `QuantisationReport` carries `ground_share` alongside the error
+figures, and warns in its own words when a third or more of a motif lands on
+slot 0.
+
+**Why.** Observed, not predicted — or rather, predicted and then mis-rated. A
+comment in `palette.rs` had already noted that a motif whose colour is nearest
+the ground would resolve to it, and called that faithful. A yellow lemon
+ingested onto cream, red and green put 98% of its pixels on the ground and came
+out as a lemon-shaped piece of background. Faithful is the wrong word for that.
+
+The existing mean-error warning did fire, at 0.34, which reads as "not a great
+fit" rather than "this motif is invisible". **A failure that scores as a
+mediocre one needs its own signal**, because the number is what people act on.
+
+**Would reopen if.** A design deliberately wants motifs dropping out into the
+ground, which is a real technique. The warning is advisory and nothing refuses
+to proceed, so this is already survivable.
