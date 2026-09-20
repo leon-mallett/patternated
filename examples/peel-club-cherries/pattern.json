@@ -1,0 +1,31 @@
+{
+  "motifs": [
+    {
+      "id": "cherry",
+      "file": "cherry.png",
+      "natural_size_mm": [52.0, 52.0]
+    }
+  ],
+  "pattern": {
+    "tile_size_mm": [240.0, 180.0],
+    "lattice": {
+      "u": [240.0, 90.0],
+      "v": [0.0, 180.0]
+    },
+    "placements": [
+      { "motif_id": "cherry", "position_mm": [38.0, 44.0], "rotation_deg": -12.0, "scale": 1.0, "palette_slot": 1 },
+      { "motif_id": "cherry", "position_mm": [150.0, 96.0], "rotation_deg": 18.0, "scale": 0.86, "palette_slot": 1 },
+      { "motif_id": "cherry", "position_mm": [236.0, 30.0], "rotation_deg": 6.0, "scale": 0.94, "palette_slot": 1 },
+      { "motif_id": "cherry", "position_mm": [86.0, 176.0], "rotation_deg": -24.0, "scale": 0.78, "palette_slot": 1 },
+      { "motif_id": "cherry", "position_mm": [196.0, 140.0], "rotation_deg": 32.0, "scale": 1.08, "palette_slot": 1 }
+    ],
+    "palette": {
+      "colors": [
+        { "r": 250, "g": 246, "b": 238 },
+        { "r": 200, "g": 30, "b": 45 },
+        { "r": 60, "g": 120, "b": 55 }
+      ]
+    },
+    "seed": 20260920
+  }
+}
