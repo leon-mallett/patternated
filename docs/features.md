@@ -1,6 +1,6 @@
 # Features
 
-What exists today, at M2. Everything else is in [Roadmap](./roadmap.md).
+What exists today, at M3. Everything else is in [Roadmap](./roadmap.md).
 
 ## Seamless tiling
 
@@ -78,6 +78,63 @@ This is placement only. **Rendering still rotates through `sin_cos`**, so the
 cross-platform claim stops at the pixels — see
 [Test strategy](./test-strategy.md#what-is-deliberately-not-tested).
 
+## Motif ingest
+
+One pipeline, whatever the artwork's origin: matte, trim, normalise, quantise,
+vectorise. A scanned illustration, a generated image and a motif already in the
+library all take the same path, because a motif is just pixels with an alpha
+channel and a palette.
+
+**Matting** cuts the subject from its background. Two methods: trust the file's
+own alpha, which is right for exported artwork, or a luminance threshold with a
+feathered edge, which is right for a scan of paper. There is no
+background-removal model — the spec observes that illustrations on white paper
+do better without one, and a model would slot in as a third method if real
+artwork defeats these.
+
+**Trim and normalise** crop to the subject's own extent and record the physical
+size it stands for. The order matters: sizing before trimming would make a
+motif's scale depend on how much paper it was drawn on.
+
+**Quantise** maps every pixel onto a palette slot. Colour is flattened; coverage
+is not, so a motif's edge stays as soft as it was while its interior becomes
+strictly flat. Fit is measured and reported — see the caveat under
+[colourways](#colourways-by-palette-slot).
+
+**Vectorise** traces each slot into outlines, via `visioncortex`. It works from
+the quantised raster rather than the original artwork, which is why it is
+simple: tracing normally has to discover regions of similar colour, and
+quantisation has already decided them. Paths carry slots, not fills, so a vector
+motif recolours like everything else. The raster is always kept alongside,
+because textured styles vectorise badly.
+
+## The motif library
+
+A directory of ingested motifs sharing one palette. **Motifs are immutable**:
+re-ingesting artwork produces a new version rather than changing the old one, so
+a pattern a designer approved months ago keeps rendering as approved.
+Re-ingesting byte-identical artwork with identical parameters is a no-op rather
+than a duplicate version.
+
+Stored as readable metadata in `motif.json` beside the indexed channels in
+`indexed.bin`, two bytes per pixel. The split is not cosmetic — see
+[Decisions](./decisions.md#storing-the-indexed-raster-outside-its-metadata).
+
+## Colourways by palette slot
+
+A colourway is the same pattern in a different palette, and since M3 it works.
+Motifs store slot indices; rendering resolves slot to colour. Swapping the
+palette recolours every motif in a pattern consistently, in one operation, with
+no re-ingestion and no change to any placement.
+
+`examples/peel-club-scatter/` carries the same print in two colourways. The two
+documents differ by three colours and nothing else.
+
+One caveat, reported rather than hidden: forcing every motif onto one shared
+palette is what makes a colourway a single swap, and it is also what quietly
+ruins a motif whose colours are not represented. Ingest measures how well each
+motif fits and warns when it does not.
+
 ## Rendering
 
 - A single tile — the artwork a print bureau receives.
@@ -117,6 +174,7 @@ rather than a statistic — see the open question in
 ## Command line
 
 ```
+pattern ingest <source.png> --library <dir> --id <name> [--size-mm N] [--from-paper]
 pattern info   <document.json> [--dpi N]
 pattern render <document.json> --out <file.png> [--dpi N] [--cols N] [--rows N] [--seed N]
 ```

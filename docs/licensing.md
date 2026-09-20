@@ -12,12 +12,15 @@ crate is `publish = false`.
 ## Dependencies
 
 All permissively licensed (MIT or Apache-2.0, or both): `glam`, `tiny-skia`,
-`rand_chacha`, `serde`, `thiserror`, `anyhow`, `clap`, `png`, `serde_json`.
-Nothing copyleft, nothing with an attribution obligation beyond notice.
+`rand_chacha`, `serde`, `thiserror`, `anyhow`, `clap`, `png`, `serde_json`, and
+`visioncortex` with its `bit-vec`, `flo_curves` and `num-traits`. Nothing
+copyleft, nothing with an attribution obligation beyond notice, and `cargo
+audit` is clean as of 2026-09-20.
 
-Two arriving later deserve checking before they land rather than after, since
-both sit in the export and ingest paths where a licence problem would be
-expensive to unwind: `vtracer` at M3 and `lcms2` at M5.
+`lcms2` arrives at M5 and deserves checking before it lands rather than after:
+it sits in the export path, where a licence problem would be expensive to
+unwind, and it is a binding to a C library rather than a Rust crate, which makes
+it a different kind of decision from everything currently in the tree.
 
 ## Artwork
 

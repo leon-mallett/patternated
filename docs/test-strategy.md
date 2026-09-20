@@ -58,6 +58,24 @@ deliberately — that a different lattice or a different seed produces different
 bytes, so the equality assertions are known to be comparing something that could
 differ. These are not to be weakened to make a change pass.
 
+**Ingest tests** assert the pipeline's properties rather than its output:
+paper is cut away and ink is not, the edge stays soft, physical size is
+independent of how much paper the subject was drawn on, colour is flattened
+while coverage is not, a colour the palette lacks is reported, a derived palette
+ignores the background, and vector and raster agree about what is in the motif
+and how big it is. Library tests cover the part that must not go wrong: a new
+version never changes an old one, identical artwork does not stack up versions,
+changed *parameters* do make a new one, and an id that would escape the library
+directory is refused.
+
+Two of those exist because something went wrong rather than because the property
+seemed worth asserting. A test pins the stored format at two bytes per pixel
+with metadata smaller than the pixel count, after JSON-encoding the channels
+produced a 3.3 MB file for 352 KB of data. And the poor-fit warning found a real
+design error the first time a colourway was rendered — loose files were being
+quantised against the colourway rather than against the palette the artwork was
+drawn for.
+
 **Scatter tests** assert the properties rather than impressions of them: no pair
 of motifs closer than the separation radius *measured across lattice copies*, no
 point in the tile further than 1.25 × that radius from a motif, coverage within
@@ -83,9 +101,18 @@ test pass discards the only record of what the renderer used to produce.
 
 Stated rather than left as silence, since silence reads as coverage.
 
-- **Real illustrations.** Every test uses a motif drawn in code. Nothing in M1
-  has met a real alpha edge, a scanned texture, or artwork whose colours were
-  not chosen by the test. First contact is at M3.
+- **Real illustrations.** This is the largest gap and it is a deliberate one:
+  M3 was built against synthetic input so the project would not stall waiting
+  for artwork. Every test and every example uses a motif drawn in code. Nothing
+  has met a real alpha edge, a scanned texture, paper that is not evenly lit, or
+  artwork whose colours were not chosen by the test.
+
+  So M3's own acceptance test — the existing Peel Club illustrations go in
+  unmodified and come out clean and recolourable — **has not been run**. What is
+  proven is that the pipeline does what it was designed to do on input designed
+  to exercise it, which is not the same claim. The parts most likely to need
+  adjusting are the matting threshold and feather width, and whether redmean
+  quantisation is good enough on real colour.
 - **Cross-platform determinism, in the renderer.** Byte-identical output is
   asserted within a run on one machine (macOS, Apple silicon, 2026-09-20). The
   spec asks for identical output *across* platforms, and that is still
@@ -101,9 +128,17 @@ Stated rather than left as silence, since silence reads as coverage.
 
   Still needs a second platform, or a deterministic trigonometric
   implementation, before anyone relies on reproducing a print from a seed.
-- **The CLI's own behaviour.** No test drives the binary. It is thin, and its
-  two interesting parts — document loading and PNG writing — would be worth
-  covering once a second consumer exists.
+- **The CLI's own behaviour.** No test drives the binary. It is thin, but it
+  has grown: document loading, on-the-fly ingest, library resolution, the
+  design-palette check and PNG writing all live there now, and the
+  design-palette bug was found by running it rather than by a test. Worth
+  covering before M4 adds a second consumer.
+
+- **Vectorisation output, visually.** Tests assert that every substantial slot
+  is traced and that the vector agrees with the raster on size, but nothing
+  renders the SVG and compares it against the pixels. That needs an SVG
+  rasteriser — `resvg` is already named for M5 — and is the obvious thing to add
+  when one is present.
 - **Tracking.** Whether a pattern reads as accidentally corridored is not
   checked. Clumps and bald patches are measurable and are tested; corridors are
   not, until M6 builds the Radon check. Any claim that a scatter shows no
@@ -114,7 +149,7 @@ Stated rather than left as silence, since silence reads as coverage.
 ## Running them
 
 ```bash
-cargo test                                  # whole workspace, 66 tests
+cargo test                                  # whole workspace, 114 tests
 cargo test -p pattern-core                  # fast, run constantly
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all

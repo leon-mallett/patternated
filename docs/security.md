@@ -36,8 +36,16 @@ The baseline in `~/Projects/SECURITY.md` applies; this project has no
 The operative rules: name the exact package and version before adding one, treat
 anything published within 72 hours as requiring explicit confirmation, install
 with the lockfile-exact command, and note any lifecycle scripts a package
-declares. Every dependency currently in the tree was already present in this
-machine's cargo cache from other work, so none is a fresh introduction.
+declares.
+
+`cargo audit` reports no advisories against the tree as of 2026-09-20.
+
+**One thing learned doing this.** The only dependency M3 needed was approved as
+`vtracer` 0.6.5 on accurate facts — stable, permissive, pure Rust — and vetting
+it afterwards showed it bundles an ungated CLI, bringing 36 extra crates and
+four RUSTSEC advisories. `visioncortex`, the library it wraps, does the same
+work with a clean audit. Reading a package's description is not vetting it;
+reading its dependency tree is.
 
 The surface grows at M4, when the Tauri shell brings npm into a project that
 currently has none. That is the point at which this document needs more than a

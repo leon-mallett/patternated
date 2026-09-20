@@ -236,3 +236,118 @@ degrading a control nobody is watching.
 
 **Would reopen if.** The sampler changes at all — in which case the test will
 say so first.
+
+---
+
+## One palette for the library, every motif quantised onto it
+
+**Decided.** A library holds a single palette. Every motif is quantised onto it
+at ingest and stores slot indices, never colours.
+
+**Why.** It is what makes a colourway a single swap across a whole range rather
+than a per-motif negotiation, and textile ranges sell in colourways. The spec
+asks for it on the further grounds that much of what reads as style mismatch is
+really colour mismatch — which matters for Dreamwoven later, but costs nothing
+to have now.
+
+**Rejected.** Each motif keeping its own extracted palette, which preserves
+every motif faithfully and then leaves a pattern mixing three motifs with three
+palettes and no single swap that recolours it. Also rejected: supporting both,
+which would mean two code paths through render and two meanings for
+`palette_slot` on a milestone where nothing has met real artwork.
+
+**Cost, and how it is surfaced.** A motif whose colours are not in the palette
+still quantises onto it, and nothing about the resulting file says it went
+wrong. So ingest measures the fit and reports it, and
+`QuantisationReport::is_poor_fit` is how anyone finds out.
+
+**Would reopen if.** Real Peel Club artwork turns out not to quantise onto any
+single palette without unacceptable loss — in which case the likely answer is
+more slots rather than more palettes.
+
+Governs [colourways](./features.md#colourways-by-palette-slot).
+
+---
+
+## Quantising against the design palette, not the colourway
+
+**Decided.** A document may carry a `design_palette` separate from the palette
+it renders with. Loose files are quantised against the first and resolved
+through the second.
+
+**Why.** Found by the poor-fit warning firing on the first colourway ever
+rendered, which is the best argument for having built it. Quantisation decides
+which *slot* a pixel belongs to, so it has to run against the palette the
+artwork was drawn for. Running it against the colourway asks which of an
+unrelated set of colours the artwork is nearest to — a red cherry measured
+against apricot and mint — which is a different question and a meaningless one.
+
+A library never had this problem: it holds one palette, quantises once at
+ingest, and every colourway is a swap at render. `design_palette` is how a
+document without a library gets the same behaviour, and the two palettes are
+required to be the same length so slots line up.
+
+**Would reopen if.** Nothing obvious. It is a small field that makes the two
+routes behave identically, which is the point.
+
+---
+
+## Storing the indexed raster outside its metadata
+
+**Decided.** A stored motif is `motif.json` for metadata and `indexed.bin` for
+the slot and alpha channels, two bytes per pixel.
+
+**Why.** Serialising the channels as JSON numbers produced a 3.3 MB file for
+352 KB of data. A 2000 × 2000 illustration would run to tens of megabytes per
+version, versions are immutable and accumulate, and the portfolio has already
+been bitten by a repository whose history became the problem before its working
+tree did.
+
+**Cost.** The authoritative data is no longer human-readable. Accepted: the
+metadata beside it is, and that is what anybody actually reads. An indexed PNG
+would be both compact and inspectable, and is the obvious improvement if it
+becomes worth a dependency.
+
+**Enforced.** A test asserts the binary is exactly two bytes per pixel and the
+metadata is smaller than the pixel count, so the raster cannot migrate back into
+the JSON unnoticed.
+
+---
+
+## visioncortex rather than vtracer
+
+**Decided.** Vectorisation uses `visioncortex` 0.9.3 directly, not the `vtracer`
+wrapper around it.
+
+**Why.** `vtracer` 0.6.5 was proposed and approved first, on the basis that it
+was stable, permissively licensed and pure Rust — all true. Vetting it after
+approval showed it also bundles a CLI it does not feature-gate, bringing 110
+crates and four RUSTSEC advisories (`atty` unmaintained and unsound, `ansi_term`
+and `adler` unmaintained) and a 2021-era image stack. `visioncortex` is the
+library `vtracer` wraps and does the actual tracing: same authors, same licence,
+newer stable line, 74 crates, clean `cargo audit`.
+
+The image stack was never needed, because this pipeline takes decoded pixels
+rather than files.
+
+**Worth keeping in view.** The approval was sound on the facts available and
+wrong on the facts that mattered. Vetting a dependency means reading its tree,
+not its description.
+
+---
+
+## No background-removal model
+
+**Decided.** Matting is a luminance threshold with a feathered edge, or trusting
+the file's existing alpha. No BiRefNet, no SAM, no ONNX runtime.
+
+**Why.** The spec observes that hand illustrations on white paper are better
+served without one — a threshold is faster and more faithful — and generated
+motifs are asked for on flat backgrounds precisely so that this holds. A model
+would bring a large runtime dependency, a downloaded weights file, and
+non-determinism, to solve a problem this project does not yet have.
+
+**Would reopen if.** Real artwork defeats thresholding: a photographed subject,
+a textured ground, or a scan with heavy shadow. It would arrive as another
+`MatteMethod` variant rather than as a rewrite, which is why that type is an
+enum.

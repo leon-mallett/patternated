@@ -10,9 +10,13 @@ correct on the first render and there is never an edge to fix.
 Two brands share the engine and nothing visual — **Peel Club** (adult apparel,
 live) and **Dreamwoven** (bespoke children's pyjamas, concept).
 
-**Current milestone: M2 complete.** Block and half-drop lattices, hand
-placement and toroidal Poisson-disc scatter, PNG output at any resolution.
-Next is M3, motif ingest.
+**Current milestone: M3 complete.** Block and half-drop lattices, hand placement
+and toroidal Poisson-disc scatter, motif ingest with a versioned library, and
+working colourways. PNG output at any resolution. Next is M4, the Tauri shell.
+
+Motifs have not yet met real artwork — M3 was built against synthetic input by
+choice, so the pipeline was not blocked on gathering illustrations. See
+[Test strategy](./docs/test-strategy.md#what-is-deliberately-not-tested).
 
 ## Try it
 
@@ -32,6 +36,10 @@ cargo run -p pattern-cli -- render examples/peel-club-scatter/pattern.json \
     --out out/scatter.png --dpi 96 --cols 3
 cargo run -p pattern-cli -- render examples/peel-club-scatter/pattern.json \
     --out out/scatter-2.png --dpi 96 --cols 3 --seed 7
+
+# The same print in another colourway — three colours differ, nothing else
+cargo run -p pattern-cli -- render examples/peel-club-scatter/pattern-night.json \
+    --out out/night.png --dpi 96 --cols 3
 ```
 
 ## Develop

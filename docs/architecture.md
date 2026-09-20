@@ -14,7 +14,7 @@ See [Decisions](./decisions.md) for why each boundary sits where it does, and
 | `pattern-core` | Lattice, toroidal distance, placement, scatter, palette, validation | `glam`, `rand_chacha`, `serde`, `thiserror` | Built |
 | `pattern-render` | Rasterising a pattern at any resolution | `pattern-core`, `tiny-skia` | Built |
 | `pattern-cli` | JSON in, PNG out; all file access | the above, `clap`, `serde_json`, `png`, `anyhow` | Built |
-| `motif-ingest` | Matting, trim, vectorise, palette extraction | `image`, `vtracer` | M3 |
+| `motif-ingest` | Matting, trim, quantise, vectorise, library | `pattern-core`, `visioncortex` | Built |
 | `pattern-io` | CMYK, ICC profiles, separations, file naming | `lcms2`, `tiff` | M5 |
 | `app/` | Tauri 2 shell, React and TypeScript | — | M4 |
 
@@ -35,6 +35,20 @@ Both exist because the tile rectangle is not the lattice. Substituting it is
 correct for a block repeat and wrong for every oblique one, which is why the
 mistake survives testing and reaches fabric. `PixelLattice` is a third, in
 integer pixels, and mirrors the first deliberately.
+
+## Where colour enters
+
+Exactly one place: `pattern_render::motif::resolve`, which turns slot indices
+into pixels using the pattern's palette. Everything upstream — ingest, storage,
+placement, scatter — deals in indices.
+
+That is why recolouring a whole range costs one palette and no re-rendering of
+anything else, and it is the reason `palette_slot` was carried on placements
+from the first commit, months of milestones before anything could resolve it.
+
+`motif-ingest` is pure except for [`library`](./features.md#the-motif-library),
+which is explicitly the I/O half and lives in its own module so the boundary is
+visible rather than implied.
 
 ## The boundary that matters
 
@@ -94,3 +108,8 @@ somebody generated from it, which proves nothing about whether tiles join. See
 - **`png`** used directly, alongside the copy `tiny-skia` already pulls in,
   because `Pixmap::encode_png` writes no `pHYs` chunk and physical size has to
   survive into the file.
+- **`visioncortex`** for tracing, rather than the `vtracer` wrapper around it —
+  see [Decisions](./decisions.md#visioncortex-rather-than-vtracer). Notably
+  `motif-ingest` has **no image-format dependency at all**: it takes decoded
+  RGBA, so decoding is a choice made at the edge rather than a dependency baked
+  into the pipeline.
