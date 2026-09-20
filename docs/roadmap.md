@@ -5,19 +5,11 @@ something usable, and nothing here requires the milestone after it. An item
 becomes a [Features](./features.md) entry when it is built, and disappears from
 this page.
 
-**M1, M2 and M3 are complete.** Their contents are in [Features](./features.md).
+**M1 to M4 are complete.** Their contents are in [Features](./features.md).
 
-## M4 — Tauri shell
-
-Tauri 2 with React and TypeScript. Live three-by-three preview, parameter
-controls, motif picker, seed reroll. The preview being instant is what a
-designer will judge the tool on.
-
-Test: a designer produces a print they like without touching a config file.
-
-**The spec directs a stop and reassessment here** rather than continuing
-automatically, on the grounds that a working tool producing one good range
-answers the product question better than more planning.
+**The spec directs a stop and reassessment here**, on the grounds that a working
+tool producing one good range answers the product question better than more
+planning. Everything below is explicitly optional.
 
 ## M5 — Colourways and export
 
@@ -92,6 +84,14 @@ Not milestones, but not forgotten.
   estimate is a plane, which models gradual falloff rather than a step, so the
   shadow survives as motif. Detected and warned about rather than silently
   wrong. Not on either brand's path today.
+- **The app's window is untested.** Eleven tests cover the layer beneath the
+  commands — what a slider actually does — but nothing drives the UI itself.
+  The app was built and run successfully; its window could not be inspected
+  from this environment because Screen Recording and Accessibility permissions
+  are not granted to the terminal. `~/Projects/AI_UI_TEST_AUTOMATION.md` and
+  `DESKTOP_APP_CONTROL.md` describe the house approach when that becomes worth
+  doing.
+- **No palette editing in the app.** Deliberate: that is M5.
 - **Whether a scatter tracks is still judged by eye.** M2 removes clumps and
   bald patches, both of which are measurable and tested. Corridors are neither,
   until [M6](./roadmap.md#m6--mockups-and-tracking-detection) builds the Radon

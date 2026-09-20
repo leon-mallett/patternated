@@ -10,7 +10,7 @@ correct on the first render and there is never an edge to fix.
 Two brands share the engine and nothing visual — **Peel Club** (adult apparel,
 live) and **Dreamwoven** (bespoke children's pyjamas, concept).
 
-**Current milestone: M3 complete.** Block and half-drop lattices, hand placement
+**Current milestone: M4 complete.** Block and half-drop lattices, hand placement
 and toroidal Poisson-disc scatter, motif ingest with a versioned library, and
 working colourways. PNG output at any resolution. Next is M4, the Tauri shell.
 

@@ -13,15 +13,23 @@ See [Decisions](./decisions.md) for why each boundary sits where it does, and
 | --- | --- | --- | --- |
 | `pattern-core` | Lattice, toroidal distance, placement, scatter, palette, validation | `glam`, `rand_chacha`, `serde`, `thiserror` | Built |
 | `pattern-render` | Rasterising a pattern at any resolution | `pattern-core`, `tiny-skia` | Built |
-| `pattern-cli` | JSON in, PNG out; all file access | the above, `clap`, `serde_json`, `png`, `anyhow` | Built |
+| `pattern-doc` | Document format, ingest-at-load, PNG writing | the above, `serde_json`, `png`, `anyhow` | Built |
+| `pattern-cli` | Command line over `pattern-doc` | the above, `clap` | Built |
+| `pattern-app` | Tauri 2 shell: session state and commands | the above, `tauri`, `tauri-plugin-dialog` | Built |
 | `motif-ingest` | Matting, trim, quantise, vectorise, library | `pattern-core`, `visioncortex` | Built |
 | `pattern-io` | CMYK, ICC profiles, separations, file naming | `lcms2`, `tiff` | M5 |
-| `app/` | Tauri 2 shell, React and TypeScript | — | M4 |
+| `app/src` | React and TypeScript front end | `react`, `vite` | Built |
 
-`pattern-cli` is not in the spec's crate table. The spec names a CLI for M1
-without saying where it lives, and putting a binary in `pattern-io` would have
-pulled colour management into M1 to get a command line. It is the app layer
-until the Tauri shell arrives, and it is where `anyhow` is allowed.
+`pattern-cli` and `pattern-doc` are not in the spec's crate table. The spec
+names a CLI for M1 without saying where it lives, and putting a binary in
+`pattern-io` would have pulled colour management into M1 to get a command line.
+
+`pattern-doc` was split out at M4 for a concrete reason: a GUI cannot depend on
+a binary crate, and having it depend on one called "cli" would mislead the next
+reader. It holds what every front end needs identically — what a document
+means, how its motifs resolve, how a PNG is written — so the two cannot drift
+into disagreeing about it. It is the app layer, and it is where `anyhow` is
+allowed.
 
 ## Where the lattice invariant lives
 

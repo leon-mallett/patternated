@@ -28,9 +28,8 @@ and UK nightwear regulation, below.
 
 ## Scope discipline as a commercial position
 
-The spec's instruction to stop and reassess after
-[M4](./roadmap.md#m4--tauri-shell) is a commercial judgement, not an engineering
-one: a working tool that produces one good Peel Club range answers the product
+The spec's instruction to stop and reassess after **M4, which is now
+complete**, is a commercial judgement, not an engineering one: a working tool that produces one good Peel Club range answers the product
 question better than any amount of further planning. Everything after M4 is
 explicitly optional, and the build is scoped so the first outcome alone is worth
 having.

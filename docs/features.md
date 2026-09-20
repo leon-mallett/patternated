@@ -1,6 +1,6 @@
 # Features
 
-What exists today, at M3. Everything else is in [Roadmap](./roadmap.md).
+What exists today, at M4. Everything else is in [Roadmap](./roadmap.md).
 
 ## Seamless tiling
 
@@ -210,6 +210,36 @@ house palette of twenty colours drawn on four at a time is a four-colour print.
 Screen printing charges per colour and stops being available past a certain
 count, so this is a quotable manufacturing cost rather than a statistic — see
 the open question in [Commercialisation](./commercialisation.md).
+
+## The app shell
+
+A Tauri 2 desktop app: live 3×3 preview, controls for the repeat and the
+scatter, a motif picker, seed reroll, and export.
+
+```bash
+cd app && npm install && npm run tauri dev
+```
+
+Three decisions in it are worth knowing:
+
+**The preview is fixed at 3×3.** A single tile says nothing about whether a
+pattern tracks, and the spec is explicit that this is the view a designer will
+judge the tool by. It is not a setting that can be turned down.
+
+**The UI asks in screen pixels; the engine derives the resolution.** That
+direction keeps physical units authoritative — resizing the window changes the
+render, never the design.
+
+**Colour count and achieved coverage sit beside the preview**, not in a panel
+somewhere. One is what a screen printer charges by; the other is what the
+density control actually delivered rather than what was asked for.
+
+Renders are coalesced on a short timer and tagged, so dragging a slider asks
+for one render rather than one per pixel and a slow render landing late cannot
+overwrite a newer one.
+
+Palette editing is deliberately absent — that is M5, and a half-built colour
+editor is the kind of partial implementation that gets trusted.
 
 ## Command line
 
