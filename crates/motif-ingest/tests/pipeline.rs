@@ -497,3 +497,53 @@ fn a_truncated_channel_file_is_refused_rather_than_misread() {
     assert!(library.read_version("cherry", 1).is_err());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn every_substantial_slot_gets_at_least_one_outline() {
+    // The vector and the raster are two views of one motif and must not
+    // disagree about what is in it. A slot covering a real area of the motif
+    // with no path traced for it means that colour vanishes from any vector
+    // export — invisible until somebody opens the SVG.
+    let matted = matte(&illustration_on_paper(128), MatteMethod::default());
+    let (cropped, _) = trim(&matted, 8).expect("subject");
+    let (indexed, _) = quantise(&cropped, &house_palette()).expect("should quantise");
+    let vector = vectorise(&indexed, VectoriseOptions::default());
+
+    for slot in indexed.slots_used() {
+        let area = indexed
+            .slots
+            .iter()
+            .zip(&indexed.alpha)
+            .filter(|(s, a)| **s == slot && **a >= 128)
+            .count();
+        if area < 64 {
+            continue; // genuinely small, and filtered by design
+        }
+        assert!(
+            vector.paths.iter().any(|p| p.slot == slot),
+            "slot {slot} covers {area} px but was never traced"
+        );
+    }
+}
+
+#[test]
+fn vector_and_raster_agree_on_the_motifs_extent() {
+    // A traced outline that drifted from the pixels it came from would print
+    // at the wrong size or in the wrong place.
+    let matted = matte(&illustration_on_paper(128), MatteMethod::default());
+    let (cropped, _) = trim(&matted, 8).expect("subject");
+    let (indexed, _) = quantise(&cropped, &house_palette()).expect("should quantise");
+    let vector = vectorise(&indexed, VectoriseOptions::default());
+
+    assert_eq!(vector.width, indexed.width);
+    assert_eq!(vector.height, indexed.height);
+
+    let svg = vector.to_svg(&house_palette());
+    assert!(
+        svg.contains(&format!(
+            "viewBox=\"0 0 {} {}\"",
+            indexed.width, indexed.height
+        )),
+        "svg viewBox does not match the raster"
+    );
+}

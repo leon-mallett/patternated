@@ -20,6 +20,24 @@ pub struct Document {
     /// from here, at their newest version.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub library: Option<PathBuf>,
+    /// The palette loose files are quantised against, if it differs from the
+    /// one being rendered.
+    ///
+    /// The distinction is what makes a colourway work for a document that
+    /// ingests artwork on the spot. Quantisation decides which *slot* each
+    /// pixel belongs to and must therefore run against the palette the artwork
+    /// was drawn for; rendering then resolves those slots through whatever
+    /// palette this colourway uses. Quantising against the colourway instead
+    /// asks which of an unrelated set of colours the artwork is nearest to,
+    /// which is a different and meaningless question — a red cherry measured
+    /// against apricot and mint.
+    ///
+    /// A library needs none of this: it holds one palette, motifs are
+    /// quantised onto it once at ingest, and every colourway is a swap at
+    /// render. This field is how a document without a library gets the same
+    /// behaviour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub design_palette: Option<Palette>,
     pub pattern: Pattern,
     /// When present, placements are generated rather than authored.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -202,7 +220,19 @@ impl Document {
                     let size = m.natural_size_mm.ok_or_else(|| {
                         anyhow!("motif '{}' gives a file but no natural_size_mm", m.id)
                     })?;
-                    ingest_file(&path, &m.id, size, m.matte, &self.pattern.palette)?
+                    let design = self
+                        .design_palette
+                        .as_ref()
+                        .unwrap_or(&self.pattern.palette);
+                    if design.len() != self.pattern.palette.len() {
+                        return Err(anyhow!(
+                            "design_palette has {} colours and the render palette has {}; slots \
+                             would not line up",
+                            design.len(),
+                            self.pattern.palette.len()
+                        ));
+                    }
+                    ingest_file(&path, &m.id, size, m.matte, design)?
                 }
                 None => {
                     let library = library.as_ref().ok_or_else(|| {

@@ -1,0 +1,84 @@
+{
+  "motifs": [
+    {
+      "id": "cherry",
+      "file": "cherry.png",
+      "natural_size_mm": [
+        26.0,
+        26.0
+      ]
+    }
+  ],
+  "design_palette": {
+    "colors": [
+      {
+        "r": 250,
+        "g": 246,
+        "b": 238
+      },
+      {
+        "r": 200,
+        "g": 30,
+        "b": 45
+      },
+      {
+        "r": 60,
+        "g": 120,
+        "b": 55
+      }
+    ]
+  },
+  "scatter": {
+    "density": 0.34,
+    "rotation_jitter_deg": 30.0,
+    "scale_range": [
+      0.82,
+      1.18
+    ],
+    "mix": [
+      {
+        "motif_id": "cherry",
+        "weight": 1.0,
+        "palette_slot": 1
+      }
+    ],
+    "seed": 20260920
+  },
+  "pattern": {
+    "tile_size_mm": [
+      240.0,
+      180.0
+    ],
+    "lattice": {
+      "u": [
+        240.0,
+        90.0
+      ],
+      "v": [
+        0.0,
+        180.0
+      ]
+    },
+    "placements": [],
+    "palette": {
+      "colors": [
+        {
+          "r": 28,
+          "g": 34,
+          "b": 56
+        },
+        {
+          "r": 255,
+          "g": 186,
+          "b": 92
+        },
+        {
+          "r": 120,
+          "g": 200,
+          "b": 175
+        }
+      ]
+    },
+    "seed": 0
+  }
+}
