@@ -9,7 +9,7 @@ mod support;
 
 use pattern_core::Lattice;
 use pattern_render::{render_field, render_tile};
-use support::{bank, straddling_pattern, TILE};
+use support::{bank, scattered_pattern, straddling_pattern, TILE};
 
 fn bytes(pixmap: &tiny_skia::Pixmap) -> Vec<u8> {
     pixmap.data().to_vec()
@@ -68,4 +68,28 @@ fn placement_order_is_respected_rather_than_incidental() {
         first.width(),
         "swapping placements must not change the tile size"
     );
+}
+
+#[test]
+fn a_scattered_pattern_renders_byte_identically_from_the_same_seed() {
+    // The promise the seed exists to make, taken end to end: sampling, then
+    // rasterising, then compositing. The core tests prove the placements
+    // reproduce; this proves the pixels do.
+    let lattice = Lattice::half_drop(TILE);
+    let first = render_tile(&scattered_pattern(lattice, 20260920, 0.35), &bank(), 96.0)
+        .expect("tile should render");
+    let second = render_tile(&scattered_pattern(lattice, 20260920, 0.35), &bank(), 96.0)
+        .expect("tile should render");
+    assert_eq!(bytes(&first), bytes(&second));
+}
+
+#[test]
+fn reseeding_a_scatter_changes_the_pixels() {
+    // Seed reroll is a control a designer will press; it has to do something.
+    let lattice = Lattice::half_drop(TILE);
+    let a = render_tile(&scattered_pattern(lattice, 1, 0.35), &bank(), 96.0)
+        .expect("tile should render");
+    let b = render_tile(&scattered_pattern(lattice, 2, 0.35), &bank(), 96.0)
+        .expect("tile should render");
+    assert_ne!(bytes(&a), bytes(&b));
 }

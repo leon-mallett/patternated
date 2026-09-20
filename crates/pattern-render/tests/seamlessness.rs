@@ -11,7 +11,7 @@ mod support;
 
 use pattern_core::Lattice;
 use pattern_render::{render_field, render_field_direct, render_tile};
-use support::{bank, straddling_pattern, TILE};
+use support::{bank, scattered_pattern, straddling_pattern, TILE};
 
 /// Positions where the two renders differ, and by how much at the worst.
 fn differences(a: &tiny_skia::Pixmap, b: &tiny_skia::Pixmap) -> (usize, u8) {
@@ -120,4 +120,28 @@ fn a_tile_is_exactly_the_repeat_size_in_pixels() {
     let pattern = straddling_pattern(Lattice::half_drop(TILE));
     let tile = render_tile(&pattern, &bank(), 150.0).expect("tile should render");
     assert_eq!((tile.width(), tile.height()), (1417, 1063));
+}
+
+#[test]
+fn a_scattered_pattern_tiles_with_no_seam() {
+    // What M2 actually produces. The hand-placed tests above put motifs on
+    // edges deliberately; here the sampler decides, at a density where several
+    // straddle an edge at once and some overlap each other across it.
+    let bank = bank();
+    for lattice in [Lattice::block(TILE), Lattice::half_drop(TILE)] {
+        for seed in [1u64, 20260920] {
+            let pattern = scattered_pattern(lattice, seed, 0.55);
+            assert!(pattern.placements.len() > 20, "expected a dense scatter");
+
+            let tiled = render_field(&pattern, &bank, 96.0, 3, 3).expect("field should render");
+            let direct =
+                render_field_direct(&pattern, &bank, 96.0, 3, 3).expect("field should render");
+
+            let (count, worst) = differences(&tiled, &direct);
+            assert_eq!(
+                count, 0,
+                "{count} pixels differ (worst {worst}) for seed {seed} on {lattice:?}"
+            );
+        }
+    }
 }

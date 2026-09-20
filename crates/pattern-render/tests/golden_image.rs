@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 use pattern_core::Lattice;
 use pattern_render::render_field;
-use support::{bank, straddling_pattern, TILE};
+use support::{bank, scattered_pattern, straddling_pattern, TILE};
 
 fn golden_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -76,4 +76,15 @@ fn block_field_matches_its_golden() {
     let pattern = straddling_pattern(Lattice::block(TILE));
     let field = render_field(&pattern, &bank(), 24.0, 3, 3).expect("field should render");
     check_against_golden("block-3x3.png", &field);
+}
+
+#[test]
+fn a_scattered_field_matches_its_golden() {
+    // The determinism tests compare two renders in one process, which cannot
+    // detect the scatter changing between versions. This can: the baseline is
+    // committed, so a sampler that drifts fails here rather than quietly
+    // producing a different print from the same seed months later.
+    let pattern = scattered_pattern(Lattice::half_drop(TILE), 20260920, 0.3);
+    let field = render_field(&pattern, &bank(), 24.0, 3, 3).expect("field should render");
+    check_against_golden("scatter-half-drop-3x3.png", &field);
 }

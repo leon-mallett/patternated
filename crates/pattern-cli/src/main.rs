@@ -47,6 +47,11 @@ enum Command {
         /// Tiles down. Defaults to `--cols`.
         #[arg(long)]
         rows: Option<u32>,
+
+        /// Re-run the document's scatter with this seed instead of its own.
+        /// Ignored by a document with authored placements.
+        #[arg(long)]
+        seed: Option<u64>,
     },
 
     /// Report what a document describes, without rendering it.
@@ -68,7 +73,8 @@ fn main() -> Result<()> {
             dpi,
             cols,
             rows,
-        } => render(&document, &out, dpi, cols, rows),
+            seed,
+        } => render(&document, &out, dpi, cols, rows, seed),
         Command::Info { document, dpi } => info(&document, dpi),
     }
 }
@@ -79,8 +85,12 @@ fn render(
     dpi: f32,
     cols: Option<u32>,
     rows: Option<u32>,
+    seed: Option<u64>,
 ) -> Result<()> {
-    let doc = Document::load(doc_path)?;
+    let mut doc = Document::load(doc_path)?;
+    if let Some(seed) = seed {
+        doc.reseed(seed).context("reseeding scatter")?;
+    }
     let bank = doc.load_motifs(doc_path)?;
 
     let pixmap = match cols {
@@ -96,12 +106,13 @@ fn render(
 
     let tile = doc.pattern.tile_size_mm;
     println!(
-        "{} — {} x {} px at {dpi} DPI, repeat {} x {} mm, {} colours",
+        "{} — {} x {} px at {dpi} DPI, repeat {} x {} mm, {} motifs, {} colours",
         out.display(),
         pixmap.width(),
         pixmap.height(),
         tile.x,
         tile.y,
+        doc.pattern.placements.len(),
         doc.pattern.resolved_color_count()
     );
     Ok(())
@@ -121,7 +132,35 @@ fn info(doc_path: &Path, dpi: f32) -> Result<()> {
         "at {dpi} DPI  tile {} x {} px, u = {:?}, v = {:?} (px)",
         pl.tile_px.x, pl.tile_px.y, pl.u_px, pl.v_px
     );
-    println!("placements  {}", p.placements.len());
+    println!(
+        "placements  {}{}",
+        p.placements.len(),
+        if doc.scatter.is_some() {
+            " (scattered)"
+        } else {
+            " (authored)"
+        }
+    );
+    if let Some(spec) = &doc.scatter {
+        let motif_area: f32 = spec
+            .mix
+            .iter()
+            .filter_map(|e| doc.motifs.iter().find(|m| m.id == e.motif_id))
+            .map(|m| m.natural_size_mm.x * m.natural_size_mm.y * 1.0)
+            .sum::<f32>()
+            / spec.mix.len().max(1) as f32;
+        let coverage =
+            p.placements.len() as f32 * motif_area / (p.tile_size_mm.x * p.tile_size_mm.y);
+        println!(
+            "density     {:.0}% asked, {:.0}% achieved",
+            spec.density * 100.0,
+            coverage * 100.0
+        );
+        println!(
+            "jitter      rotation +/-{:.0} deg, scale {:.2}-{:.2}",
+            spec.rotation_jitter_deg, spec.scale_range.0, spec.scale_range.1
+        );
+    }
     println!("motifs      {}", doc.motifs.len());
     println!(
         "colours     {} resolved of {} in palette",

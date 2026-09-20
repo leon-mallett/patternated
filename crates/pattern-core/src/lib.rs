@@ -9,12 +9,16 @@ mod lattice;
 mod palette;
 mod pattern;
 mod placement;
+mod scatter;
+mod torus;
 
 pub use error::PatternError;
 pub use lattice::{Lattice, NEIGHBOUR_COUNT};
 pub use palette::{Color, Palette, GROUND_SLOT};
 pub use pattern::Pattern;
 pub use placement::{wrap_into_tile, Placement};
+pub use scatter::{scatter, MotifWeight, ScatterParams};
+pub use torus::lattice_distance_sq;
 
 /// Millimetres per inch. The one constant tying physical units to output DPI.
 pub const MM_PER_INCH: f32 = 25.4;

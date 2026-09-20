@@ -1,4 +1,10 @@
+#![allow(dead_code)]
 //! A synthetic motif and pattern, shared by the integration tests.
+//!
+//! Compiled separately into each test binary, so a helper only one of them uses
+//! reads as dead code in the others. Hence the blanket allow: the alternative
+//! is inventing a caller in every binary, which makes the tests worse to serve
+//! the lint.
 //!
 //! The motif is drawn in code rather than loaded from a file. That keeps the
 //! tests independent of artwork that may be redrawn, keeps binary assets out of
@@ -6,7 +12,9 @@
 //! machine without hunting for the original illustration.
 
 use glam::Vec2;
-use pattern_core::{Color, Lattice, Palette, Pattern, Placement};
+use pattern_core::{
+    scatter, Color, Lattice, MotifWeight, Palette, Pattern, Placement, ScatterParams,
+};
 use pattern_render::{MotifBank, RasterMotif};
 use tiny_skia::{Paint, PathBuilder, Pixmap, Transform};
 
@@ -98,5 +106,43 @@ pub fn straddling_pattern(lattice: Lattice) -> Pattern {
             Color::new(60, 120, 55),
         ]),
         seed: 20260920,
+    }
+}
+
+/// A scattered pattern — what M2 actually produces, as opposed to the
+/// hand-placed one the tiling tests use.
+///
+/// Worth rendering separately: scatter puts motifs wherever the sampler
+/// chooses, so edge-straddling happens by accident rather than by the test
+/// author's design.
+///
+/// Density is a parameter because the two callers want different things. The
+/// seamlessness tests want it high enough that motifs overlap each other across
+/// a tile edge, which is the case where compositing order could diverge between
+/// the two render routes. The golden wants a print somebody could actually look
+/// at and judge.
+pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
+    let params = ScatterParams {
+        density,
+        rotation_jitter_deg: 30.0,
+        scale_range: (0.82, 1.18),
+        motif_mix: vec![MotifWeight {
+            motif_id: "cherry".into(),
+            weight: 1.0,
+            natural_size_mm: Vec2::new(26.0, 26.0),
+            palette_slot: 1,
+        }],
+        seed,
+    };
+    Pattern {
+        tile_size_mm: TILE,
+        lattice,
+        placements: scatter(&params, TILE, &lattice),
+        palette: Palette::new(vec![
+            Color::new(250, 246, 238),
+            Color::new(200, 30, 45),
+            Color::new(60, 120, 55),
+        ]),
+        seed,
     }
 }
