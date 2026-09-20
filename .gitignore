@@ -1,0 +1,13 @@
+# Rust
+/target/
+**/target/
+
+# macOS
+.DS_Store
+
+# Node / Tauri shell (arrives at M4)
+node_modules/
+dist/
+
+# Local scratch
+/out/
