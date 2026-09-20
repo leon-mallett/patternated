@@ -4,15 +4,15 @@
 //! agree pixel for pixel is what proves the repeat is seamless. See
 //! [`render_field`] and [`render_field_direct`].
 
-mod motif;
+pub mod motif;
 mod pixel_lattice;
 
 use glam::IVec2;
-use pattern_core::{wrap_into_tile, Color, Pattern, PatternError};
+use pattern_core::{wrap_into_tile, Color, Motif, Pattern, PatternError};
 use thiserror::Error;
 use tiny_skia::{FilterQuality, Pixmap, PixmapPaint, PremultipliedColorU8, Transform};
 
-pub use motif::{MotifBank, RasterMotif};
+pub use motif::{resolve, MotifBank};
 pub use pixel_lattice::PixelLattice;
 
 /// Ways a render can fail.
@@ -132,16 +132,29 @@ fn sprites(
     dpi: f32,
 ) -> Result<Vec<(Pixmap, IVec2)>, RenderError> {
     let k = pattern_core::px_per_mm(dpi);
-    let mut out = Vec::with_capacity(pattern.placements.len());
 
-    for (index, placement) in pattern.placements.iter().enumerate() {
-        let motif = bank
-            .get(&placement.motif_id)
-            .ok_or_else(|| RenderError::UnknownMotif {
-                index,
-                motif_id: placement.motif_id.clone(),
-            })?;
-        let sprite = rasterise(motif, placement.scale, placement.rotation_deg, k)?;
+    // Resolve each distinct motif once. A pattern is usually many placements of
+    // a few motifs, so resolving per placement would redo the same slot lookup
+    // for every copy on the tile.
+    let mut resolved: std::collections::HashMap<&str, Pixmap> = std::collections::HashMap::new();
+    for placement in &pattern.placements {
+        if resolved.contains_key(placement.motif_id.as_str()) {
+            continue;
+        }
+        let motif = lookup(bank, pattern, &placement.motif_id)?;
+        resolved.insert(
+            placement.motif_id.as_str(),
+            motif::resolve(motif, &pattern.palette)?,
+        );
+    }
+
+    let mut out = Vec::with_capacity(pattern.placements.len());
+    for placement in &pattern.placements {
+        let motif = lookup(bank, pattern, &placement.motif_id)?;
+        let base = resolved
+            .get(placement.motif_id.as_str())
+            .expect("every motif was resolved above");
+        let sprite = rasterise(base, motif, placement.scale, placement.rotation_deg, k)?;
         let center_mm = wrap_into_tile(placement.position_mm, pattern.tile_size_mm);
         out.push((
             sprite,
@@ -154,9 +167,29 @@ fn sprites(
     Ok(out)
 }
 
+/// Find a motif, naming the placement that wanted it when it is missing.
+fn lookup<'a>(
+    bank: &'a MotifBank,
+    pattern: &Pattern,
+    motif_id: &str,
+) -> Result<&'a Motif, RenderError> {
+    bank.get(motif_id).ok_or_else(|| {
+        let index = pattern
+            .placements
+            .iter()
+            .position(|p| p.motif_id == motif_id)
+            .unwrap_or(0);
+        RenderError::UnknownMotif {
+            index,
+            motif_id: motif_id.to_string(),
+        }
+    })
+}
+
 /// Scale, and if asked rotate, one motif into its own pixmap.
 fn rasterise(
-    motif: &RasterMotif,
+    base: &Pixmap,
+    motif: &Motif,
     scale: f32,
     rotation_deg: f32,
     px_per_mm: f32,
@@ -165,8 +198,8 @@ fn rasterise(
         ((motif.natural_size_mm.x * scale * px_per_mm).round() as i32).max(1),
         ((motif.natural_size_mm.y * scale * px_per_mm).round() as i32).max(1),
     );
-    let sx = target.x as f32 / motif.pixmap.width() as f32;
-    let sy = target.y as f32 / motif.pixmap.height() as f32;
+    let sx = target.x as f32 / base.width() as f32;
+    let sy = target.y as f32 / base.height() as f32;
 
     let paint = PixmapPaint {
         quality: FilterQuality::Bilinear,
@@ -178,7 +211,7 @@ fn rasterise(
         out.draw_pixmap(
             0,
             0,
-            motif.pixmap.as_ref(),
+            base.as_ref(),
             &paint,
             Transform::from_scale(sx, sy),
             None,
@@ -199,7 +232,7 @@ fn rasterise(
         .pre_rotate(rotation_deg)
         .pre_translate(-w / 2.0, -h / 2.0)
         .pre_scale(sx, sy);
-    out.draw_pixmap(0, 0, motif.pixmap.as_ref(), &paint, transform, None);
+    out.draw_pixmap(0, 0, base.as_ref(), &paint, transform, None);
     Ok(out)
 }
 

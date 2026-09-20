@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use document::Document;
+use motif_ingest::library::IngestParams;
+use motif_ingest::MatteMethod;
 
 #[derive(Parser)]
 #[command(
@@ -54,6 +56,38 @@ enum Command {
         seed: Option<u64>,
     },
 
+    /// Bring artwork into a motif library.
+    ///
+    /// The library holds one palette and every motif is quantised onto it, so
+    /// a colourway is later a single swap across the whole range.
+    Ingest {
+        /// Source artwork (PNG).
+        source: PathBuf,
+
+        /// Library directory. Created if it does not exist.
+        #[arg(long)]
+        library: PathBuf,
+
+        /// Id to store the motif under.
+        #[arg(long)]
+        id: String,
+
+        /// Physical size of the motif's longest edge, in millimetres.
+        #[arg(long, default_value_t = 50.0)]
+        size_mm: f32,
+
+        /// Cut the subject from a light background by brightness, rather than
+        /// trusting the file's own alpha. For scans of paper.
+        #[arg(long)]
+        from_paper: bool,
+
+        /// A document whose palette seeds a new library. Ignored if the
+        /// library already exists, since changing a palette would invalidate
+        /// every slot already stored.
+        #[arg(long)]
+        palette_from: Option<PathBuf>,
+    },
+
     /// Report what a document describes, without rendering it.
     Info {
         /// Pattern document (JSON).
@@ -75,6 +109,21 @@ fn main() -> Result<()> {
             rows,
             seed,
         } => render(&document, &out, dpi, cols, rows, seed),
+        Command::Ingest {
+            source,
+            library,
+            id,
+            size_mm,
+            from_paper,
+            palette_from,
+        } => ingest(
+            &source,
+            &library,
+            &id,
+            size_mm,
+            from_paper,
+            palette_from.as_deref(),
+        ),
         Command::Info { document, dpi } => info(&document, dpi),
     }
 }
@@ -87,11 +136,10 @@ fn render(
     rows: Option<u32>,
     seed: Option<u64>,
 ) -> Result<()> {
-    let mut doc = Document::load(doc_path)?;
+    let (mut doc, bank) = Document::load(doc_path)?;
     if let Some(seed) = seed {
-        doc.reseed(seed).context("reseeding scatter")?;
+        doc.reseed(seed, &bank).context("reseeding scatter")?;
     }
-    let bank = doc.load_motifs(doc_path)?;
 
     let pixmap = match cols {
         Some(c) => {
@@ -119,7 +167,7 @@ fn render(
 }
 
 fn info(doc_path: &Path, dpi: f32) -> Result<()> {
-    let doc = Document::load(doc_path)?;
+    let (doc, bank) = Document::load(doc_path)?;
     let p = &doc.pattern;
     let pl = pattern_render::pixel_lattice_for(p, dpi).context("quantising lattice")?;
 
@@ -145,8 +193,8 @@ fn info(doc_path: &Path, dpi: f32) -> Result<()> {
         let motif_area: f32 = spec
             .mix
             .iter()
-            .filter_map(|e| doc.motifs.iter().find(|m| m.id == e.motif_id))
-            .map(|m| m.natural_size_mm.x * m.natural_size_mm.y * 1.0)
+            .filter_map(|e| doc.motif_size(&bank, &e.motif_id))
+            .map(|size| size.x * size.y)
             .sum::<f32>()
             / spec.mix.len().max(1) as f32;
         let coverage =
@@ -161,7 +209,7 @@ fn info(doc_path: &Path, dpi: f32) -> Result<()> {
             spec.rotation_jitter_deg, spec.scale_range.0, spec.scale_range.1
         );
     }
-    println!("motifs      {}", doc.motifs.len());
+    println!("motifs      {} resolved", bank.len());
     println!(
         "colours     {} resolved of {} in palette",
         p.resolved_color_count(),
@@ -169,4 +217,33 @@ fn info(doc_path: &Path, dpi: f32) -> Result<()> {
     );
     println!("seed        {}", p.seed);
     Ok(())
+}
+
+fn ingest(
+    source: &Path,
+    library: &Path,
+    id: &str,
+    size_mm: f32,
+    from_paper: bool,
+    palette_from: Option<&Path>,
+) -> Result<()> {
+    let palette = match palette_from {
+        Some(path) => {
+            let (doc, _) = Document::load(path)
+                .with_context(|| format!("reading a palette from {}", path.display()))?;
+            doc.pattern.palette
+        }
+        None => pattern_core::Palette::new(vec![pattern_core::Color::new(255, 255, 255)]),
+    };
+
+    let params = IngestParams {
+        matte: if from_paper {
+            MatteMethod::default()
+        } else {
+            MatteMethod::ExistingAlpha
+        },
+        longest_edge_mm: size_mm,
+        ..IngestParams::default()
+    };
+    document::ingest_to_library(library, palette, id, source, params)
 }

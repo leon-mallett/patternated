@@ -12,10 +12,11 @@
 //! machine without hunting for the original illustration.
 
 use glam::Vec2;
+use motif_ingest::{matte, quantise, trim, MatteMethod, SourceImage};
 use pattern_core::{
-    scatter, Color, Lattice, MotifWeight, Palette, Pattern, Placement, ScatterParams,
+    scatter, Color, Lattice, Motif, MotifWeight, Palette, Pattern, Placement, ScatterParams,
 };
-use pattern_render::{MotifBank, RasterMotif};
+use pattern_render::MotifBank;
 use tiny_skia::{Paint, PathBuilder, Pixmap, Transform};
 
 pub const TILE: Vec2 = Vec2::new(240.0, 180.0);
@@ -76,12 +77,43 @@ pub fn cherry(size_px: u32) -> Pixmap {
     pixmap
 }
 
+/// The test palette. Slot 0 ground, 1 fruit, 2 stem.
+pub fn palette() -> Palette {
+    Palette::new(vec![
+        Color::new(250, 246, 238),
+        Color::new(200, 30, 45),
+        Color::new(60, 120, 55),
+    ])
+}
+
+/// The test cherry, put through the real ingest pipeline.
+///
+/// Deliberately not a shortcut past ingest. Since M3 there is one motif
+/// representation in the renderer and one way to produce it, so the tiling and
+/// scatter tests exercise matting, trimming and quantisation on every run —
+/// which is also how a regression in ingest shows up as a seam rather than as
+/// nothing at all.
 pub fn bank() -> MotifBank {
+    let drawn = cherry(128);
+    let mut rgba = Vec::with_capacity(drawn.width() as usize * drawn.height() as usize * 4);
+    for px in drawn.pixels() {
+        let c = px.demultiply();
+        rgba.extend_from_slice(&[c.red(), c.green(), c.blue(), c.alpha()]);
+    }
+    let source = SourceImage::new(drawn.width(), drawn.height(), rgba)
+        .expect("drawn motif should be well formed");
+
+    // The drawn cherry already carries alpha, so there is no paper to cut away.
+    let matted = matte(&source, MatteMethod::ExistingAlpha);
+    let (cropped, _) = trim(&matted, 8).expect("the cherry is not blank");
+    let (indexed, _) = quantise(&cropped, &palette()).expect("should quantise");
+
     let mut bank = MotifBank::new();
-    bank.insert(
-        "cherry",
-        RasterMotif::new(cherry(128), Vec2::new(52.0, 52.0)),
-    );
+    bank.insert(Motif {
+        id: "cherry".into(),
+        natural_size_mm: Vec2::new(52.0, 52.0),
+        indexed,
+    });
     bank
 }
 
@@ -100,11 +132,7 @@ pub fn straddling_pattern(lattice: Lattice) -> Pattern {
             Placement::new("cherry", Vec2::new(2.0, 3.0)),
             Placement::new("cherry", Vec2::new(140.0, 95.0)),
         ],
-        palette: Palette::new(vec![
-            Color::new(250, 246, 238),
-            Color::new(200, 30, 45),
-            Color::new(60, 120, 55),
-        ]),
+        palette: palette(),
         seed: 20260920,
     }
 }
@@ -138,11 +166,7 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
         tile_size_mm: TILE,
         lattice,
         placements: scatter(&params, TILE, &lattice),
-        palette: Palette::new(vec![
-            Color::new(250, 246, 238),
-            Color::new(200, 30, 45),
-            Color::new(60, 120, 55),
-        ]),
+        palette: palette(),
         seed,
     }
 }

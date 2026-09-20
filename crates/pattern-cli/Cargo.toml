@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 pattern-core.workspace = true
 pattern-render.workspace = true
+motif-ingest.workspace = true
 glam.workspace = true
 tiny-skia.workspace = true
 serde.workspace = true
