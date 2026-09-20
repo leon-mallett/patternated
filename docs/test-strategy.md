@@ -108,10 +108,16 @@ Stated rather than left as silence, since silence reads as coverage.
   seeding a library from a document, and a colour count that reported one
   colour for an eight-colour print.
 
-  What they did **not** test is a scan. They arrive on near-white with clean
-  edges; real artwork has uneven illumination, paper that is not uniformly
-  white, sensor noise and ink bleed. The `--from-paper` matting path was
-  exercised, but against an easy case.
+  A second round on 2026-09-20 targeted the scan path directly, with generated
+  photographs of painted artwork on textured paper. That found the matting
+  path broken for the case it existed for, and the fix is now pinned by five
+  synthetic scan fixtures — cream paper, a sheet lit from one side, heavy
+  grain, a pale subject on pale paper, and the two grain extremes at once. All
+  five were verified to fail against the threshold they replaced.
+
+  What none of this tests is a *real* scan: a real scanner's noise
+  characteristics, real ink bleed, a real sheet's warp and its interaction with
+  a platen. Generated photographs approximate those and are not them.
 
 - **Real illustrations.** This is the largest gap and it is a deliberate one:
   M3 was built against synthetic input so the project would not stall waiting
@@ -161,7 +167,7 @@ Stated rather than left as silence, since silence reads as coverage.
 ## Running them
 
 ```bash
-cargo test                                  # whole workspace, 112 tests
+cargo test                                  # whole workspace, 119 tests
 cargo test -p pattern-core                  # fast, run constantly
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all

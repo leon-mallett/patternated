@@ -85,16 +85,40 @@ vectorise. A scanned illustration, a generated image and a motif already in the
 library all take the same path, because a motif is just pixels with an alpha
 channel and a palette.
 
-**Matting** cuts the subject from its background. Two methods: trust the file's
-own alpha, which is right for exported artwork, or a luminance threshold with a
-feathered edge, which is right for a scan of paper. There is no
-background-removal model — the spec observes that illustrations on white paper
-do better without one, and a model would slot in as a third method if real
-artwork defeats these.
+**Matting** cuts the subject from its background. Three methods: trust the
+file's own alpha, which is right for exported artwork; a fixed luminance
+threshold, which only works on a digitally clean background; and the default,
+which **measures the paper** rather than assuming a brightness.
+
+The default estimates how bright the paper is across the image — fitting a
+plane, so a sheet lit from one side works — and keeps whatever is darker than
+its own surroundings by more than the paper's own grain. Both halves are
+measured, and both have to be: photographed watercolour paper sits at 0.895
+under even light, below any threshold that also removes white; and it varies by
+5.5% within itself, while a clean digital background varies by under 1%. A
+margin wide enough for the first erases a pale subject on the second. See
+[Decisions](./decisions.md#measuring-the-paper-rather-than-assuming-it).
+
+It has one known limit, reported rather than hidden: a plane models gradual
+falloff, not a hard-edged cast shadow across the page. Where that happens the
+shadow survives as motif, and ingest says so — `border_retained` measures how
+much of the frame edge was kept, and above 15% it warns that the fix is a
+better photograph rather than a better threshold.
+
+There is no background-removal model. The spec observes that illustrations on
+white paper do better without one, and a model would slot in as a fourth method
+if real artwork defeats these.
 
 **Trim and normalise** crop to the subject's own extent and record the physical
 size it stands for. The order matters: sizing before trimming would make a
 motif's scale depend on how much paper it was drawn on.
+
+Bounds come from connected regions, not individual pixels. A bounding box is
+decided by its most extreme pixel, and on a photographed sheet that pixel is
+grain — enough of it to hold the crop open across the whole frame even when
+matting had worked. Grouping into regions and dropping the small ones relative
+to the largest separates debris from thin connected features like a stem, and
+keeps a motif made of several genuine parts.
 
 **Quantise** maps every pixel onto a palette slot. Colour is flattened; coverage
 is not, so a motif's edge stays as soft as it was while its interior becomes
@@ -105,9 +129,15 @@ that quantises onto slot 0 is the background colour in the shape of a lemon, and
 will not read on fabric at all.
 
 **Derive a palette** from the artwork itself rather than guessing one:
-`pattern derive-palette <files…> --colours N`. Median cut over the matted
-pixels, so the paper does not dominate. Slot 0 is supplied rather than derived,
-because the ground is a design decision.
+`pattern derive-palette <files…> --colours N`. Median cut over the *solidly*
+covered pixels, so neither the paper nor a motif's edge ramp dominates — an
+antialiased rim is a large population of tones belonging to neither the motif
+nor the background, and median cut allocates buckets by population. Slot 0 is
+supplied rather than derived, because the ground is a design decision.
+
+Ask for more slots than you expect to need and look at what comes back: a
+colour that covers a small share of the artwork, like a stem, loses the
+competition for a bucket before a dominant one does.
 
 **Vectorise** traces each slot into outlines, via `visioncortex`. It works from
 the quantised raster rather than the original artwork, which is why it is

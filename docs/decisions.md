@@ -399,3 +399,72 @@ mediocre one needs its own signal**, because the number is what people act on.
 **Would reopen if.** A design deliberately wants motifs dropping out into the
 ground, which is a real technique. The warning is advisory and nothing refuses
 to proceed, so this is already survivable.
+
+---
+
+## Measuring the paper rather than assuming it
+
+**Decided.** The default matte estimates paper brightness across the image and
+keeps whatever is darker than its own surroundings by more than the paper's own
+grain. Both the level and the margin are measured; neither is a constant.
+
+**Why.** The fixed threshold was broken for the only case it existed for, and
+measurement showed there was no number that would have worked. Photographed
+watercolour paper came in at 0.895 under even light and 0.818 on the shadowed
+side of a sheet, both below the 0.92 the threshold cut above, so paper survived
+as motif. An elderflower at 0.917 against paper at 0.971 was removed along with
+its background. One case needs a low cut, the other a high one.
+
+The margin has the same shape of problem. Textured paper varies by about 5.5%
+within itself, so a margin under that keeps grain as ink; a clean digital
+background varies by under 1%, where a 5.5% margin erases a pale subject.
+
+**Rejected, with the reasons kept in the code**, because both looked like the
+obvious approach:
+
+*Dilating the block measurements*, so paper level reaches blocks containing no
+paper, over-estimates on a gradient — a shadowed corner inherits the brightness
+of its sunnier neighbours and keeps itself as motif.
+
+*Any local operator*, because none of them reaches the middle of a large motif.
+A subject filling half the frame leaves interior blocks many blocks deep in ink,
+which is where a wrong estimate does most damage. A global surface extrapolates
+*through* the motif instead.
+
+**Known limit.** A plane models gradual falloff, not a hard-edged cast shadow.
+That case is detected rather than silently wrong — see `border_retained` — and
+the honest advice is a better photograph.
+
+**Would reopen if.** Real scans routinely carry hard shadows, in which case the
+answer is a higher-order surface or a local method with the interior problem
+solved some other way, not a wider margin.
+
+Governs [motif ingest](./features.md#motif-ingest).
+
+---
+
+## Trimming on connected regions
+
+**Decided.** The crop is the bounding box of connected regions above a size
+floor, relative to the largest, rather than of every covered pixel.
+
+**Why.** Matting can be right and trimming still throw the result away. A
+correctly matted photograph of a pear kept 19% of its pixels and still cropped
+to the full frame, because a bounding box is decided by its most extreme pixel
+and paper grain scatters those into the corners: 896 of 1024 rows held some
+covered pixel while only 672 held more than twenty.
+
+**Rejected.** Requiring covered neighbours, which removes isolated speckle but
+not clumped speckle. And trimming by cumulative alpha mass, which clips thin
+features — a tendril carries very little mass per row and would be cut off
+part-way along.
+
+Connectedness is what actually separates the two: a stem is joined to the motif
+however thin it is, and grain is joined to nothing.
+
+**Cost.** A motif made of genuinely separate parts needs them to be comparable
+in size, which the 2% floor allows; something tiny and detached is treated as
+debris.
+
+**Would reopen if.** A motif style appears with deliberate fine speckle as part
+of the artwork — spatter, stippling — where the distinction stops holding.

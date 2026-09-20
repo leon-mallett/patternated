@@ -69,3 +69,26 @@ cargo run -p pattern-cli -- ingest examples/generated-motifs/01-cherries.png \
 `--from-paper` matters: these arrive on white with no alpha channel, so the
 luminance threshold has to cut the background away. That is the matting path
 real artwork will use and the one least tested against anything real.
+
+---
+
+## Round two: the awkward cases
+
+The five flat-vector subjects above are the easy path. A second set was
+generated to attack what they could not, and it found more than they did.
+
+| File | What it was for | What it found |
+| --- | --- | --- |
+| `10-watercolour-fig` | Does textured artwork vectorise badly, as the spec claims? | Yes, mildly — 36 outlines against 5 for a flat motif, and quantisation flattens the washes. The spec's advice to keep the raster alongside holds. |
+| `11-scan-even` | Photographed artwork on real paper, evenly lit | Matting broken: cream paper at luminance 0.895 was kept as motif |
+| `12-scan-uneven` | The same, lit from one side | Worse — and the only case still not fully solved, because a hard cast shadow is not a gradient |
+| `13-botanical` | Many distinct colours in one motif | Handled; 72 outlines, the most of any motif |
+| `14-pale-flower` | A near-white subject on near-white paper | Matting removed the flower along with the paper |
+
+A third round was not bought. Two hypotheses were tested for free instead —
+whether interior holes survive tracing, and how paper grain behaves — and both
+were answered by synthetic fixtures in `crates/motif-ingest/tests/pipeline.rs`.
+**Test the hypothesis cheaply before paying for artwork to test it with.**
+
+The five scan fixtures in that file encode everything this round found, so the
+findings survive without the images.
