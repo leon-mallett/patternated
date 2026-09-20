@@ -10,8 +10,9 @@ correct on the first render and there is never an edge to fix.
 Two brands share the engine and nothing visual — **Peel Club** (adult apparel,
 live) and **Dreamwoven** (bespoke children's pyjamas, concept).
 
-**Current milestone: M1.** Bare engine, CLI-driven, block and half-drop
-lattices, PNG output.
+**Current milestone: M2 complete.** Block and half-drop lattices, hand
+placement and toroidal Poisson-disc scatter, PNG output at any resolution.
+Next is M3, motif ingest.
 
 ## Try it
 
@@ -25,6 +26,12 @@ cargo run -p pattern-cli -- render examples/peel-club-cherries/pattern.json \
 # A 3x3 field — the minimum at which tracking corridors become visible
 cargo run -p pattern-cli -- render examples/peel-club-cherries/pattern.json \
     --out out/field.png --dpi 96 --cols 3
+
+# A scattered print, and the same one reseeded
+cargo run -p pattern-cli -- render examples/peel-club-scatter/pattern.json \
+    --out out/scatter.png --dpi 96 --cols 3
+cargo run -p pattern-cli -- render examples/peel-club-scatter/pattern.json \
+    --out out/scatter-2.png --dpi 96 --cols 3 --seed 7
 ```
 
 ## Develop
@@ -44,7 +51,9 @@ The [technical spec](./docs/pattern-engine-spec.md) is the source of the
 invariants; [`CLAUDE.md`](./CLAUDE.md) states the five that are load-bearing.
 The one worth knowing before reading any code: **toroidal wrap uses the lattice
 vectors, never the tile's width and height.** Those agree for a block repeat and
-disagree for every oblique one, which is why the mistake reaches fabric.
+disagree for every oblique one, which is why the mistake reaches fabric. It
+applies twice — to the nine offsets the tiling draws at, and to the distance
+that decides whether two scattered motifs collide.
 
 ## Licence
 

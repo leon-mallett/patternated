@@ -11,7 +11,7 @@ See [Decisions](./decisions.md) for why each boundary sits where it does, and
 
 | Crate | Carries | Depends on | Status |
 | --- | --- | --- | --- |
-| `pattern-core` | Lattice, placement, palette, validation | `glam`, `rand_chacha`, `serde`, `thiserror` | Built |
+| `pattern-core` | Lattice, toroidal distance, placement, scatter, palette, validation | `glam`, `rand_chacha`, `serde`, `thiserror` | Built |
 | `pattern-render` | Rasterising a pattern at any resolution | `pattern-core`, `tiny-skia` | Built |
 | `pattern-cli` | JSON in, PNG out; all file access | the above, `clap`, `serde_json`, `png`, `anyhow` | Built |
 | `motif-ingest` | Matting, trim, vectorise, palette extraction | `image`, `vtracer` | M3 |
@@ -22,6 +22,19 @@ See [Decisions](./decisions.md) for why each boundary sits where it does, and
 without saying where it lives, and putting a binary in `pattern-io` would have
 pulled colour management into M1 to get a command line. It is the app layer
 until the Tauri shell arrives, and it is where `anyhow` is allowed.
+
+## Where the lattice invariant lives
+
+Two places, and they must agree:
+
+- `Lattice::neighbour_offsets` — the nine offsets the tiling draws at.
+- `torus::lattice_distance_sq` — how far apart two motifs really are, given
+  that each appears at every lattice translate.
+
+Both exist because the tile rectangle is not the lattice. Substituting it is
+correct for a block repeat and wrong for every oblique one, which is why the
+mistake survives testing and reaches fabric. `PixelLattice` is a third, in
+integer pixels, and mirrors the first deliberately.
 
 ## The boundary that matters
 
@@ -75,8 +88,9 @@ somebody generated from it, which proves nothing about whether tiles join. See
   than preview speed. `resvg` joins it at M3 for vector motifs.
 - **`rand_chacha`** rather than the default RNG. Reproducibility depends on the
   generator being stable across versions and platforms, which `thread_rng` does
-  not promise. Plumbed through `Pattern::seed` now, unused until scatter
-  placement at M2.
+  not promise. Only its raw bits are used: the conversion to floats lives in
+  `scatter.rs` so that no dependency upgrade can move it. `rand_core` comes
+  through `rand_chacha`'s own re-export rather than as a second dependency.
 - **`png`** used directly, alongside the copy `tiny-skia` already pulls in,
   because `Pixmap::encode_png` writes no `pHYs` chunk and physical size has to
   survive into the file.

@@ -1,6 +1,6 @@
 # Features
 
-What exists today, at M1. Everything else is in [Roadmap](./roadmap.md).
+What exists today, at M2. Everything else is in [Roadmap](./roadmap.md).
 
 ## Seamless tiling
 
@@ -31,7 +31,52 @@ Motifs placed by hand at chosen positions, with rotation and scale. Positions
 outside the tile are wrapped into it rather than rejected, so a document can
 describe a motif as sitting at the edge without arithmetic.
 
-Scatter placement is M2.
+## Scatter placement
+
+Many motifs distributed across the tile to read as hand-strewn, by toroidal
+Poisson-disc sampling. Every pair is at least a minimum distance apart while the
+distribution stays irregular, which is what separates a tossed print from
+uniform random sampling — the latter clumps, leaves bald patches, and lays down
+the corridors a half-drop exists to avoid.
+
+**Distance is measured on the lattice, not on the tile rectangle.** This is the
+same invariant as the tiling, in a second place, and it is the one the spec's
+own formula gets wrong: wrapping each axis by width and height is right for a
+block repeat and wrong for every oblique one. On a 240 × 180 mm half-drop,
+motifs at (10, 10) and (230, 95) are 87 mm apart by that formula and 21 mm apart
+in the pattern that reaches fabric.
+
+Four controls, none of them a separation radius:
+
+- **Density** — target coverage as a fraction of tile area, solved into a
+  radius using the mix's weighted mean motif area. Achieved coverage lands
+  within about five percentage points, and is reported by `pattern info`.
+- **Rotation jitter** — bounded either way, in degrees.
+- **Scale variation** — an inclusive multiplier range, typically 0.8 to 1.2.
+- **Motif mix** — relative weights, so a print can be six parts cherries to one
+  part pineapples.
+
+A document carrying both authored placements and a scatter is refused rather
+than resolved, since there is no sensible merge: a scatter's separation
+guarantee knows nothing about motifs it did not place.
+
+## Reproducibility from a seed
+
+Placement generation contains no transcendental arithmetic — no sine, no cosine,
+no power — so it uses only operations IEEE-754 pins down exactly and the same
+seed gives the same placements on any platform. The annulus sampling that
+Bridson's algorithm normally does with an angle and a radius is done here by
+rejection in the bounding square instead, which costs a 41% rejection rate and
+buys that guarantee. A test greps the module and fails if a trigonometric call
+appears.
+
+The float conversion from generator bits is written in this codebase rather than
+taken from a distribution crate, so a dependency upgrade cannot silently move
+it.
+
+This is placement only. **Rendering still rotates through `sin_cos`**, so the
+cross-platform claim stops at the pixels — see
+[Test strategy](./test-strategy.md#what-is-deliberately-not-tested).
 
 ## Rendering
 
@@ -73,7 +118,12 @@ rather than a statistic — see the open question in
 
 ```
 pattern info   <document.json> [--dpi N]
-pattern render <document.json> --out <file.png> [--dpi N] [--cols N] [--rows N]
+pattern render <document.json> --out <file.png> [--dpi N] [--cols N] [--rows N] [--seed N]
 ```
 
-A worked example is in [`examples/peel-club-cherries/`](../examples/peel-club-cherries/).
+`--seed` re-runs a document's scatter, which is the seed reroll a designer will
+press once there is a UI to press it in.
+
+Worked examples: [`examples/peel-club-cherries/`](../examples/peel-club-cherries/)
+places motifs by hand, [`examples/peel-club-scatter/`](../examples/peel-club-scatter/)
+scatters them.

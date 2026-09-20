@@ -5,27 +5,7 @@ something usable, and nothing here requires the milestone after it. An item
 becomes a [Features](./features.md) entry when it is built, and disappears from
 this page.
 
-**M1 is complete.** Its contents are in [Features](./features.md).
-
-## M2 — Scatter placement
-
-Toroidal Poisson-disc sampling by Bridson's algorithm, which guarantees a
-minimum separation between motifs while keeping the distribution irregular.
-Naive uniform sampling clumps, leaves bald patches, and produces exactly the
-corridors the half-drop exists to avoid.
-
-The toroidal part is the part to get right: distance between two points must
-wrap, taking the shorter path in each axis. Measured with ordinary Euclidean
-distance, motifs collide across the tile boundary — invisible in one tile,
-obvious at three by three.
-
-Controls: density as a target coverage percentage with the separation radius
-solved from it, bounded rotation jitter, bounded scale variation, and motif mix
-weights. Nobody thinks in minimum separation radii, so none of them is exposed
-directly.
-
-Test: forty motifs showing no clumps, no bald patches and no visible corridors
-at three by three, reproducibly from a seed.
+**M1 and M2 are complete.** Their contents are in [Features](./features.md).
 
 ## M3 — Motif ingest
 
@@ -105,4 +85,15 @@ Not milestones, but not forgotten.
   [Test strategy](./test-strategy.md#what-is-deliberately-not-tested). Needs
   deciding before anyone relies on reproducing a print from a seed months later.
 - **The remaining three lattices** — brick, quarter-drop, mirror — are a
-  constructor each, unbuilt because M1 does not call for them.
+  constructor each, unbuilt because neither M1 nor M2 calls for them. Mirror is
+  more than a constructor: it needs a reflected 2 × 2 super-tile.
+- **Whether a scatter tracks is still judged by eye.** M2 removes clumps and
+  bald patches, both of which are measurable and tested. Corridors are neither,
+  until [M6](./roadmap.md#m6--mockups-and-tracking-detection) builds the Radon
+  check. Until then "no visible corridors" is an opinion, and it should be
+  described as one.
+- **Scatter is brute-force**, checking each candidate against every accepted
+  sample. Milliseconds at textile counts; the usual spatial grid indexes the
+  tile rectangle, which is the wrong neighbourhood on an oblique lattice, so a
+  correct one would have to be built in lattice coordinates. Worth doing only if
+  M4's live preview turns out to need it.

@@ -135,3 +135,104 @@ a correct one.
 **Cost.** Nothing in M1 touches a real illustration, so the first contact with
 real alpha edges and real colour is at M3. Recorded as a known gap in
 [Test strategy](./test-strategy.md#what-is-deliberately-not-tested).
+
+---
+
+## Measuring the toroidal distance on the lattice, not the tile rectangle
+
+**Decided.** `lattice_distance_sq` reduces the separation between two points
+into one lattice cell and minimises over the nine neighbours — the same nine
+the tiling uses.
+
+**Why.** The spec gives the toroidal distance as wrapping each axis by the
+tile's width and height. That is the tiling invariant's mistake in a second
+place, and it does more damage here. On a 240 × 180 mm half-drop, motifs at
+(10, 10) and (230, 95) are 87 mm apart under the rectangle formula and 21 mm
+apart in the printed pattern, because the right-hand neighbour arrives dropped
+by half the tile height. A scatter sampled that way accepts the pair as well
+separated and prints them overlapping — and the collision lands exactly where a
+half-drop was chosen to prevent one.
+
+**Rejected.** Following the spec as written. Recorded here rather than silently
+diverging, because the spec is otherwise the authority and a future reader
+comparing the two should find the disagreement explained.
+
+**Cost.** Nine distance evaluations instead of one, on a brute-force scan.
+Immaterial at the counts a textile repeat uses.
+
+**Would reopen if.** Never, for correctness. The implementation would change if
+scatter needed a spatial index — see below.
+
+Governs [scatter placement](./features.md#scatter-placement).
+
+---
+
+## No transcendental arithmetic in placement generation
+
+**Decided.** Scatter samples its annulus by rejection in the bounding square
+rather than from an angle and a radius, keeps distances squared, and derives
+floats from generator bits with code in this repository rather than a
+distribution crate.
+
+**Why.** Reproducibility is a stated invariant and `f32` transcendentals do not
+support it: `sin_cos` carries no bit-exactness guarantee across platforms or
+libm versions. Avoiding it entirely means placement uses only multiply,
+subtract, compare and division, which IEEE-754 pins down exactly, so a seed
+gives the same placements anywhere. Writing the bit-to-float conversion locally
+closes the other route by which the same seed could stop meaning the same thing:
+a dependency upgrade changing its sampling.
+
+**Cost.** About 41% of darts are rejected. Irrelevant — the sampler runs in
+milliseconds.
+
+**Enforced.** A test greps the module for trigonometric calls and fails if one
+appears, because this property is invisible in the output and would otherwise be
+undone by a plausible-looking refactor.
+
+**Limit.** Placement only. Rendering still rotates through `sin_cos`, and M2
+makes rotation the common case. The debt is narrowed, not paid.
+
+---
+
+## Brute-force neighbour search in the scatter
+
+**Decided.** Each candidate is checked against every accepted sample, with no
+spatial index.
+
+**Why.** Bridson's algorithm is usually written with a grid of cell size
+`r/√2` indexing the tile rectangle. On an oblique lattice the rectangle is the
+wrong neighbourhood — two samples adjacent in the printed pattern can sit in
+opposite corners of it — so a correct grid would have to be built in lattice
+coordinates, where the metric is sheared and the cell bounds stop being obvious.
+That is a subtle thing to get right, and getting it wrong reintroduces exactly
+the bug the lattice distance exists to prevent, in a place that is harder to
+see.
+
+At tens to a few hundred motifs the scan costs milliseconds.
+
+**Would reopen if.** M4's live preview needs faster reseeding at high density.
+The fix then is a lattice-coordinate grid with tests that compare it against
+this brute-force version, which is the sort of thing worth keeping around for
+that purpose.
+
+---
+
+## Correcting two empirical constants after measuring them
+
+**Decided.** The packing efficiency the density solver uses is 0.53, measured;
+the maximality bound the gap test asserts is 1.25 × the separation radius,
+measured.
+
+**Why this is in the decision log.** Both were originally written from memory —
+0.69 and 1.0 — and both were wrong, and one of them was wrong in a way that had
+already slipped past a test. At 0.69 the density control delivered about 77% of
+the coverage it promised, and the coverage test's tolerance was loose enough to
+pass anyway. The lesson is not about the numbers: **a constant nobody measured
+is a guess, and a tolerance wide enough to accommodate a guess will hide it.**
+
+The measurements are recorded beside the constants, and a test re-measures the
+packing figure on every run so a sampler change fails loudly rather than
+degrading a control nobody is watching.
+
+**Would reopen if.** The sampler changes at all — in which case the test will
+say so first.
