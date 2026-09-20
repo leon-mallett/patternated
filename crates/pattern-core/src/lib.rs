@@ -6,6 +6,7 @@
 
 mod error;
 mod lattice;
+mod motif;
 mod palette;
 mod pattern;
 mod placement;
@@ -14,6 +15,7 @@ mod torus;
 
 pub use error::PatternError;
 pub use lattice::{Lattice, NEIGHBOUR_COUNT};
+pub use motif::{IndexedMotif, Motif};
 pub use palette::{Color, Palette, GROUND_SLOT};
 pub use pattern::Pattern;
 pub use placement::{wrap_into_tile, Placement};

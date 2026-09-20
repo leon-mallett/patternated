@@ -16,6 +16,19 @@ pub enum PatternError {
         scale: f32,
     },
 
+    #[error("palette is empty; a motif cannot be quantised onto no colours")]
+    EmptyPalette,
+
+    #[error(
+        "motif declares {width} x {height} but carries {slots} slots and {alpha} alpha values"
+    )]
+    MotifChannelMismatch {
+        width: u32,
+        height: u32,
+        slots: usize,
+        alpha: usize,
+    },
+
     #[error(
         "placement {index} ('{motif_id}') uses palette slot {slot}, but the palette has {len} \
          colours"
