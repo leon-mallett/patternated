@@ -1,0 +1,6 @@
+# Generated artwork is a validation input, not a committed fixture.
+# Binary assets accumulate in history forever; if one of these earns a
+# permanent place in the test suite, downscale it and commit it deliberately.
+*.png
+*.jpg
+*.webp
