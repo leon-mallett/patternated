@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/pattern-core",
+    "crates/pattern-render",
+    "crates/pattern-cli",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "UNLICENSED"
+publish = false
+
+[workspace.dependencies]
+pattern-core = { path = "crates/pattern-core" }
+pattern-render = { path = "crates/pattern-render" }
+
+glam = { version = "0.33", features = ["serde"] }
+rand_chacha = "0.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+tiny-skia = "0.12"
+png = "0.18"
+clap = { version = "4.6", features = ["derive"] }
+
+[profile.dev]
+# Portfolio-wide fix for target/ ballooning; see ~/Projects/TAURI_BUILD_ARTIFACTS.md
+debug = "line-tables-only"

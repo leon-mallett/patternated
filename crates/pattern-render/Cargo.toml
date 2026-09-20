@@ -1,0 +1,12 @@
+[package]
+name = "pattern-render"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+pattern-core.workspace = true
+glam.workspace = true
+tiny-skia.workspace = true
+thiserror.workspace = true
