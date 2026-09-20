@@ -38,8 +38,7 @@
     "mix": [
       {
         "motif_id": "cherry",
-        "weight": 1.0,
-        "palette_slot": 1
+        "weight": 1.0
       }
     ],
     "seed": 20260920

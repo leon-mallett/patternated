@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::PatternError;
 use crate::lattice::Lattice;
+use crate::motif::Motif;
 use crate::palette::Palette;
 use crate::placement::Placement;
 
@@ -50,31 +51,35 @@ impl Pattern {
                     scale: p.scale,
                 });
             }
-            if self.palette.resolve(p.palette_slot).is_none() {
-                return Err(PatternError::SlotOutOfRange {
-                    index,
-                    motif_id: p.motif_id.clone(),
-                    slot: p.palette_slot,
-                    len: self.palette.len(),
-                });
-            }
         }
         Ok(())
     }
+}
 
-    /// Distinct palette slots this pattern resolves to, ground included.
-    ///
-    /// Screen printing charges per colour, so this is a quotable cost. Counting
-    /// slots actually used rather than the palette's length matters: a house
-    /// palette of twenty colours used four at a time is a four-colour print.
-    #[must_use]
-    pub fn resolved_color_count(&self) -> usize {
-        let mut slots: Vec<u8> = self.placements.iter().map(|p| p.palette_slot).collect();
-        slots.push(crate::palette::GROUND_SLOT);
-        slots.sort_unstable();
-        slots.dedup();
-        slots.len()
+/// Colours a pattern resolves to: the ground, plus every slot its motifs
+/// actually use.
+///
+/// This is a quotable cost rather than a statistic — screen printing charges
+/// per colour and stops being available past a certain count.
+///
+/// It needs the motifs because, since ingest, colour lives in a motif's pixels
+/// rather than on the placement. An earlier version counted a `palette_slot`
+/// field on each placement and reported "1 colour" for an eight-colour print,
+/// which is the sort of wrong number somebody quotes from.
+///
+/// Counts slots that are used, not the palette's length: a house palette of
+/// twenty colours drawn on four at a time is a four-colour print.
+#[must_use]
+pub fn resolved_color_count(pattern: &Pattern, motifs: &[Motif]) -> usize {
+    let mut slots = vec![crate::palette::GROUND_SLOT];
+    for motif in motifs {
+        if pattern.placements.iter().any(|p| p.motif_id == motif.id) {
+            slots.extend(motif.indexed.slots_used());
+        }
     }
+    slots.sort_unstable();
+    slots.dedup();
+    slots.len()
 }
 
 #[cfg(test)]
@@ -117,20 +122,6 @@ mod tests {
     }
 
     #[test]
-    fn a_slot_past_the_end_of_the_palette_is_rejected() {
-        let mut placement = Placement::new("cherry", Vec2::ZERO);
-        placement.palette_slot = 9;
-        assert!(matches!(
-            pattern(Lattice::block(TILE), vec![placement]).validate(),
-            Err(PatternError::SlotOutOfRange {
-                slot: 9,
-                len: 2,
-                ..
-            })
-        ));
-    }
-
-    #[test]
     fn a_zero_scale_placement_is_rejected() {
         let mut placement = Placement::new("cherry", Vec2::ZERO);
         placement.scale = 0.0;
@@ -141,23 +132,34 @@ mod tests {
     }
 
     #[test]
-    fn colour_count_counts_slots_used_not_the_palette_length() {
-        let mut two = Placement::new("leaf", Vec2::ZERO);
-        two.palette_slot = 1;
+    fn colour_count_reads_the_motifs_not_the_placements() {
+        // The bug this replaced: counting a per-placement slot reported one
+        // colour for a print using eight.
+        use crate::motif::IndexedMotif;
+        let motifs = vec![Motif {
+            id: "cherry".into(),
+            natural_size_mm: Vec2::new(40.0, 40.0),
+            indexed: IndexedMotif::new(2, 2, vec![1, 2, 3, 0], vec![255, 255, 255, 255])
+                .expect("fixture"),
+        }];
         let p = pattern(
             Lattice::block(TILE),
-            vec![Placement::new("cherry", Vec2::ZERO), two],
+            vec![Placement::new("cherry", Vec2::ZERO)],
         );
-        // Ground plus slot 1; slot 0 is shared by the ground and the cherry.
-        assert_eq!(p.resolved_color_count(), 2);
+        // Ground plus slots 1, 2 and 3; slot 0 is shared with the ground.
+        assert_eq!(resolved_color_count(&p, &motifs), 4);
     }
 
     #[test]
-    fn an_empty_pattern_still_costs_the_ground_colour() {
-        assert_eq!(
-            pattern(Lattice::block(TILE), vec![]).resolved_color_count(),
-            1
-        );
+    fn a_motif_nothing_places_costs_nothing() {
+        use crate::motif::IndexedMotif;
+        let motifs = vec![Motif {
+            id: "unused".into(),
+            natural_size_mm: Vec2::new(40.0, 40.0),
+            indexed: IndexedMotif::new(1, 1, vec![7], vec![255]).expect("fixture"),
+        }];
+        let p = pattern(Lattice::block(TILE), vec![]);
+        assert_eq!(resolved_color_count(&p, &motifs), 1);
     }
 
     #[test]

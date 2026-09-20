@@ -1,0 +1,113 @@
+{
+  "motifs": [
+    {
+      "id": "cherries"
+    },
+    {
+      "id": "pineapple"
+    },
+    {
+      "id": "lemon"
+    },
+    {
+      "id": "blueberries"
+    },
+    {
+      "id": "watermelon"
+    }
+  ],
+  "library": "../../out/generated",
+  "scatter": {
+    "density": 0.3,
+    "rotation_jitter_deg": 22.0,
+    "scale_range": [
+      0.8,
+      1.2
+    ],
+    "mix": [
+      {
+        "motif_id": "cherries",
+        "weight": 3.0
+      },
+      {
+        "motif_id": "pineapple",
+        "weight": 1.0
+      },
+      {
+        "motif_id": "lemon",
+        "weight": 2.0
+      },
+      {
+        "motif_id": "blueberries",
+        "weight": 2.0
+      },
+      {
+        "motif_id": "watermelon",
+        "weight": 1.5
+      }
+    ],
+    "seed": 20260920
+  },
+  "pattern": {
+    "tile_size_mm": [
+      280.0,
+      210.0
+    ],
+    "lattice": {
+      "u": [
+        280.0,
+        105.0
+      ],
+      "v": [
+        0.0,
+        210.0
+      ]
+    },
+    "placements": [],
+    "palette": {
+      "colors": [
+        {
+          "r": 250,
+          "g": 246,
+          "b": 238
+        },
+        {
+          "r": 48,
+          "g": 128,
+          "b": 68
+        },
+        {
+          "r": 64,
+          "g": 80,
+          "b": 87
+        },
+        {
+          "r": 92,
+          "g": 136,
+          "b": 63
+        },
+        {
+          "r": 229,
+          "g": 74,
+          "b": 48
+        },
+        {
+          "r": 246,
+          "g": 226,
+          "b": 133
+        },
+        {
+          "r": 247,
+          "g": 184,
+          "b": 15
+        },
+        {
+          "r": 253,
+          "g": 196,
+          "b": 20
+        }
+      ]
+    },
+    "seed": 0
+  }
+}

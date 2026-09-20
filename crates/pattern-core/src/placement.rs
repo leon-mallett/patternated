@@ -17,11 +17,6 @@ pub struct Placement {
     /// Multiplier on the motif's natural physical size.
     #[serde(default = "unit_scale")]
     pub scale: f32,
-    /// Index into the pattern's palette. Carried from the first commit so that
-    /// colourways need no migration; motifs resolve against it once ingest
-    /// produces slot-indexed artwork.
-    #[serde(default)]
-    pub palette_slot: u8,
 }
 
 fn unit_scale() -> f32 {
@@ -36,7 +31,6 @@ impl Placement {
             position_mm,
             rotation_deg: 0.0,
             scale: 1.0,
-            palette_slot: 0,
         }
     }
 }
@@ -66,7 +60,6 @@ mod tests {
         let p = Placement::new("cherry", Vec2::new(10.0, 20.0));
         assert_eq!(p.rotation_deg, 0.0);
         assert_eq!(p.scale, 1.0);
-        assert_eq!(p.palette_slot, 0);
     }
 
     #[test]

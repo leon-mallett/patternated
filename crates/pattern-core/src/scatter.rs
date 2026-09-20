@@ -42,8 +42,6 @@ pub struct MotifWeight {
     /// Needed to turn a coverage target into a separation radius, and to keep
     /// a large motif from being packed as tightly as a small one.
     pub natural_size_mm: Vec2,
-    #[serde(default)]
-    pub palette_slot: u8,
 }
 
 /// Everything a scatter needs that is not the tile or the lattice.
@@ -109,7 +107,6 @@ pub fn scatter(params: &ScatterParams, tile_size_mm: Vec2, lattice: &Lattice) ->
                 position_mm,
                 rotation_deg: symmetric(&mut rng, params.rotation_jitter_deg),
                 scale: between(&mut rng, params.scale_range.0, params.scale_range.1),
-                palette_slot: motif.palette_slot,
             }
         })
         .collect()
@@ -276,7 +273,6 @@ mod tests {
             motif_id: "cherry".into(),
             weight: 1.0,
             natural_size_mm: Vec2::new(22.0, 22.0),
-            palette_slot: 1,
         }]
     }
 
@@ -569,13 +565,11 @@ mod tests {
                     motif_id: "cherry".into(),
                     weight: 6.0,
                     natural_size_mm: Vec2::new(30.0, 30.0),
-                    palette_slot: 1,
                 },
                 MotifWeight {
                     motif_id: "pineapple".into(),
                     weight: 1.0,
                     natural_size_mm: Vec2::new(30.0, 30.0),
-                    palette_slot: 2,
                 },
             ],
             seed: 42,
@@ -590,14 +584,6 @@ mod tests {
             (share - 6.0 / 7.0).abs() < 0.15,
             "cherries were {share:.2} of the scatter, expected about 0.86"
         );
-    }
-
-    #[test]
-    fn a_weighted_motif_carries_its_palette_slot() {
-        let lattice = Lattice::block(TILE);
-        for p in scatter(&params(0.3, 4), TILE, &lattice) {
-            assert_eq!(p.palette_slot, 1);
-        }
     }
 
     #[test]

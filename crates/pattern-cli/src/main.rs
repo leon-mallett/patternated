@@ -88,6 +88,24 @@ enum Command {
         palette_from: Option<PathBuf>,
     },
 
+    /// Derive a palette from artwork and print it as JSON.
+    ///
+    /// Paste the result into a document's palette, or use it to seed a
+    /// library, rather than guessing colours by hand.
+    DerivePalette {
+        /// Source artwork (PNG). Give all the motifs a range will use.
+        sources: Vec<PathBuf>,
+
+        /// Total slots including the ground.
+        #[arg(long, default_value_t = 5)]
+        colours: usize,
+
+        /// Ground colour as RRGGBB. Slot 0 is a design decision, not a
+        /// property of the artwork, so it is supplied rather than derived.
+        #[arg(long, default_value = "faf6ee")]
+        ground: String,
+    },
+
     /// Report what a document describes, without rendering it.
     Info {
         /// Pattern document (JSON).
@@ -124,6 +142,11 @@ fn main() -> Result<()> {
             from_paper,
             palette_from.as_deref(),
         ),
+        Command::DerivePalette {
+            sources,
+            colours,
+            ground,
+        } => derive_palette(&sources, colours, &ground),
         Command::Info { document, dpi } => info(&document, dpi),
     }
 }
@@ -161,7 +184,7 @@ fn render(
         tile.x,
         tile.y,
         doc.pattern.placements.len(),
-        doc.pattern.resolved_color_count()
+        colour_count(&doc, &bank)
     );
     Ok(())
 }
@@ -212,7 +235,7 @@ fn info(doc_path: &Path, dpi: f32) -> Result<()> {
     println!("motifs      {} resolved", bank.len());
     println!(
         "colours     {} resolved of {} in palette",
-        p.resolved_color_count(),
+        colour_count(&doc, &bank),
         p.palette.len()
     );
     println!("seed        {}", p.seed);
@@ -228,11 +251,7 @@ fn ingest(
     palette_from: Option<&Path>,
 ) -> Result<()> {
     let palette = match palette_from {
-        Some(path) => {
-            let (doc, _) = Document::load(path)
-                .with_context(|| format!("reading a palette from {}", path.display()))?;
-            doc.pattern.palette
-        }
+        Some(path) => Document::read_palette(path)?,
         None => pattern_core::Palette::new(vec![pattern_core::Color::new(255, 255, 255)]),
     };
 
@@ -246,4 +265,32 @@ fn ingest(
         ..IngestParams::default()
     };
     document::ingest_to_library(library, palette, id, source, params)
+}
+
+fn derive_palette(sources: &[PathBuf], colours: usize, ground: &str) -> Result<()> {
+    let ground = parse_hex(ground)?;
+    let palette = document::derive_palette_from(sources, ground, colours)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&palette).context("serialising palette")?
+    );
+    Ok(())
+}
+
+fn parse_hex(hex: &str) -> Result<pattern_core::Color> {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() != 6 {
+        anyhow::bail!("ground must be six hex digits, got '{hex}'");
+    }
+    let byte = |i: usize| {
+        u8::from_str_radix(&hex[i..i + 2], 16)
+            .with_context(|| format!("'{hex}' is not a hex colour"))
+    };
+    Ok(pattern_core::Color::new(byte(0)?, byte(2)?, byte(4)?))
+}
+
+/// Colours this print resolves to, counting what the motifs actually use.
+fn colour_count(doc: &Document, bank: &pattern_render::MotifBank) -> usize {
+    let motifs: Vec<pattern_core::Motif> = bank.motifs().into_iter().cloned().collect();
+    pattern_core::resolved_color_count(&doc.pattern, &motifs)
 }

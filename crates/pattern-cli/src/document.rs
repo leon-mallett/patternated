@@ -71,8 +71,6 @@ fn unit_range() -> (f32, f32) {
 pub struct MixEntry {
     pub motif_id: String,
     pub weight: f32,
-    #[serde(default)]
-    pub palette_slot: u8,
 }
 
 /// Where one motif comes from.
@@ -103,6 +101,29 @@ pub struct MotifRef {
 }
 
 impl Document {
+    /// Read just the palette, without resolving any motif.
+    ///
+    /// Seeding a library from a document is otherwise circular: a full load
+    /// resolves motifs, resolving motifs needs the library, and the library is
+    /// what is being created. Reading only the palette breaks that, and the
+    /// palette is all `--palette-from` ever wanted.
+    pub fn read_palette(path: &Path) -> Result<Palette> {
+        #[derive(Deserialize)]
+        struct PaletteOnly {
+            pattern: PatternPalette,
+        }
+        #[derive(Deserialize)]
+        struct PatternPalette {
+            palette: Palette,
+        }
+
+        let text =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        let parsed: PaletteOnly = serde_json::from_str(&text)
+            .with_context(|| format!("reading a palette from {}", path.display()))?;
+        Ok(parsed.pattern.palette)
+    }
+
     /// Load a document and resolve every motif it names.
     ///
     /// Motifs are resolved before any scatter runs, because a scatter solves
@@ -166,7 +187,6 @@ impl Document {
                 motif_id: entry.motif_id.clone(),
                 weight: entry.weight,
                 natural_size_mm,
-                palette_slot: entry.palette_slot,
             });
         }
 
@@ -290,7 +310,13 @@ fn ingest_file(
     let (indexed, report) =
         quantise(&cropped, palette).with_context(|| format!("quantising motif '{id}'"))?;
 
-    if report.is_poor_fit() {
+    if report.dissolves_into_ground() {
+        eprintln!(
+            "warning: {:.0}% of motif '{id}' became the ground colour and it will barely show. \
+             The palette has no colour for what this mostly is.",
+            report.ground_share * 100.0
+        );
+    } else if report.is_poor_fit() {
         eprintln!(
             "warning: motif '{id}' fits this palette poorly (mean error {:.2}, worst {:.2}). \
              Its colours may not be represented.",
@@ -330,11 +356,41 @@ pub fn ingest_to_library(
         stored.quantisation.slots_used.len(),
         stored.vector.path_count()
     );
-    if stored.quantisation.is_poor_fit() {
+    if stored.quantisation.dissolves_into_ground() {
+        println!(
+            "  WARNING: {:.0}% of this motif became the ground colour. It will be close to \
+             invisible on the fabric — the palette has no colour for what this mostly is.",
+            stored.quantisation.ground_share * 100.0
+        );
+    } else if stored.quantisation.is_poor_fit() {
         println!(
             "  warning: fits the library palette poorly (mean {:.2}, worst {:.2})",
             stored.quantisation.mean_error, stored.quantisation.max_error
         );
     }
     Ok(())
+}
+
+/// Derive a palette from artwork, rather than guessing one by hand.
+///
+/// The obvious first step with a new set of motifs, and it had no route from
+/// the command line until real artwork made the omission obvious: every fruit
+/// generated for testing was ingested onto a palette of cream, red and green
+/// because that was the only palette to hand.
+pub fn derive_palette_from(
+    sources: &[PathBuf],
+    ground: pattern_core::Color,
+    count: usize,
+) -> Result<Palette> {
+    let images: Vec<SourceImage> = sources
+        .iter()
+        .map(|p| {
+            let source = load_source(p)?;
+            // Matte first: a palette derived from un-matted scans is a palette
+            // of paper, since the background outnumbers the subject.
+            Ok(motif_ingest::matte(&source, MatteMethod::default()))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let refs: Vec<&SourceImage> = images.iter().collect();
+    Ok(motif_ingest::derive_palette(&refs, ground, count))
 }

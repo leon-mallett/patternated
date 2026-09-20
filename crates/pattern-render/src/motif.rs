@@ -41,6 +41,18 @@ impl MotifBank {
     pub fn len(&self) -> usize {
         self.motifs.len()
     }
+
+    /// Every motif held, in a stable order.
+    ///
+    /// Sorted by id because the backing map is a hash map, and a caller
+    /// counting colours or listing a bank must not get a different answer
+    /// between runs.
+    #[must_use]
+    pub fn motifs(&self) -> Vec<&Motif> {
+        let mut all: Vec<&Motif> = self.motifs.values().collect();
+        all.sort_by(|a, b| a.id.cmp(&b.id));
+        all
+    }
 }
 
 /// Resolve a slot-indexed motif into drawable pixels.

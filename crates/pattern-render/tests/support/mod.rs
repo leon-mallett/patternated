@@ -158,7 +158,6 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
             motif_id: "cherry".into(),
             weight: 1.0,
             natural_size_mm: Vec2::new(26.0, 26.0),
-            palette_slot: 1,
         }],
         seed,
     };

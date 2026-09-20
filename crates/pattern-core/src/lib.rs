@@ -17,7 +17,7 @@ pub use error::PatternError;
 pub use lattice::{Lattice, NEIGHBOUR_COUNT};
 pub use motif::{IndexedMotif, Motif};
 pub use palette::{Color, Palette, GROUND_SLOT};
-pub use pattern::Pattern;
+pub use pattern::{resolved_color_count, Pattern};
 pub use placement::{wrap_into_tile, Placement};
 pub use scatter::{scatter, MotifWeight, ScatterParams};
 pub use torus::lattice_distance_sq;

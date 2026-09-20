@@ -65,12 +65,21 @@ impl VectorMotif {
 /// Tracing controls.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct VectoriseOptions {
-    /// Outlines covering fewer pixels than this are dropped.
+    /// Absolute floor on the area of a kept outline, in pixels.
     ///
-    /// Quantisation leaves single-pixel specks at colour boundaries. Traced,
-    /// each becomes its own path, and a motif acquires hundreds of outlines
-    /// nobody can see and every downstream tool has to carry.
+    /// Quantisation leaves specks at colour boundaries. Traced, each becomes
+    /// its own path, and a motif acquires outlines nobody can see and every
+    /// downstream tool has to carry.
     pub min_area_px: usize,
+    /// Floor on the area of a kept outline, as a share of the whole motif.
+    ///
+    /// The absolute floor alone was not enough, and the case that showed it is
+    /// worth keeping: a lemon quantised onto a palette with no yellow
+    /// fragmented along every segment boundary and traced to 172 outlines at
+    /// 763 x 763, because eight pixels is nothing at that size. A threshold
+    /// that does not scale with the motif means the same artwork behaves
+    /// differently at different scan resolutions, which is its own bug.
+    pub min_area_fraction: f32,
     /// Corner detection angle, in degrees.
     pub corner_threshold_deg: f64,
     /// Shortest segment the simplifier will keep.
@@ -87,6 +96,7 @@ impl Default for VectoriseOptions {
         // flat-coloured illustration rather than photographs.
         Self {
             min_area_px: 8,
+            min_area_fraction: 0.0004,
             corner_threshold_deg: 60.0,
             segment_length: 4.0,
             splice_threshold_deg: 45.0,
@@ -111,6 +121,11 @@ pub fn vectorise(motif: &IndexedMotif, options: VectoriseOptions) -> VectorMotif
         PathSimplifyMode::Polygon
     };
 
+    let area = motif.width as usize * motif.height as usize;
+    let min_area = options
+        .min_area_px
+        .max((area as f32 * options.min_area_fraction) as usize);
+
     let mut paths = Vec::new();
     for slot in motif.slots_used() {
         let mut mask = BinaryImage::new_w_h(motif.width as usize, motif.height as usize);
@@ -127,7 +142,7 @@ pub fn vectorise(motif: &IndexedMotif, options: VectoriseOptions) -> VectorMotif
         }
 
         for cluster in mask.to_clusters(false).iter() {
-            if cluster.size() < options.min_area_px {
+            if cluster.size() < min_area {
                 continue;
             }
             let compound = Cluster::image_to_compound_path(

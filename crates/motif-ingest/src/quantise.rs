@@ -18,6 +18,19 @@ pub struct QuantisationReport {
     pub max_error: f32,
     /// Palette slots the result actually uses.
     pub slots_used: Vec<u8>,
+    /// Share of covered pixels that landed on the ground slot, 0..1.
+    ///
+    /// Tracked separately from the error because it is a different and worse
+    /// failure. A motif can quantise onto the ground and score only a mediocre
+    /// mean error while being, on the fabric, *invisible* — it is the
+    /// background colour in the shape of a lemon.
+    ///
+    /// Observed rather than theorised: a yellow lemon ingested onto a palette
+    /// of cream, red and green put 98% of its covered pixels on slot 0, because
+    /// cream really is the nearest of those three to yellow. The metric was
+    /// right and the result was useless.
+    #[serde(default)]
+    pub ground_share: f32,
 }
 
 impl QuantisationReport {
@@ -29,6 +42,15 @@ impl QuantisationReport {
     #[must_use]
     pub fn is_poor_fit(&self) -> bool {
         self.mean_error > 0.12 || self.max_error > 0.45
+    }
+
+    /// Whether so much of the motif became the ground that it will not read.
+    ///
+    /// A third is already bad — that is a motif with a hole through it. Half
+    /// means the palette has no colour for whatever this mostly is.
+    #[must_use]
+    pub fn dissolves_into_ground(&self) -> bool {
+        self.ground_share > 0.33
     }
 }
 
@@ -79,6 +101,7 @@ pub fn quantise(
     let mut total_error = 0.0f32;
     let mut max_error = 0.0f32;
     let mut covered = 0usize;
+    let mut on_ground = 0usize;
     let scale = max_distance_sq();
 
     for i in 0..image.pixel_count() {
@@ -98,6 +121,9 @@ pub fn quantise(
             total_error += error;
             max_error = max_error.max(error);
             covered += 1;
+            if slot == crate::GROUND_SLOT {
+                on_ground += 1;
+            }
         }
     }
 
@@ -110,6 +136,11 @@ pub fn quantise(
         },
         max_error,
         slots_used: motif.slots_used(),
+        ground_share: if covered > 0 {
+            on_ground as f32 / covered as f32
+        } else {
+            0.0
+        },
     };
     Ok((motif, report))
 }
