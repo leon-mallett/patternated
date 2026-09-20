@@ -76,6 +76,9 @@ pub struct MotifVersion {
     /// Digest of the source artwork this was made from.
     pub source_digest: String,
     pub trimmed_from: TrimBounds,
+    /// Share of the source's frame edge still covered after matting. High
+    /// means background was kept — see [`crate::border_retained`].
+    pub border_retained: f32,
     pub quantisation: QuantisationReport,
     pub indexed: IndexedMotif,
     pub vector: VectorMotif,
@@ -99,6 +102,8 @@ struct StoredMotif {
     natural_size_mm: Vec2,
     source_digest: String,
     trimmed_from: TrimBounds,
+    #[serde(default)]
+    border_retained: f32,
     quantisation: QuantisationReport,
     width: u32,
     height: u32,
@@ -240,6 +245,7 @@ impl Library {
         }
 
         let matted = matte(source, params.matte);
+        let border_kept = crate::matte::border_retained(&matted, params.trim_alpha_floor);
         let (cropped, bounds) = trim(&matted, params.trim_alpha_floor)
             .ok_or_else(|| LibraryError::NothingToIngest { id: id.to_string() })?;
         let (indexed, quantisation) = quantise(&cropped, &self.index.palette)?;
@@ -260,6 +266,7 @@ impl Library {
             natural_size_mm: natural_size_mm(cropped.width, cropped.height, params.longest_edge_mm),
             source_digest: digest.clone(),
             trimmed_from: bounds,
+            border_retained: border_kept,
             quantisation,
             indexed,
             vector,
@@ -333,6 +340,7 @@ impl Library {
             natural_size_mm: stored.natural_size_mm,
             source_digest: stored.source_digest,
             trimmed_from: stored.trimmed_from,
+            border_retained: stored.border_retained,
             quantisation: stored.quantisation,
             indexed,
             vector: stored.vector,
@@ -352,6 +360,7 @@ impl Library {
             natural_size_mm: motif.natural_size_mm,
             source_digest: motif.source_digest.clone(),
             trimmed_from: motif.trimmed_from,
+            border_retained: motif.border_retained,
             quantisation: motif.quantisation.clone(),
             width: motif.indexed.width,
             height: motif.indexed.height,

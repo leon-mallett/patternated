@@ -54,6 +54,12 @@ impl QuantisationReport {
     }
 }
 
+/// Coverage at or above which a pixel counts as solid motif rather than edge.
+///
+/// High on purpose: an edge pixel at 87% coverage is still 13% paper, and its
+/// colour is a mixture rather than a colour the artwork uses.
+const SOLID_ALPHA: u8 = 224;
+
 /// Perceptual-ish squared distance between two colours.
 ///
 /// The "redmean" approximation: cheap, markedly better than plain RGB
@@ -164,8 +170,19 @@ fn nearest_slot(colour: Color, palette: &Palette) -> (u8, f32) {
 /// where the colours are already clustered and the job is to find the clusters
 /// rather than to discover structure.
 ///
-/// Only covered pixels contribute. A scan's paper background would otherwise
-/// dominate every bucket and hand back a palette of near-whites.
+/// Only *solidly* covered pixels contribute, not merely covered ones. Two
+/// reasons, and the second was found the hard way.
+///
+/// A scan's paper background would otherwise dominate every bucket and hand
+/// back a palette of near-whites.
+///
+/// And a motif's antialiased rim is a gradient between the motif and the paper,
+/// which produces a large population of intermediate tones belonging to neither.
+/// Median cut allocates buckets by population, so those blend pixels win a slot
+/// that a real colour needed: widening a test motif's rim from two pixels to
+/// four was enough to push its green out of a four-colour palette in favour of
+/// a pinkish grey that appears nowhere in the artwork. Sampling only the solid
+/// interior asks what the motif is *made of* rather than what it fades through.
 ///
 /// Slot 0 is the ground and is supplied rather than derived: the background of
 /// a print is a design decision, not a property of the artwork.
@@ -175,7 +192,7 @@ pub fn derive_palette(images: &[&SourceImage], ground: Color, count: usize) -> P
     for image in images {
         for i in 0..image.pixel_count() {
             let p = i * 4;
-            if image.pixels[p + 3] > 8 {
+            if image.pixels[p + 3] >= SOLID_ALPHA {
                 colours.push(Color::new(
                     image.pixels[p],
                     image.pixels[p + 1],

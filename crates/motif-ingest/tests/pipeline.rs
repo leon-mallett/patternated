@@ -33,9 +33,13 @@ fn illustration_on_paper(size: u32) -> SourceImage {
         for x in 0..size {
             let d = (((x as f32 + 0.5) - c).powi(2) + ((y as f32 + 0.5) - c * 1.2).powi(2)).sqrt();
             if d <= r {
-                // Blend toward paper at the rim, the way ink or antialiasing
-                // does, so matting has a real edge to find rather than a step.
-                let t = ((r - d) / 2.0).clamp(0.0, 1.0);
+                // Blend toward paper at the rim, the way ink bleeding into
+                // paper does, so matting has a real edge to find rather than a
+                // step. Four pixels rather than two: a two-pixel ramp on a
+                // 64-pixel circle is steeper than anything a scanner produces,
+                // and it made the edge tests measure the threshold's band
+                // width instead of whether soft edges survive at all.
+                let t = ((r - d) / 4.0).clamp(0.0, 1.0);
                 img.set_pixel(
                     x,
                     y,
@@ -178,10 +182,18 @@ fn transparent_pixels_do_not_count_toward_quantisation_error() {
 
 #[test]
 fn a_derived_palette_finds_the_colours_actually_used() {
+    // Five slots, not four. Median cut allocates buckets by population, and a
+    // motif's edge ramp is a large population of intermediate tones spanning a
+    // long distance in colour space — so it competes for slots with real
+    // colours. A stem that is 7% of the artwork loses that competition when
+    // the budget is three derived colours, which is a property of median cut
+    // rather than a defect to fix here. The practical lesson, and the reason
+    // this is written down: **ask for more slots than you have colours**, and
+    // check what came back.
     let matted = matte(&illustration_on_paper(64), MatteMethod::default());
-    let derived = derive_palette(&[&matted], Color::new(250, 246, 238), 4);
+    let derived = derive_palette(&[&matted], Color::new(250, 246, 238), 5);
 
-    assert_eq!(derived.len(), 4);
+    assert_eq!(derived.len(), 5);
     assert_eq!(derived.ground(), Some(Color::new(250, 246, 238)));
 
     // Red and green are both present in the artwork, so both should survive.
@@ -546,4 +558,193 @@ fn vector_and_raster_agree_on_the_motifs_extent() {
         )),
         "svg viewBox does not match the raster"
     );
+}
+
+/// A ring: solid annulus with a genuinely hollow centre.
+fn ring(size: u32, outer: f32, inner: f32) -> SourceImage {
+    let mut img = SourceImage::filled(size, size, PAPER);
+    let c = size as f32 / 2.0;
+    for y in 0..size {
+        for x in 0..size {
+            let dx = (x as f32 + 0.5) - c;
+            let dy = (y as f32 + 0.5) - c;
+            let d = (dx * dx + dy * dy).sqrt() / (size as f32 / 2.0);
+            if d <= outer && d >= inner {
+                img.set_pixel(x, y, RED);
+            }
+        }
+    }
+    img
+}
+
+#[test]
+fn a_hollow_motif_keeps_its_hole_when_traced() {
+    // The spec's motifs include rings, slices and anything drawn as an
+    // outline. If tracing returns only the outer boundary, a bagel prints as a
+    // disc — correct in the raster, wrong in every vector export, and nothing
+    // in the pipeline would say so.
+    let matted = matte(&ring(256, 0.86, 0.45), MatteMethod::default());
+    let (cropped, _) = trim(&matted, 8).expect("subject");
+    let (indexed, _) = quantise(&cropped, &house_palette()).expect("should quantise");
+
+    // The hole must survive quantisation first: it is background, so it should
+    // be transparent rather than a filled slot.
+    let centre =
+        (indexed.height / 2) as usize * indexed.width as usize + (indexed.width / 2) as usize;
+    assert_eq!(
+        indexed.alpha[centre], 0,
+        "the centre of a ring should be transparent"
+    );
+
+    let vector = vectorise(&indexed, VectoriseOptions::default());
+    let ring_paths: Vec<&str> = vector
+        .paths
+        .iter()
+        .filter(|p| p.slot == 1)
+        .map(|p| p.d.as_str())
+        .collect();
+    assert!(!ring_paths.is_empty(), "the ring was not traced at all");
+
+    // A correctly traced annulus needs two subpaths: the outer boundary and
+    // the hole. One means the hole was filled in.
+    let subpaths: usize = ring_paths.iter().map(|d| d.matches('M').count()).sum();
+    assert!(
+        subpaths >= 2,
+        "traced the ring as {subpaths} subpath(s); the hole was lost"
+    );
+}
+
+// --- scans ---
+//
+// Everything below encodes something found by putting real photographed
+// artwork through the pipeline on 2026-09-20, as fixtures that can be run
+// without it. Each of these failed before the matte was changed to measure the
+// paper rather than assume it.
+
+/// Paper that is neither white nor evenly lit, with grain.
+///
+/// The three properties that broke a fixed threshold, in one fixture: a base
+/// brightness well below white, a gradient across the sheet, and pixel-level
+/// texture. Deterministic — a hash of the coordinates rather than a random
+/// source, so a failure can be reproduced exactly.
+fn scanned_paper(size: u32, base: f32, tilt: f32, grain: f32) -> SourceImage {
+    let mut img = SourceImage::filled(size, size, [255, 255, 255, 255]);
+    for y in 0..size {
+        for x in 0..size {
+            let across = x as f32 / size as f32;
+            let speckle = {
+                let h = (x.wrapping_mul(73_856_093) ^ y.wrapping_mul(19_349_663)) % 1000;
+                (h as f32 / 1000.0 - 0.5) * 2.0 * grain
+            };
+            let level = ((base - tilt * across + speckle).clamp(0.0, 1.0) * 255.0) as u8;
+            img.set_pixel(x, y, [level, level, (level as f32 * 0.96) as u8, 255]);
+        }
+    }
+    img
+}
+
+/// A solid blob of ink on whatever paper it is given.
+fn ink_blob(paper: &mut SourceImage, cx: f32, cy: f32, r: f32, colour: [u8; 4]) {
+    let (w, h) = (paper.width, paper.height);
+    for y in 0..h {
+        for x in 0..w {
+            let dx = x as f32 - cx * w as f32;
+            let dy = y as f32 - cy * h as f32;
+            if (dx * dx + dy * dy).sqrt() <= r * w as f32 {
+                paper.set_pixel(x, y, colour);
+            }
+        }
+    }
+}
+
+#[test]
+fn cream_paper_is_recognised_as_background() {
+    // Photographed watercolour paper measured 0.895 under even light, below
+    // the 0.92 a fixed threshold cut above — so the paper survived as motif
+    // and the crop came back as the whole sheet.
+    let mut img = scanned_paper(256, 0.89, 0.0, 0.02);
+    ink_blob(&mut img, 0.5, 0.5, 0.22, [90, 40, 50, 255]);
+
+    let matted = matte(&img, MatteMethod::default());
+    let (cropped, _) = trim(&matted, 8).expect("there is ink on this paper");
+    assert!(
+        cropped.width < 160 && cropped.height < 160,
+        "cream paper was kept as motif: cropped to {}x{} of 256",
+        cropped.width,
+        cropped.height
+    );
+}
+
+#[test]
+fn a_sheet_lit_from_one_side_still_mattes() {
+    // The harder half of the same problem. One side of the sheet was darker
+    // than the threshold and darker than ink elsewhere on the page, so no
+    // single brightness could separate them.
+    let mut img = scanned_paper(256, 0.95, 0.45, 0.02);
+    ink_blob(&mut img, 0.5, 0.5, 0.22, [90, 40, 50, 255]);
+
+    let matted = matte(&img, MatteMethod::default());
+    let (cropped, _) = trim(&matted, 8).expect("there is ink on this paper");
+    assert!(
+        cropped.width < 160 && cropped.height < 160,
+        "shadowed paper was kept as motif: cropped to {}x{} of 256",
+        cropped.width,
+        cropped.height
+    );
+}
+
+#[test]
+fn paper_grain_does_not_hold_the_crop_open() {
+    // Matting can be right and trimming still throw the result away. Grain
+    // scattered across a photographed sheet left stray covered pixels in the
+    // corners, and a bounding box over every covered pixel is decided by its
+    // most extreme one.
+    let mut img = scanned_paper(256, 0.90, 0.10, 0.06);
+    ink_blob(&mut img, 0.5, 0.5, 0.18, [70, 60, 55, 255]);
+
+    let matted = matte(&img, MatteMethod::default());
+    let (cropped, _) = trim(&matted, 8).expect("there is ink on this paper");
+    assert!(
+        cropped.width < 160,
+        "grain held the crop open: {}x{} of 256",
+        cropped.width,
+        cropped.height
+    );
+}
+
+#[test]
+fn a_pale_subject_survives_pale_paper() {
+    // The opposite failure, and the reason the margin cannot simply be
+    // widened until paper goes away. An elderflower measured 0.917 against
+    // paper at 0.971; any absolute cut near the paper removes the flower too.
+    let mut img = scanned_paper(256, 0.97, 0.0, 0.006);
+    ink_blob(&mut img, 0.5, 0.5, 0.22, [236, 234, 228, 255]);
+
+    let matted = matte(&img, MatteMethod::default());
+    let (cropped, _) = trim(&matted, 8).expect("a pale subject is still a subject");
+    assert!(
+        cropped.width > 80 && cropped.width < 180,
+        "pale subject lost or paper kept: {}x{} of 256",
+        cropped.width,
+        cropped.height
+    );
+}
+
+#[test]
+fn the_margin_widens_itself_on_noisy_paper() {
+    // Why the threshold is measured rather than configured. The same settings
+    // must handle paper that varies by 6% within itself and paper that varies
+    // by half a percent, and no constant does both: 6% erases a pale subject,
+    // half a percent keeps grain as ink.
+    for grain in [0.005f32, 0.06] {
+        let mut img = scanned_paper(256, 0.90, 0.05, grain);
+        ink_blob(&mut img, 0.5, 0.5, 0.2, [80, 50, 60, 255]);
+        let matted = matte(&img, MatteMethod::default());
+        let (cropped, _) = trim(&matted, 8).expect("ink");
+        assert!(
+            cropped.width < 170,
+            "grain {grain}: paper kept, cropped to {}",
+            cropped.width
+        );
+    }
 }

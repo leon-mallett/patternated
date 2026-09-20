@@ -20,3 +20,6 @@ serde_json.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 png.workspace = true
+
+[dev-dependencies]
+motif-ingest.workspace = true

@@ -305,6 +305,7 @@ fn ingest_file(
 ) -> Result<Motif> {
     let source = load_source(path)?;
     let matted = matte(&source, method.unwrap_or(MatteMethod::ExistingAlpha));
+    warn_if_background_kept(id, &matted);
     let (cropped, _) = trim(&matted, 8)
         .ok_or_else(|| anyhow!("motif '{id}' is entirely transparent after matting"))?;
     let (indexed, report) =
@@ -356,6 +357,13 @@ pub fn ingest_to_library(
         stored.quantisation.slots_used.len(),
         stored.vector.path_count()
     );
+    if stored.border_retained > 0.15 {
+        println!(
+            "  warning: {:.0}% of the frame edge survived matting. Background has been kept as \
+             motif — usually a hard shadow across the paper.",
+            stored.border_retained * 100.0
+        );
+    }
     if stored.quantisation.dissolves_into_ground() {
         println!(
             "  WARNING: {:.0}% of this motif became the ground colour. It will be close to \
@@ -393,4 +401,18 @@ pub fn derive_palette_from(
         .collect::<Result<Vec<_>>>()?;
     let refs: Vec<&SourceImage> = images.iter().collect();
     Ok(motif_ingest::derive_palette(&refs, ground, count))
+}
+
+/// Say so when matting has plainly kept background.
+fn warn_if_background_kept(id: &str, matted: &SourceImage) {
+    let retained = motif_ingest::border_retained(matted, 8);
+    if retained > 0.15 {
+        eprintln!(
+            "warning: {:.0}% of the frame edge survived matting for '{id}'. Background has been \
+             kept as motif — usually a hard shadow across the paper, which the illumination \
+             estimate cannot model. Re-shoot with even light, or cut the subject out first and \
+             ingest without --from-paper.",
+            retained * 100.0
+        );
+    }
 }
