@@ -21,15 +21,38 @@ export interface Opened {
   grid_cols: number;
 }
 
-/** The classic repeats, as a designer names them. */
+/** The classic repeats, as a designer names them.
+ *
+ *  Grouped by what they do to the motifs rather than by how the engine builds
+ *  them: the strewn arrangements scatter motifs and the ruled ones put them on
+ *  cells, and that is the choice being made. A mirror belongs with the strewn
+ *  ones — it is a scatter of a smaller area, reflected — which is why the
+ *  coverage control stays and rows and columns do not appear. */
 export const LAYOUTS = [
-  { id: "tossed", label: "Tossed (scattered)" },
-  { id: "square", label: "Square grid" },
-  { id: "brick", label: "Brick" },
-  { id: "half-drop", label: "Half-drop" },
-  { id: "diagonal", label: "Diagonal" },
-  { id: "gentle-diagonal", label: "Gentle diagonal" },
+  { id: "tossed", label: "Tossed (scattered)", group: "Strewn" },
+  { id: "mirror", label: "Mirror, side to side", group: "Strewn" },
+  { id: "mirror-vertical", label: "Mirror, top to bottom", group: "Strewn" },
+  { id: "mirror-four", label: "Mirror, four-way", group: "Strewn" },
+  { id: "square", label: "Square grid", group: "Ruled" },
+  { id: "brick", label: "Brick", group: "Ruled" },
+  { id: "half-drop", label: "Half-drop", group: "Ruled" },
+  { id: "diagonal", label: "Diagonal", group: "Ruled" },
+  { id: "gentle-diagonal", label: "Gentle diagonal", group: "Ruled" },
 ] as const;
+
+/** The order the groups appear in the arrangement menu. */
+export const LAYOUT_GROUPS = ["Strewn", "Ruled"] as const;
+
+/** Whether a layout strews motifs rather than putting them on a grid.
+ *
+ *  Mirrors are scatters, so the controls that belong to a scatter — coverage,
+ *  size variation — apply to them and rows and columns do not. Asking the
+ *  question in one place keeps the panels from disagreeing about it. */
+export const isScatterLayout = (layout: string) =>
+  layout === "tossed" || layout.startsWith("mirror");
+
+/** Whether a layout reflects the tile, and so designs only part of it. */
+export const isMirrorLayout = (layout: string) => layout.startsWith("mirror");
 
 export interface MotifEntry {
   id: string;

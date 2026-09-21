@@ -30,6 +30,12 @@ pub enum PatternError {
     },
 
     #[error(
+        "placement {index} ('{motif_id}') is reflected, which needs a block lattice; this tile \
+         repeats obliquely, so the reflected copies would not line up across it"
+    )]
+    MirrorNeedsBlockLattice { index: usize, motif_id: String },
+
+    #[error(
         "placement {index} ('{motif_id}') uses palette slot {slot}, but the palette has {len} \
          colours"
     )]

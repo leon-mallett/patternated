@@ -4,8 +4,8 @@ use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::lattice::Lattice;
-use crate::placement::{wrap_into_tile, Placement};
-use crate::torus::lattice_distance_sq;
+use crate::mirror::{fold_into_cell, mirror_distance_sq, reflect, self_image_distance_sq, Mirror};
+use crate::placement::Placement;
 
 /// Candidate attempts around an active sample before it is retired.
 ///
@@ -91,6 +91,13 @@ pub struct ScatterParams {
     /// figure reports rather than hiding.
     #[serde(default = "prevent_overlap_default")]
     pub prevent_overlap: bool,
+    /// Build the tile as a mirror repeat rather than strewing across all of it.
+    ///
+    /// The sampler then works in half or a quarter of the tile and the rest is
+    /// reflections of it, so the same density buys a half or a quarter as many
+    /// *distinct* motifs. See [`Mirror`].
+    #[serde(default)]
+    pub mirror: Mirror,
     pub seed: u64,
 }
 
@@ -127,8 +134,14 @@ pub fn scatter(params: &ScatterParams, tile_size_mm: Vec2, lattice: &Lattice) ->
         return Vec::new();
     }
 
+    // A mirror repeat is designed in part of the tile and reflected into the
+    // rest, so that is the domain the sampler fills. Distances are still
+    // measured across the whole tile, because a motif's reflections are as
+    // real on the fabric as the motif is.
+    let cell = params.mirror.cell_size_mm(tile_size_mm);
     let mut rng = ChaCha8Rng::seed_from_u64(params.seed);
-    poisson_disc(params, radius, tile_size_mm, lattice, &mut rng)
+    let designed = poisson_disc(params, radius, cell, lattice, &mut rng);
+    reflect(&designed, tile_size_mm, params.mirror)
 }
 
 /// One accepted motif, with everything the separation test needs to know.
@@ -159,11 +172,12 @@ struct Sample {
 fn poisson_disc(
     params: &ScatterParams,
     radius: f32,
-    tile_size_mm: Vec2,
+    cell_size_mm: Vec2,
     lattice: &Lattice,
     rng: &mut ChaCha8Rng,
 ) -> Vec<Placement> {
     let radius_sq = radius * radius;
+    let mirror = params.mirror;
 
     let draw = |rng: &mut ChaCha8Rng, position_mm: Vec2| -> Sample {
         let motif = choose_motif_index(&params.motif_mix, rng);
@@ -180,8 +194,33 @@ fn poisson_disc(
         }
     };
 
-    let start = Vec2::new(unit(rng) * tile_size_mm.x, unit(rng) * tile_size_mm.y);
-    let first = draw(rng, start);
+    // The seed sample has nothing to be tested against — except, under a
+    // mirror, itself. Dropped astride an axis it collides with its own
+    // reflection, and because it is the one sample that skips the acceptance
+    // test the collision survives into the tile. Without a mirror
+    // `self_image_distance_sq` is infinite, the first attempt always takes,
+    // and the random draw is the same sequence it always was.
+    let mut first = None;
+    for _ in 0..CANDIDATES_PER_SAMPLE {
+        let start = Vec2::new(unit(rng) * cell_size_mm.x, unit(rng) * cell_size_mm.y);
+        let candidate = draw(rng, start);
+        let touching = 2.0 * candidate.radius_mm;
+        let required_sq = if params.prevent_overlap {
+            radius_sq.max(touching * touching)
+        } else {
+            radius_sq
+        };
+        if self_image_distance_sq(candidate.position_mm, lattice, mirror) >= required_sq {
+            first = Some(candidate);
+            break;
+        }
+    }
+    // Nowhere in the cell is far enough from its own mirror image, which means
+    // the motif is more than half the cell across. A mirror repeat cannot hold
+    // it without doubling it, and saying so beats printing the double.
+    let Some(first) = first else {
+        return Vec::new();
+    };
     let mut samples = vec![first];
     let mut active = vec![0usize];
 
@@ -191,18 +230,30 @@ fn poisson_disc(
         let mut accepted = false;
 
         for _ in 0..CANDIDATES_PER_SAMPLE {
-            let position = wrap_into_tile(origin + annulus_offset(rng, radius), tile_size_mm);
+            let position =
+                fold_into_cell(origin + annulus_offset(rng, radius), cell_size_mm, mirror);
             let candidate = draw(rng, position);
 
-            let fits = samples.iter().all(|s| {
-                let required_sq = if params.prevent_overlap {
-                    let touching = candidate.radius_mm + s.radius_mm;
+            let required = |other: f32| {
+                if params.prevent_overlap {
+                    let touching = candidate.radius_mm + other;
                     radius_sq.max(touching * touching)
                 } else {
                     radius_sq
-                };
-                lattice_distance_sq(candidate.position_mm, s.position_mm, lattice) >= required_sq
-            });
+                }
+            };
+
+            // A motif sitting on a mirror axis collides with its own
+            // reflection, and no pairwise test sees that: the copy does not
+            // exist yet when the candidate is judged.
+            let clear_of_itself = self_image_distance_sq(candidate.position_mm, lattice, mirror)
+                >= required(candidate.radius_mm);
+
+            let fits = clear_of_itself
+                && samples.iter().all(|s| {
+                    mirror_distance_sq(candidate.position_mm, s.position_mm, lattice, mirror)
+                        >= required(s.radius_mm)
+                });
 
             if fits {
                 samples.push(candidate);
@@ -224,6 +275,8 @@ fn poisson_disc(
             position_mm: s.position_mm,
             rotation_deg: s.rotation_deg,
             scale: s.scale,
+            flip_x: false,
+            flip_y: false,
         })
         .collect()
 }
@@ -339,6 +392,7 @@ mod tests {
     use super::*;
     use crate::palette::{Color, Palette};
     use crate::pattern::Pattern;
+    use crate::torus::lattice_distance_sq;
 
     const TILE: Vec2 = Vec2::new(240.0, 180.0);
 
@@ -361,7 +415,186 @@ mod tests {
             // separation guarantee, and overlap prevention adds a second,
             // larger floor that would mask it.
             prevent_overlap: false,
+            mirror: Mirror::None,
             seed,
+        }
+    }
+
+    fn mirrored(mirror: Mirror, density: f32, seed: u64, prevent_overlap: bool) -> ScatterParams {
+        ScatterParams {
+            prevent_overlap,
+            mirror,
+            ..params(density, seed)
+        }
+    }
+
+    const MIRRORS: [Mirror; 3] = [Mirror::SideToSide, Mirror::TopToBottom, Mirror::FourWay];
+
+    #[test]
+    fn a_mirrored_scatter_reflects_every_motif_into_every_quadrant() {
+        for mirror in MIRRORS {
+            let p = mirrored(mirror, 0.35, 4, true);
+            let out = scatter(&p, TILE, &Lattice::block(TILE));
+            assert!(!out.is_empty(), "{mirror:?} placed nothing");
+            assert_eq!(
+                out.len() % mirror.copies(),
+                0,
+                "{mirror:?} gave {} placements, not a multiple of {}",
+                out.len(),
+                mirror.copies()
+            );
+
+            // Each group is one designed motif and its reflections: same
+            // motif, same rotation, same size, positions mirrored.
+            for group in out.chunks(mirror.copies()) {
+                let first = &group[0];
+                assert!(!first.flip_x && !first.flip_y);
+                for copy in group {
+                    assert_eq!(copy.motif_id, first.motif_id);
+                    assert_eq!(copy.rotation_deg, first.rotation_deg);
+                    assert_eq!(copy.scale, first.scale);
+                    let want_x = if copy.flip_x {
+                        TILE.x - first.position_mm.x
+                    } else {
+                        first.position_mm.x
+                    };
+                    let want_y = if copy.flip_y {
+                        TILE.y - first.position_mm.y
+                    } else {
+                        first.position_mm.y
+                    };
+                    assert_eq!(copy.position_mm, Vec2::new(want_x, want_y));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nothing_in_a_mirrored_scatter_intersects_its_own_reflection() {
+        // The failure a mirror repeat is prone to and no ordinary separation
+        // test can see: a motif on an axis is doubled into a butterfly by its
+        // own reflection, and the sampler never compares a candidate with a
+        // copy that does not exist yet.
+        //
+        // Measured here on the designed motifs, because a reflection of a
+        // reflection is the original and would trivially pass.
+        for mirror in MIRRORS {
+            for seed in [1u64, 4, 99] {
+                let p = mirrored(mirror, 0.35, seed, true);
+                let lattice = Lattice::block(TILE);
+                let out = scatter(&p, TILE, &lattice);
+                let entry = &p.motif_mix[0];
+                let half_diagonal = entry.natural_size_mm.length() / 2.0;
+
+                for designed in out.chunks(mirror.copies()) {
+                    let radius = half_diagonal * designed[0].scale;
+                    // Computed a second way, not with the engine's own
+                    // function: reflecting the point by hand and taking the
+                    // plain distance. A mistake shared with the sampler would
+                    // otherwise confirm itself.
+                    let p0 = designed[0].position_mm;
+                    let mut nearest = f32::INFINITY;
+                    for (fx, fy) in [(true, false), (false, true), (true, true)] {
+                        if (fx && !mirror.reflects_x()) || (fy && !mirror.reflects_y()) {
+                            continue;
+                        }
+                        let image = Vec2::new(
+                            if fx { TILE.x - p0.x } else { p0.x },
+                            if fy { TILE.y - p0.y } else { p0.y },
+                        );
+                        nearest = nearest.min((image - p0).length());
+                    }
+                    assert!(
+                        nearest >= 2.0 * radius - 1e-3,
+                        "{mirror:?} seed {seed}: a motif of radius {radius:.2} mm sits \
+                         {nearest:.2} mm from its own reflection"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_mirrored_scatter_separates_motifs_across_the_reflections_too() {
+        for mirror in MIRRORS {
+            let p = mirrored(mirror, 0.35, 4, false);
+            let lattice = Lattice::block(TILE);
+            let out = scatter(&p, TILE, &lattice);
+            let radius = separation_radius(&p, TILE);
+
+            // Every pair of placed motifs, reflections included, since every
+            // one of them is printed.
+            for (i, a) in out.iter().enumerate() {
+                for b in out.iter().skip(i + 1) {
+                    let d = lattice_distance_sq(a.position_mm, b.position_mm, &lattice).sqrt();
+                    assert!(
+                        d >= radius - 1e-2,
+                        "{mirror:?}: two motifs {d:.2} mm apart, under the {radius:.2} mm \
+                         separation the density asked for"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn every_mirrored_placement_lands_inside_the_tile() {
+        for mirror in MIRRORS {
+            for placement in scatter(
+                &mirrored(mirror, 0.35, 4, true),
+                TILE,
+                &Lattice::block(TILE),
+            ) {
+                let p = placement.position_mm;
+                assert!(
+                    (0.0..=TILE.x).contains(&p.x) && (0.0..=TILE.y).contains(&p.y),
+                    "{mirror:?}: {p:?} is outside the tile"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_motif_too_large_for_its_mirror_cell_places_nothing() {
+        // Rather than placing one astride an axis and doubling it. A four-way
+        // cell here is 120 x 90 mm and the motif is 200 mm across, so there is
+        // nowhere in the cell a motif can sit without reflecting into itself.
+        let mut p = mirrored(Mirror::FourWay, 0.35, 4, true);
+        p.motif_mix[0].natural_size_mm = Vec2::new(200.0, 200.0);
+        assert!(scatter(&p, TILE, &Lattice::block(TILE)).is_empty());
+
+        // The same motif without a mirror is merely a sparse scatter, not an
+        // impossible one — so the emptiness above is the mirror's doing.
+        p.mirror = Mirror::None;
+        assert!(!scatter(&p, TILE, &Lattice::block(TILE)).is_empty());
+    }
+
+    #[test]
+    fn a_mirrored_scatter_is_reproducible_from_its_seed() {
+        for mirror in MIRRORS {
+            let p = mirrored(mirror, 0.35, 77, true);
+            let a = scatter(&p, TILE, &Lattice::block(TILE));
+            let b = scatter(&p, TILE, &Lattice::block(TILE));
+            assert_eq!(a, b, "{mirror:?} is not reproducible");
+            assert!(!a.is_empty());
+        }
+    }
+
+    #[test]
+    fn asking_for_no_mirror_leaves_the_scatter_exactly_as_it_was() {
+        // The compatibility claim, asserted rather than assumed: every
+        // document written before mirrors existed deserialises to
+        // `Mirror::None`, and must produce the placements it always did.
+        for seed in [1u64, 4, 99] {
+            let plain = params(0.35, seed);
+            let with_field = ScatterParams {
+                mirror: Mirror::None,
+                ..plain.clone()
+            };
+            assert_eq!(
+                scatter(&plain, TILE, &Lattice::half_drop(TILE)),
+                scatter(&with_field, TILE, &Lattice::half_drop(TILE))
+            );
         }
     }
 
@@ -772,6 +1005,7 @@ mod tests {
             rotation_jitter_deg: 0.0,
             scale_range: (1.0, 1.0),
             prevent_overlap: false,
+            mirror: Mirror::None,
             motif_mix: vec![
                 MotifWeight {
                     motif_id: "cherry".into(),

@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use glam::Vec2;
 use motif_ingest::library::{IngestParams, Library};
 use motif_ingest::{matte, quantise, trim, MatteMethod, SourceImage};
-use pattern_core::{scatter, Motif, MotifWeight, Palette, Pattern, ScatterParams};
+use pattern_core::{scatter, Mirror, Motif, MotifWeight, Palette, Pattern, ScatterParams};
 
 use pattern_render::MotifBank;
 use serde::{Deserialize, Serialize};
@@ -101,6 +101,14 @@ pub struct ScatterSpec {
     /// including documents written before the option existed.
     #[serde(default = "prevent_overlap_default")]
     pub prevent_overlap: bool,
+    /// Build the tile by reflecting a smaller designed cell into it.
+    ///
+    /// Absent in documents written before mirrors existed, which read as
+    /// [`Mirror::None`] and are unaffected. A mirror needs a block lattice;
+    /// combined with an oblique one the pattern is refused rather than
+    /// rendered, because the reflected copies would not line up across it.
+    #[serde(default)]
+    pub mirror: Mirror,
     #[serde(default)]
     pub rotation_jitter_deg: f32,
     #[serde(default = "unit_range")]
@@ -371,6 +379,7 @@ impl Document {
             scale_range: spec.scale_range,
             motif_mix: mix,
             prevent_overlap: spec.prevent_overlap,
+            mirror: spec.mirror,
             seed: spec.seed,
         };
         self.pattern.seed = spec.seed;
@@ -379,6 +388,14 @@ impl Document {
         self.placements_are_generated = true;
 
         if self.pattern.placements.is_empty() {
+            if spec.mirror != Mirror::None {
+                return Err(anyhow!(
+                    "a {:?} mirror leaves no room for a motif this size: nothing can come \
+                     within its own width of a mirror axis without being reflected into \
+                     itself. Use a larger repeat or a smaller motif.",
+                    spec.mirror
+                ));
+            }
             return Err(anyhow!(
                 "scatter produced no placements; check density ({}) and motif sizes",
                 spec.density
@@ -740,6 +757,7 @@ pub fn new_from_images(
         scatter: Some(ScatterSpec {
             density: 0.3,
             prevent_overlap: true,
+            mirror: Mirror::None,
             rotation_jitter_deg: 20.0,
             scale_range: (0.85, 1.15),
             mix,

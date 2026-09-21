@@ -70,6 +70,12 @@ W and height H:
 | Quarter-drop | (W, H/4) | (0, H) | Gentler diagonal flow than half-drop |
 | Mirror | (2W, 0) | (0, 2H) | Tile reflected in x and y within a 2×2 super-tile |
 
+> **Built differently.** Mirror is not a lattice at all, and doubling the tile
+> would make the repeat size a consequence of construction. What was built
+> reflects placements *within* the tile the designer asked for, leaving the
+> lattice block. See
+> [Decisions](./decisions.md#a-mirror-is-a-symmetry-of-the-tile-not-a-lattice).
+
 Half-drop is the workhorse because the vertical stagger disrupts **tracking lines** —
 the accidental diagonal or vertical corridors the eye finds when motifs align across
 tiles. Tracking is the single most common reason an amateur pattern reads as

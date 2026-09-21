@@ -809,3 +809,108 @@ would have needed all of that written again, and would have drifted.
 **The lesson is about the gap between the two**, not the model: a thing that
 works and cannot be found is, to the person using it, a thing that does not
 work.
+
+---
+
+## A mirror is a symmetry of the tile, not a lattice
+
+**Decided.** Mirror repeats are built by reflecting placements inside the tile.
+`Placement` carries `flip_x` and `flip_y`; `pattern-core::reflect` expands a
+cell of placements into the whole tile; the lattice stays `Lattice::block`. No
+`Lattice::mirror` constructor exists, and the roadmap entry that asked for one
+was wrong about where the work lived.
+
+**Why.** `Lattice` is a pair of translation vectors, and reflections are not
+translations. Every other classic repeat — block, brick, half-drop,
+quarter-drop — is the same tile slid somewhere else, which is why one type
+describes all four. Writing a mirror as a lattice would have meant either
+lying about what `u` and `v` mean, or giving `Lattice` a mode flag that half
+its methods would have to honour and the other half quietly ignore.
+
+Expressing it as reflected placements instead means every consumer already
+handles it: export writes the tile, mockups fill a garment with it, colourways
+recolour it, the seamlessness test compares two independent renders of it, and
+none of them needed changing.
+
+**Consequences accepted.** The tile is not doubled — the designed cell is half
+or a quarter of the repeat the designer set, because repeat size is a decision
+about the print rather than about construction. A mirror requires a block
+lattice, and the combination with an oblique one is refused by
+`Pattern::validate` rather than rendered into a pattern that breaks along every
+axis.
+
+**Rejected.** Reflecting at render time, with the pattern carrying a mirror
+mode. It would give pixel-exact symmetry for free, but every consumer would
+have to honour the flag, and the seamlessness test would lose the thing that
+makes it worth having: two routes to the same field that were written
+independently.
+
+**Rejected.** Folding the reflection into `rotation_deg`. It is expressible —
+a reflected rotation is a sign flip under one convention and an addition of 180
+degrees under another — and that is precisely the objection. The two
+conventions disagree in the cases nobody checks, and a pair of flags cannot be
+wrong in that way.
+
+Described in [Features](./features.md#mirror-repeats).
+
+---
+
+## Quantising positions against the tile, not against the DPI
+
+**Decided.** A placement's pixel position is `position_mm * tile_px /
+tile_size_mm`, using the tile's quantised pixel size, rather than
+`position_mm * px_per_mm(dpi)`.
+
+**Why.** `PixelLattice` had already decided that the rounded integer tile *is*
+the repeat, and derived the lattice vectors from it rather than rounding them
+separately. Positions were still being scaled by `k`, so they lived in a tile a
+fraction of a pixel wider than the one they were drawn into — an inconsistency
+with no visible consequence until a mirror arrived.
+
+**What made it visible.** Reflect a position across a mirror axis and the two
+roundings can land a whole pixel apart. Between 0.28% and 1.6% of pixels in a
+mirrored tile broke the symmetry that way, with channel differences over 200
+where a motif edge had moved. Symmetry is the entire point of a mirror repeat,
+and a designer checks one by flipping it. After the change, every mirrored tile
+measured is its own reflection **exactly**, at every resolution tried.
+
+**Cost.** Motif *sizes* are still scaled by `k`, so position spacing and motif
+size differ by whatever the tile rounding absorbed — under 0.1%. The golden
+image was regenerated: of fifteen motifs, thirteen were unmoved and two moved a
+single pixel, and the two renders are indistinguishable by eye.
+
+**Would reopen if.** Vector export lands and positions have to be emitted
+without a pixel grid, where the question does not arise and the millimetre
+value is simply used.
+
+---
+
+## Overlap prevention covers a motif's own reflections
+
+**Decided.** Under a mirror, "prevent overlapping" keeps a motif clear of its
+own reflections as well as of other motifs, and separation between two motifs
+is measured over the reflections as well as the translations.
+
+**Why.** A motif astride a mirror axis intersects its own reflection, and no
+pairwise test can see it: the sampler never compares a candidate with a copy
+that does not exist yet. The first accepted sample was worse — it skipped the
+acceptance test entirely, which is harmless without a mirror and drops a
+doubled motif on an axis with one.
+
+**Cost, and it is a real one.** Every mirror axis gets a clear band one motif
+radius wide. With a motif large against its repeat that band reads as a bare
+corridor, and a four-way mirror loses roughly two thirds of its cell to axis
+clearance, so the coverage control under-delivers and says so. The remedies are
+a smaller motif, a larger repeat, or turning overlap prevention off — which
+lets motifs cross the axes and is what a designer reaching for a mirror often
+wants.
+
+**Rejected.** Making the self-reflection test independent of the overlap
+control. It would fill the corridors by default, but "prevent overlapping" then
+means two different things depending on which layout is selected, and a motif
+intersecting its own reflection is still a motif intersecting something.
+
+**Would reopen if.** Somebody asks for deliberate butterflies — motifs snapped
+*onto* an axis so they symmetrise cleanly rather than partially overlapping.
+That is the classic damask move and is a third option this control has no word
+for.

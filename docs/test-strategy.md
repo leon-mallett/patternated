@@ -42,6 +42,35 @@ Seamlessness is re-asserted at 72, 96, 150 and 300 DPI, because quantisation
 happens at render time and cannot be proved once and assumed after. 150 DPI
 gives an odd tile height for the test repeat, which is the awkward case.
 
+## The mirror's equivalent
+
+`crates/pattern-render/tests/mirror.rs` asserts the property a mirror repeat
+exists for: **the rendered tile is pixel-for-pixel its own reflection**, with no
+tolerance at all. That is a stronger claim than it sounds and it took two
+things to earn.
+
+It is asserted on pixels rather than on placements because the placements can
+be perfectly symmetric while the picture is not — a sprite of odd width centred
+on a pixel sits half a pixel to one side of it, and reflecting the centre
+without reflecting that bias puts the copy a whole pixel out.
+
+**Both halves of the argument were verified to fail.** Rounding a reflected
+sprite's anchor the same way as an unreflected one breaks four of the seven
+tests; removing the guard that keeps a motif clear of its own reflection breaks
+three, and breaks two `pattern-core` tests that measure it directly rather than
+through the picture. The direct ones matter: the symmetry test catches a
+missing guard only *incidentally*, through compositing order, and a test that
+catches a bug by accident will stop catching it by accident.
+
+`an_ordinary_scatter_is_not_symmetric` is kept alongside, so a measurement that
+returned zero for any input could not leave the whole file passing.
+
+The residual asymmetry was measured rather than tolerated. Before positions
+were quantised against the tile it ran between 0.28% and 1.6% of pixels with
+channel differences over 200; that measurement is what made the quantisation
+change worth [deciding](./decisions.md#quantising-positions-against-the-tile-not-against-the-dpi)
+rather than a tolerance worth widening.
+
 ## The supporting levels
 
 **Unit tests in `pattern-core`** cover the lattice, wrapping, palette resolution

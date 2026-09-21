@@ -14,7 +14,7 @@
 use glam::Vec2;
 use motif_ingest::{matte, quantise, trim, MatteMethod, SourceImage};
 use pattern_core::{
-    scatter, Color, Lattice, Motif, MotifWeight, Palette, Pattern, Placement, ScatterParams,
+    scatter, Color, Lattice, Mirror, Motif, MotifWeight, Palette, Pattern, Placement, ScatterParams,
 };
 use pattern_render::MotifBank;
 use tiny_skia::{Paint, PathBuilder, Pixmap, Transform};
@@ -163,8 +163,50 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
         // Off here: these fixtures exist to stress the tiling with motifs that
         // straddle and overlap edges, which is exactly what the guard removes.
         prevent_overlap: false,
+        mirror: Mirror::None,
         seed,
     };
+    Pattern {
+        tile_size_mm: TILE,
+        lattice,
+        placements: scatter(&params, TILE, &lattice),
+        palette: palette(),
+        seed,
+    }
+}
+
+/// A mirror repeat: the same scatter, designed in part of the tile and
+/// reflected into the rest.
+///
+/// Overlap prevention is left *on* here, unlike the fixture above. A mirror's
+/// characteristic failure is a motif astride an axis colliding with its own
+/// reflection, and that is precisely what the guard has to stop — turning it
+/// off would make the interesting case untestable.
+pub fn mirrored_pattern(mirror: Mirror, seed: u64, density: f32) -> Pattern {
+    let params = ScatterParams {
+        density,
+        rotation_jitter_deg: 30.0,
+        // Drawn at about half size, so that a cell which is half or a quarter
+        // of the tile still holds a dozen motifs. A mirror asks more of the
+        // motif-to-repeat ratio than a plain scatter does: the cell is
+        // smaller, and nothing may come within its own radius of an axis.
+        scale_range: (0.40, 0.56),
+        motif_mix: vec![MotifWeight {
+            motif_id: "cherry".into(),
+            weight: 1.0,
+            // The size the bank actually draws, unlike the fixture above,
+            // which understates it on purpose to force overlaps. Here the
+            // sampler's separation has to be the true one or motifs intersect
+            // their own reflections, and the symmetry the mirror tests assert
+            // is lost to compositing order rather than to any mirror bug.
+            natural_size_mm: Vec2::new(52.0, 52.0),
+            radius_fraction: 1.0,
+        }],
+        prevent_overlap: true,
+        mirror,
+        seed,
+    };
+    let lattice = Lattice::block(TILE);
     Pattern {
         tile_size_mm: TILE,
         lattice,

@@ -17,8 +17,8 @@ guarding against explicitly — see
 [Test strategy](./test-strategy.md#the-test-that-earns-its-keep).
 
 Brick and quarter-drop joined them once the app needed the classic repeats by
-name. Mirror is still unbuilt: unlike the others it is more than a constructor,
-needing a reflected 2 × 2 super-tile.
+name. Mirror joined later and is a different kind of thing — see
+[Mirror repeats](#mirror-repeats).
 
 ## Physical units throughout
 
@@ -62,6 +62,52 @@ size control that has stopped moving has a stated reason.
 Circular and wave arrangements are deliberately absent. They belong to the ogee
 and damask family the spec places in v2, and they are neither a lattice nor a
 grid, so building them ad hoc would be the wrong shape.
+
+## Mirror repeats
+
+The one classic repeat that is not a translation. Block, brick, half-drop and
+quarter-drop are all the same tile slid somewhere else, which is why a pair of
+lattice vectors describes all four. A mirror reflects, and no choice of `u` and
+`v` produces one.
+
+What it is, in terms the engine already had: part of the tile is designed and
+the rest is its reflection. Half the tile for a side-to-side or top-to-bottom
+mirror, a quarter for a four-way. The tile as a whole then repeats by ordinary
+block translation, so the lattice stays block and the tile stays the size the
+designer asked for — **choosing a mirror subdivides the repeat rather than
+doubling it**, because a 300 mm repeat is a decision about the print and not a
+consequence of how it was built.
+
+Seamlessness comes free twice over. The reflected quadrants meet along the
+mirror axes by construction, and the tile meets its own translates because the
+designed cell is still sampled on the torus. Nothing is repaired at either
+join.
+
+Three things follow, and each needed building:
+
+- **A motif near a mirror axis is near itself.** Its reflection is a second
+  copy the sampler never compares it with, because that copy does not exist
+  when the candidate is judged. Left unchecked, motifs sit astride the axes and
+  come back doubled — the butterfly a mirror is famous for when it is not
+  wanted. Overlap prevention therefore covers a motif against its own
+  reflections as well as against other motifs.
+- **Two motifs either side of an axis are as close as their reflections put
+  them**, which is a pair that never appears in the designed cell at all.
+  Separation is measured over the reflections as well as the translations.
+- **A mirror needs a block lattice.** Its reflections generate translations by
+  the tile's own width and height, which no oblique lattice contains. The
+  combination is refused rather than rendered, and choosing a mirror in the app
+  puts the repeat back on a block lattice so a designer who tried a diagonal a
+  moment ago is not left holding a pattern that will not draw.
+
+The practical consequence for a designer: a mirror asks more of the
+motif-to-repeat ratio than a scatter does. The cell is smaller, and nothing may
+come within its own radius of an axis, so a motif that filled a tossed print
+comfortably leaves a bare corridor down each mirror line. Shrink the motif,
+enlarge the repeat, or turn overlap prevention off and let motifs cross the
+axes — which is what a designer reaching for a mirror often wants anyway.
+`examples/generated-motifs/bananas-mirror.json` is the same artwork as
+`bananas.json` at 45% of the size, which is what it took to fill.
 
 ## Scatter placement
 

@@ -43,12 +43,27 @@ impl Pattern {
         if self.lattice.is_degenerate() {
             return Err(PatternError::DegenerateLattice);
         }
+        // Reflections generate translations by the tile's own width and
+        // height, which is the block lattice and nothing else. Combining one
+        // with a half-drop looks plausible in a parameter file and prints as a
+        // break running down every mirror axis, so it is refused rather than
+        // rendered.
+        let block = crate::Lattice::block(self.tile_size_mm);
+        let is_block = (self.lattice.u - block.u).length() < 1e-3
+            && (self.lattice.v - block.v).length() < 1e-3;
+
         for (index, p) in self.placements.iter().enumerate() {
             if p.scale <= 0.0 {
                 return Err(PatternError::NonPositiveScale {
                     index,
                     motif_id: p.motif_id.clone(),
                     scale: p.scale,
+                });
+            }
+            if (p.flip_x || p.flip_y) && !is_block {
+                return Err(PatternError::MirrorNeedsBlockLattice {
+                    index,
+                    motif_id: p.motif_id.clone(),
                 });
             }
         }

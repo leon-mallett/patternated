@@ -8,7 +8,7 @@ pub mod mockup;
 pub mod motif;
 mod pixel_lattice;
 
-use glam::IVec2;
+use glam::{IVec2, Vec2};
 use pattern_core::{wrap_into_tile, Color, Motif, Pattern, PatternError};
 use thiserror::Error;
 use tiny_skia::{FilterQuality, Pixmap, PixmapPaint, PremultipliedColorU8, Transform};
@@ -47,9 +47,9 @@ pub fn render_tile(pattern: &Pattern, bank: &MotifBank, dpi: f32) -> Result<Pixm
     let mut target = new_pixmap(pl.tile_px)?;
     fill_ground(&mut target, pattern)?;
 
-    for (sprite, center_px) in sprites(pattern, bank, dpi)? {
+    for (sprite, top_left) in sprites(pattern, bank, dpi, &pl)? {
         for offset in pl.neighbour_offsets() {
-            blit_centered(&mut target, &sprite, center_px + offset);
+            blit(&mut target, &sprite, top_left + offset);
         }
     }
     Ok(target)
@@ -99,9 +99,9 @@ pub fn render_field_direct(
     fill_ground(&mut target, pattern)?;
 
     let offsets = pl.offsets_covering(size.x, size.y);
-    for (sprite, center_px) in sprites(pattern, bank, dpi)? {
+    for (sprite, top_left) in sprites(pattern, bank, dpi, &pl)? {
         for offset in &offsets {
-            blit_centered(&mut target, &sprite, center_px + *offset);
+            blit(&mut target, &sprite, top_left + *offset);
         }
     }
     Ok(target)
@@ -119,7 +119,7 @@ pub fn pixel_lattice_for(pattern: &Pattern, dpi: f32) -> Result<PixelLattice, Re
     ))
 }
 
-/// Rasterise each placement once, to be blitted wherever it is needed.
+/// Rasterise each placement once, and say where its top-left corner goes.
 ///
 /// Every copy of a placement is then the same pixels at a whole-pixel offset.
 /// That is what makes a tile and a directly drawn field agree exactly: were
@@ -128,12 +128,33 @@ pub fn pixel_lattice_for(pattern: &Pattern, dpi: f32) -> Result<PixelLattice, Re
 ///
 /// The cost is that positions quantise to whole pixels — 0.17 mm at 150 DPI,
 /// which no fabric records.
+///
+/// The top-left corner rather than the centre, because a reflected placement
+/// does not round the same way. A sprite of odd width centred on pixel `c`
+/// sits half a pixel to its right; its mirror image belongs half a pixel to
+/// the *left* of the reflected centre, and rounding both the same way puts the
+/// two a whole pixel out of symmetry. Deciding the corner here keeps that
+/// arithmetic in one place instead of in every caller.
 fn sprites(
     pattern: &Pattern,
     bank: &MotifBank,
     dpi: f32,
+    pl: &PixelLattice,
 ) -> Result<Vec<(Pixmap, IVec2)>, RenderError> {
     let k = pattern_core::px_per_mm(dpi);
+
+    // Positions are quantised against the tile's own pixel size, not against
+    // `k`. `PixelLattice` has already decided that the rounded integer tile
+    // *is* the repeat and derived the lattice vectors from it; a position
+    // scaled by `k` instead lives in a tile a fraction of a pixel wider or
+    // narrower than the one it is drawn into. The difference is under a pixel
+    // and shows up in exactly one place: reflect a position across a mirror
+    // axis and the two roundings can land a whole pixel apart, which is a
+    // visible break in the one repeat whose whole point is symmetry.
+    let scale_mm_to_px = Vec2::new(
+        pl.tile_px.x as f32 / pattern.tile_size_mm.x,
+        pl.tile_px.y as f32 / pattern.tile_size_mm.y,
+    );
 
     // Resolve each distinct motif once. A pattern is usually many placements of
     // a few motifs, so resolving per placement would redo the same slot lookup
@@ -156,15 +177,27 @@ fn sprites(
         let base = resolved
             .get(placement.motif_id.as_str())
             .expect("every motif was resolved above");
-        let sprite = rasterise(base, motif, placement.scale, placement.rotation_deg, k)?;
+        let mut sprite = rasterise(base, motif, placement.scale, placement.rotation_deg, k)?;
+        // Reflected after rasterising, not before, so that the four copies of
+        // one mirrored motif are reversals of identical pixels rather than four
+        // separate resamplings that agree only approximately.
+        if placement.flip_x {
+            sprite = flipped_x(&sprite);
+        }
+        if placement.flip_y {
+            sprite = flipped_y(&sprite);
+        }
+
         let center_mm = wrap_into_tile(placement.position_mm, pattern.tile_size_mm);
-        out.push((
-            sprite,
-            IVec2::new(
-                (center_mm.x * k).round() as i32,
-                (center_mm.y * k).round() as i32,
-            ),
-        ));
+        let center = IVec2::new(
+            (center_mm.x * scale_mm_to_px.x).round() as i32,
+            (center_mm.y * scale_mm_to_px.y).round() as i32,
+        );
+        let top_left = IVec2::new(
+            anchor(center.x, sprite.width() as i32, placement.flip_x),
+            anchor(center.y, sprite.height() as i32, placement.flip_y),
+        );
+        out.push((sprite, top_left));
     }
     Ok(out)
 }
@@ -259,13 +292,51 @@ fn fill_ground(target: &mut Pixmap, pattern: &Pattern) -> Result<(), RenderError
     Ok(())
 }
 
-/// Blit a sprite so that its centre lands on `center_px`.
-fn blit_centered(target: &mut Pixmap, sprite: &Pixmap, center_px: IVec2) {
-    let top_left = IVec2::new(
-        center_px.x - sprite.width() as i32 / 2,
-        center_px.y - sprite.height() as i32 / 2,
-    );
-    blit(target, sprite, top_left);
+/// Where a sprite's leading edge goes, given where its centre should land.
+///
+/// Pixel `j` covers the interval `[j, j+1)`, so reflecting a tile `T` pixels
+/// wide sends pixel `j` to pixel `T-1-j`. Work that through a sprite of width
+/// `w` starting at `c - floor(w/2)` and the reflected copy has to start at
+/// `c' - ceil(w/2)`, not at `c' - floor(w/2)`. The difference is nothing for an
+/// even width and one whole pixel for an odd one — enough to break the
+/// symmetry a mirror repeat is entirely made of.
+fn anchor(center: i32, extent: i32, flipped: bool) -> i32 {
+    center
+        - if flipped {
+            extent - extent / 2
+        } else {
+            extent / 2
+        }
+}
+
+/// A copy of the sprite reversed left to right.
+///
+/// Reversing indices is an exact reflection about the sprite's own centre —
+/// no resampling, no filtering — which is what lets the mirrored quadrants of
+/// a tile match the designed one pixel for pixel.
+fn flipped_x(sprite: &Pixmap) -> Pixmap {
+    let (w, h) = (sprite.width() as usize, sprite.height() as usize);
+    let mut out = sprite.clone();
+    let src = sprite.pixels();
+    let dst = out.pixels_mut();
+    for y in 0..h {
+        for x in 0..w {
+            dst[y * w + x] = src[y * w + (w - 1 - x)];
+        }
+    }
+    out
+}
+
+/// A copy of the sprite reversed top to bottom.
+fn flipped_y(sprite: &Pixmap) -> Pixmap {
+    let (w, h) = (sprite.width() as usize, sprite.height() as usize);
+    let mut out = sprite.clone();
+    let src = sprite.pixels();
+    let dst = out.pixels_mut();
+    for y in 0..h {
+        dst[y * w..(y + 1) * w].copy_from_slice(&src[(h - 1 - y) * w..(h - y) * w]);
+    }
+    out
 }
 
 /// Source-over compositing at a whole-pixel offset, clipped to the target.

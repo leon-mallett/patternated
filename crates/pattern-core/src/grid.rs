@@ -122,6 +122,8 @@ pub fn grid_with_outcome(
                     params.scale_range.0,
                     params.scale_range.1,
                 ),
+                flip_x: false,
+                flip_y: false,
             });
         }
     }

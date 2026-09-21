@@ -17,6 +17,18 @@ pub struct Placement {
     /// Multiplier on the motif's natural physical size.
     #[serde(default = "unit_scale")]
     pub scale: f32,
+    /// Draw the motif reflected left to right.
+    ///
+    /// Set by [`reflect`](crate::reflect) when a tile is built as a mirror
+    /// repeat. Kept as a flag rather than folded into `rotation_deg` because a
+    /// reflected rotation is a sign flip under one convention and an addition
+    /// of 180 degrees under another; a flag cannot be wrong in that way, and it
+    /// leaves the rotation reading as the angle a designer set.
+    #[serde(default)]
+    pub flip_x: bool,
+    /// Draw the motif reflected top to bottom.
+    #[serde(default)]
+    pub flip_y: bool,
 }
 
 fn unit_scale() -> f32 {
@@ -31,6 +43,8 @@ impl Placement {
             position_mm,
             rotation_deg: 0.0,
             scale: 1.0,
+            flip_x: false,
+            flip_y: false,
         }
     }
 }
@@ -56,10 +70,11 @@ mod tests {
     const TILE: Vec2 = Vec2::new(240.0, 180.0);
 
     #[test]
-    fn a_new_placement_is_unrotated_and_unscaled() {
+    fn a_new_placement_is_unrotated_unscaled_and_unreflected() {
         let p = Placement::new("cherry", Vec2::new(10.0, 20.0));
         assert_eq!(p.rotation_deg, 0.0);
         assert_eq!(p.scale, 1.0);
+        assert!(!p.flip_x && !p.flip_y);
     }
 
     #[test]
@@ -91,5 +106,6 @@ mod tests {
             serde_json::from_str(r#"{"motif_id":"cherry","position_mm":[10.0,20.0]}"#)
                 .expect("minimal placement should deserialise");
         assert_eq!(p.scale, 1.0);
+        assert!(!p.flip_x && !p.flip_y);
     }
 }

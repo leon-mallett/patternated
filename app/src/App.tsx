@@ -25,6 +25,9 @@ import {
   type GarmentOption,
   type MockupView,
   LAYOUTS,
+  LAYOUT_GROUPS,
+  isScatterLayout,
+  isMirrorLayout,
 } from "./api";
 
 /**
@@ -461,21 +464,37 @@ export default function App() {
             <span>Prevent overlapping</span>
           </label>
           <p className="hint">
-            {layout === "tossed"
-              ? "Keeps motifs from intersecting. Asking for more coverage than fits simply stops adding motifs — the coverage readout shows what was reached."
-              : "Keeps motifs from intersecting. A grid's cells are fixed, so motifs too large for them are shrunk to fit rather than drawn over each other."}
+            {isMirrorLayout(layout)
+              ? "Keeps motifs from intersecting — including with their own reflections, which is what stops a motif on a mirror line coming back doubled."
+              : layout === "tossed"
+                ? "Keeps motifs from intersecting. Asking for more coverage than fits simply stops adding motifs — the coverage readout shows what was reached."
+                : "Keeps motifs from intersecting. A grid's cells are fixed, so motifs too large for them are shrunk to fit rather than drawn over each other."}
           </p>
           <label>
             Arrangement
             <select value={layout} onChange={(e) => setLayout(e.target.value)}>
-              {LAYOUTS.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.label}
-                </option>
+              {LAYOUT_GROUPS.map((group) => (
+                <optgroup key={group} label={group}>
+                  {LAYOUTS.filter((l) => l.group === group).map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
-          {layout !== "tossed" && (
+          {isMirrorLayout(layout) && (
+            <p className="hint">
+              Only part of the tile is designed — half for a single mirror, a
+              quarter for a four-way — and the rest is its reflection. The
+              repeat stays the size you set; a mirror divides it rather than
+              enlarging it. Motifs are kept clear of the mirror lines, so a
+              large motif in a small repeat leaves less room than it would
+              strewn.
+            </p>
+          )}
+          {!isScatterLayout(layout) && (
             <>
               <NumberField
                 label="Rows"
@@ -531,7 +550,7 @@ export default function App() {
 
         {doc.scattered ? (
           <>
-            {layout === "tossed" && (
+            {isScatterLayout(layout) && (
             <Group title="Scatter">
               <Slider
                 label="Coverage"
@@ -572,7 +591,7 @@ export default function App() {
             </Group>
             )}
 
-            {layout !== "tossed" && (
+            {!isScatterLayout(layout) && (
               <Group title="Variation">
                 <Slider
                   label="Rotation"
@@ -603,7 +622,7 @@ export default function App() {
                 </button>
               </div>
               <p className="hint">
-                {layout === "tossed"
+                {isScatterLayout(layout)
                   ? "The same seed and settings always give the same print, so one you like can be returned to."
                   : "On a grid the cells do not move — rerolling changes which motif sits where."}
               </p>

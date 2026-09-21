@@ -45,6 +45,15 @@ correct for a block repeat and wrong for every oblique one, which is why the
 mistake survives testing and reaches fabric. `PixelLattice` is a third, in
 integer pixels, and mirrors the first deliberately.
 
+`mirror` is a fourth, and the exception that proves what `Lattice` is for. A
+mirror repeat is not a translation, so it is not a lattice: it lives in
+`mirror::reflect`, which expands a designed cell into the whole tile, and in
+`mirror::mirror_distance_sq`, which is `lattice_distance_sq` again with the
+reflections included. The lattice under a mirror is always block — reflections
+generate translations by the tile itself — and `Pattern::validate` refuses any
+other, because the failure is a break down every mirror axis rather than
+anything the renderer could notice.
+
 ## Where colour enters
 
 Exactly one place: `pattern_render::motif::resolve`, which turns slot indices

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use glam::Vec2;
-use pattern_core::{Color, Lattice};
+use pattern_core::{Color, Lattice, Mirror};
 use pattern_doc::Document;
 use pattern_render::MotifBank;
 use serde::{Deserialize, Serialize};
@@ -184,6 +184,7 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
             .grid
             .as_ref()
             .map(|g| preset_name(g.row_offset))
+            .or_else(|| scatter.map(|s| scatter_layout_name(s.mirror)))
             .unwrap_or_else(|| "tossed".into()),
         prevent_overlap: scatter
             .map(|s| s.prevent_overlap)
@@ -208,6 +209,35 @@ const PRESETS: &[(&str, f32, &str)] = &[
     ("diagonal", 1.0 / 3.0, "half-drop"),
     ("gentle-diagonal", 0.25, "quarter-drop"),
 ];
+
+/// The layouts that are a scatter rather than a grid, and the symmetry each
+/// one gives it.
+///
+/// A mirror is not a grid preset and not a lattice: the lattice stays block,
+/// the tile stays the size the designer asked for, and what changes is that
+/// the scatter fills a half or a quarter of the tile and the rest is its
+/// reflection. Returning `None` here means "this is one of the grid presets".
+fn mirror_for(layout: &str) -> Option<Mirror> {
+    match layout {
+        "tossed" => Some(Mirror::None),
+        "mirror" => Some(Mirror::SideToSide),
+        "mirror-vertical" => Some(Mirror::TopToBottom),
+        "mirror-four" => Some(Mirror::FourWay),
+        _ => None,
+    }
+}
+
+/// The name the UI uses for a scatter's symmetry, so a reopened document comes
+/// back on the layout it was saved with.
+fn scatter_layout_name(mirror: Mirror) -> String {
+    match mirror {
+        Mirror::None => "tossed",
+        Mirror::SideToSide => "mirror",
+        Mirror::TopToBottom => "mirror-vertical",
+        Mirror::FourWay => "mirror-four",
+    }
+    .into()
+}
 
 fn preset_name(row_offset: f32) -> String {
     PRESETS
@@ -365,7 +395,8 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
 /// the motif mix across — a designer trying layouts should not lose which
 /// motifs they had chosen.
 fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
-    let wants_grid = params.layout != "tossed";
+    let mirror = mirror_for(&params.layout);
+    let wants_grid = mirror.is_none();
     let mix: Vec<pattern_doc::document::MixEntry> = session
         .document
         .scatter
@@ -402,16 +433,30 @@ fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
             mix,
             seed: params.seed,
         });
-    } else if session.document.scatter.is_none() {
+    } else {
+        let mirror = mirror.unwrap_or(Mirror::None);
         session.document.grid = None;
-        session.document.scatter = Some(pattern_doc::ScatterSpec {
-            density: params.density.clamp(0.0, 2.0),
-            prevent_overlap: params.prevent_overlap,
-            rotation_jitter_deg: params.rotation_jitter_deg,
-            scale_range: (params.scale_range[0], params.scale_range[1]),
-            mix,
-            seed: params.seed,
-        });
+        if session.document.scatter.is_none() {
+            session.document.scatter = Some(pattern_doc::ScatterSpec {
+                density: params.density.clamp(0.0, 2.0),
+                prevent_overlap: params.prevent_overlap,
+                mirror,
+                rotation_jitter_deg: params.rotation_jitter_deg,
+                scale_range: (params.scale_range[0], params.scale_range[1]),
+                mix,
+                seed: params.seed,
+            });
+        } else if let Some(spec) = session.document.scatter.as_mut() {
+            spec.mirror = mirror;
+        }
+        // Reflections generate translations by the tile itself, which is the
+        // block lattice. Leaving an oblique one in place from a grid preset
+        // the designer tried a moment ago would make the pattern refuse to
+        // render, and the fault would look like the mirror's.
+        if mirror != Mirror::None {
+            let tile = session.document.pattern.tile_size_mm;
+            session.document.pattern.lattice = Lattice::block(tile);
+        }
     }
     session.document.pattern.placements.clear();
     Ok(())
@@ -1116,6 +1161,100 @@ mod tests {
             .map(|e| e.motif_id.clone())
             .collect();
         assert_eq!(grid_mix, vec!["cherry".to_string()]);
+    }
+
+    #[test]
+    fn a_mirror_is_a_scatter_and_not_a_grid() {
+        // A mirror belongs with the strewn arrangements: it has a coverage,
+        // not rows and columns. Filed under the grid presets it would lose the
+        // density control and gain two that mean nothing.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        for layout in ["mirror", "mirror-vertical", "mirror-four"] {
+            p.layout = layout.into();
+            write_params(&mut s, &p).expect("apply");
+            assert!(
+                s.document.scatter.is_some() && s.document.grid.is_none(),
+                "{layout} did not stay a scatter"
+            );
+        }
+    }
+
+    #[test]
+    fn choosing_a_mirror_puts_the_repeat_back_on_a_block_lattice() {
+        // Reflections repeat by the tile itself, which no oblique lattice
+        // does. A designer who tries a diagonal grid and then a mirror would
+        // otherwise be left with a combination the engine refuses to render,
+        // and the refusal would look like the mirror's fault.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        p.layout = "diagonal".into();
+        write_params(&mut s, &p).expect("apply");
+        assert_eq!(
+            lattice_name(&s.document.pattern.lattice, s.document.pattern.tile_size_mm),
+            "half-drop"
+        );
+
+        p.layout = "mirror-four".into();
+        write_params(&mut s, &p).expect("apply");
+        assert_eq!(
+            lattice_name(&s.document.pattern.lattice, s.document.pattern.tile_size_mm),
+            "block"
+        );
+        s.document.pattern.validate().expect("should be renderable");
+    }
+
+    #[test]
+    fn each_mirror_reflects_the_tile_it_names() {
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        for (layout, copies) in [
+            ("tossed", 1),
+            ("mirror", 2),
+            ("mirror-vertical", 2),
+            ("mirror-four", 4),
+        ] {
+            p.layout = layout.into();
+            write_params(&mut s, &p).expect("apply");
+            let placements = &s.document.pattern.placements;
+            assert_eq!(
+                placements.len() % copies,
+                0,
+                "{layout} placed {} motifs, not a multiple of {copies}",
+                placements.len()
+            );
+            let reflected = placements.iter().filter(|q| q.flip_x || q.flip_y).count();
+            assert_eq!(
+                reflected,
+                placements.len() - placements.len() / copies,
+                "{layout} reflected the wrong share of its motifs"
+            );
+        }
+    }
+
+    #[test]
+    fn a_mirror_survives_being_saved_and_reopened() {
+        // The layout the UI shows on reopening is read back from the
+        // document, so a mirror has to be recoverable from what was written
+        // rather than remembered in the session.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        p.layout = "mirror-four".into();
+        write_params(&mut s, &p).expect("apply");
+
+        let json = serde_json::to_string(&s.document).expect("serialise");
+        let reopened: pattern_doc::Document = serde_json::from_str(&json).expect("deserialise");
+        assert_eq!(
+            scatter_layout_name(reopened.scatter.as_ref().expect("scatter").mirror),
+            "mirror-four"
+        );
+    }
+
+    #[test]
+    fn a_document_written_before_mirrors_reads_as_having_none() {
+        let json = r#"{"density":0.3,"prevent_overlap":true,"mix":[],"seed":7}"#;
+        let spec: pattern_doc::ScatterSpec = serde_json::from_str(json).expect("deserialise");
+        assert_eq!(scatter_layout_name(spec.mirror), "tossed");
     }
 
     #[test]
