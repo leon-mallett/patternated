@@ -468,26 +468,143 @@ fn render(session: &Session, params: &Params) -> anyhow::Result<Preview> {
     })
 }
 
+/// What an export will be, before it is written.
+///
+/// Shown before the file dialog so the physical size and its verdict are in
+/// front of a designer while they still have a choice — a 2 m sheet is a
+/// decision, not something to discover from a bureau.
+#[derive(Serialize)]
+struct ExportPlan {
+    width_mm: f32,
+    height_mm: f32,
+    width_px: u32,
+    height_px: u32,
+    cols: u32,
+    rows: u32,
+    /// "fits", "wide" or "too-wide".
+    width_verdict: String,
+    megabytes: f32,
+    suggested_name: String,
+}
+
+#[derive(Deserialize)]
+struct ExportRequest {
+    /// "png" or "tiff".
+    format: String,
+    dpi: f32,
+    /// "tile" for one repeat, "sheet" for a pre-repeated image.
+    shape: String,
+    #[serde(default = "three")]
+    min_cols: u32,
+    #[serde(default = "three")]
+    min_rows: u32,
+    #[serde(default)]
+    compress: bool,
+    /// Width of the fabric roll this is destined for, in millimetres.
+    #[serde(default = "standard_roll")]
+    roll_width_mm: f32,
+}
+
+fn three() -> u32 {
+    3
+}
+
+fn standard_roll() -> f32 {
+    pattern_io::STANDARD_ROLL_MM
+}
+
+fn to_export(request: &ExportRequest) -> pattern_io::Export {
+    pattern_io::Export {
+        format: if request.format.eq_ignore_ascii_case("tiff") {
+            pattern_io::Format::Tiff
+        } else {
+            pattern_io::Format::Png
+        },
+        compression: if request.compress {
+            pattern_io::Compression::Lzw
+        } else {
+            pattern_io::Compression::None
+        },
+        dpi: request.dpi.clamp(24.0, 1200.0),
+        shape: if request.shape.eq_ignore_ascii_case("sheet") {
+            pattern_io::Shape::Sheet {
+                min_cols: request.min_cols.clamp(1, 24),
+                min_rows: request.min_rows.clamp(1, 24),
+            }
+        } else {
+            pattern_io::Shape::Tile
+        },
+    }
+}
+
 #[tauri::command]
-fn export_png(app: State<'_, App>, path: String, dpi: f32, cols: u32, rows: u32) -> Reply<String> {
+fn export_plan(app: State<'_, App>, request: ExportRequest) -> Reply<ExportPlan> {
     let guard = app.session.lock().map_err(|e| fail("state", e))?;
     let session = guard.as_ref().ok_or("no document is open")?;
+    let export = to_export(&request);
+    let pattern = &session.document.pattern;
+
+    let (cols, rows) = match export.shape {
+        pattern_io::Shape::Tile => (1, 1),
+        pattern_io::Shape::Sheet { min_cols, min_rows } => {
+            pattern_doc::sheet_tiles(&session.document, min_cols, min_rows)
+        }
+    };
+    // Ask the renderer's own quantisation what the file will be, rather than
+    // recomputing it here and risking the plan disagreeing with the export.
+    let pl = pattern_render::pixel_lattice_for(pattern, export.dpi)
+        .map_err(|e| fail("could not work out the export size", e))?;
+    let size = pattern_io::PrintSize::from_pixels(
+        (pl.tile_px.x * cols as i32).max(1) as u32,
+        (pl.tile_px.y * rows as i32).max(1) as u32,
+        export.dpi,
+    );
+
+    // Three bytes a pixel for TIFF, and PNG compresses but not predictably;
+    // an honest over-estimate is more use than an optimistic one when the
+    // question is whether a file can be emailed.
+    let megabytes = size.width_px as f32 * size.height_px as f32 * 3.0 / 1_048_576.0;
+
+    Ok(ExportPlan {
+        width_mm: size.width_mm,
+        height_mm: size.height_mm,
+        width_px: size.width_px,
+        height_px: size.height_px,
+        cols,
+        rows,
+        width_verdict: match size.width_verdict(request.roll_width_mm) {
+            pattern_io::WidthVerdict::Fits => "fits",
+            pattern_io::WidthVerdict::WiderThanStandardRoll => "wide",
+            pattern_io::WidthVerdict::WiderThanGrandFormat => "too-wide",
+        }
+        .into(),
+        megabytes,
+        suggested_name: pattern_io::suggested_name(
+            session
+                .path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "pattern".into())
+                .as_str(),
+            &lattice_name(&pattern.lattice, pattern.tile_size_mm),
+            pattern.tile_size_mm,
+            export.dpi,
+            export.shape,
+            export.format,
+        ),
+    })
+}
+
+#[tauri::command]
+fn export(app: State<'_, App>, path: String, request: ExportRequest) -> Reply<String> {
+    let guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_ref().ok_or("no document is open")?;
+    let export = to_export(&request);
     let path = PathBuf::from(path);
 
-    let pixmap = if cols <= 1 && rows <= 1 {
-        pattern_render::render_tile(&session.document.pattern, &session.bank, dpi)
-    } else {
-        pattern_render::render_field(
-            &session.document.pattern,
-            &session.bank,
-            dpi,
-            cols.max(1),
-            rows.max(1),
-        )
-    }
-    .map_err(|e| fail("could not render for export", e))?;
-
-    pattern_doc::write_png(&path, &pixmap, dpi).map_err(|e| fail("could not write the file", e))?;
+    let (pixmap, _) = pattern_doc::render_for_export(&session.document, &session.bank, export)
+        .map_err(|e| fail("could not render for export", e))?;
+    pattern_io::write(&path, &pixmap, export).map_err(|e| fail("could not write the file", e))?;
     Ok(path.display().to_string())
 }
 
@@ -561,7 +678,8 @@ pub fn run() {
             new_from_images,
             apply,
             save_target,
-            export_png,
+            export_plan,
+            export,
             save_document,
             palette
         ])

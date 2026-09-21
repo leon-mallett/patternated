@@ -11,10 +11,8 @@
 //! to branch on a failure, that is the point to give this crate typed errors.
 
 pub mod document;
-pub mod png_out;
 
 pub use document::{
-    derive_palette_from, ingest_to_library, load_source, new_from_images, save_to, Document,
-    GridSpec, MotifRef, ScatterSpec,
+    derive_palette_from, ingest_to_library, load_source, new_from_images, render_for_export,
+    save_to, sheet_tiles, Document, GridSpec, MotifRef, ScatterSpec,
 };
-pub use png_out::write_png;

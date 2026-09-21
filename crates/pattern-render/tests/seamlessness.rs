@@ -117,9 +117,19 @@ fn opposite_tile_edges_carry_the_same_motif_pixels() {
 #[test]
 fn a_tile_is_exactly_the_repeat_size_in_pixels() {
     // 240 x 180 mm at 150 DPI: 240/25.4*150 = 1417.32, 180/25.4*150 = 1062.99.
-    let pattern = straddling_pattern(Lattice::half_drop(TILE));
-    let tile = render_tile(&pattern, &bank(), 150.0).expect("tile should render");
+    //
+    // A block repeat takes those roundings as they come.
+    let block = straddling_pattern(Lattice::block(TILE));
+    let tile = render_tile(&block, &bank(), 150.0).expect("tile should render");
     assert_eq!((tile.width(), tile.height()), (1417, 1063));
+
+    // A half-drop rounds its height to 1064 instead, because it steps by half
+    // of it and half of 1063 is not a whole pixel. Measured on an exported
+    // sheet before this existed: four columns came back two pixels adrift and
+    // the join between two copies was four times an interior step.
+    let half_drop = straddling_pattern(Lattice::half_drop(TILE));
+    let tile = render_tile(&half_drop, &bank(), 150.0).expect("tile should render");
+    assert_eq!((tile.width(), tile.height()), (1417, 1064));
 }
 
 #[test]

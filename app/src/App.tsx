@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import {
   apply,
-  exportPng,
+  exportFile,
+  exportPlan,
   newFromImages,
   openDocument,
   saveDocument,
@@ -11,6 +12,8 @@ import {
   type Opened,
   type Params,
   type Preview,
+  type ExportPlan,
+  type ExportRequest,
   LAYOUTS,
 } from "./api";
 
@@ -44,6 +47,31 @@ export default function App() {
   const [preventOverlap, setPreventOverlap] = useState(true);
   const [gridRows, setGridRows] = useState(3);
   const [gridCols, setGridCols] = useState(3);
+
+  const [exporting, setExporting] = useState(false);
+  const [plan, setPlan] = useState<ExportPlan | null>(null);
+  const [exp, setExp] = useState<ExportRequest>({
+    format: "tiff",
+    dpi: 150,
+    shape: "tile",
+    min_cols: 3,
+    min_rows: 3,
+    compress: false,
+    roll_width_mm: 1600,
+  });
+
+  // Keep the plan in step with the settings, so the size and the verdict are
+  // in front of a designer while they still have a choice.
+  useEffect(() => {
+    if (!doc || !exporting) return;
+    let live = true;
+    exportPlan(exp)
+      .then((p) => live && setPlan(p))
+      .catch((e) => live && setError(String(e)));
+    return () => {
+      live = false;
+    };
+  }, [doc, exporting, exp, preview]);
   const [sizes, setSizes] = useState<Record<string, number>>({});
 
   const paneRef = useRef<HTMLDivElement | null>(null);
@@ -161,16 +189,21 @@ export default function App() {
   }
 
   async function onExport() {
+    if (!plan) return;
     const target = await saveDialog({
-      title: "Export the tile",
-      defaultPath: `${doc?.name ?? "pattern"}-${Math.round(tile[0])}mm-300dpi.png`,
-      filters: [{ name: "PNG", extensions: ["png"] }],
+      title: "Export",
+      defaultPath: plan.suggested_name,
+      filters: [
+        exp.format === "tiff"
+          ? { name: "TIFF", extensions: ["tif", "tiff"] }
+          : { name: "PNG", extensions: ["png"] },
+      ],
     });
     if (typeof target !== "string") return;
     try {
-      // The tile alone, at print resolution: what a bureau is sent.
-      await exportPng(target, 300, 1, 1);
-      setStatus(`Exported the tile at 300 DPI`);
+      const where = await exportFile(target, exp);
+      setExporting(false);
+      setStatus(`Exported ${where}`);
     } catch (e) {
       setError(String(e));
     }
@@ -243,8 +276,8 @@ export default function App() {
             <button onClick={onNew}>New…</button>
             <button onClick={onOpen}>Open…</button>
             <button onClick={onSave}>Save</button>
-            <button className="primary" onClick={onExport}>
-              Export tile…
+            <button className="primary" onClick={() => setExporting(true)}>
+              Export…
             </button>
           </div>
         </header>
@@ -261,6 +294,16 @@ export default function App() {
         </div>
 
         {error && <p className="error">{error}</p>}
+
+        {exporting && (
+          <ExportPanel
+            request={exp}
+            plan={plan}
+            onChange={setExp}
+            onCancel={() => setExporting(false)}
+            onExport={onExport}
+          />
+        )}
 
         {preview && !preview.window_repeats && (
           <p className="hint">
@@ -621,5 +664,140 @@ function MotifRow({
         onChange={onSize}
       />
     </div>
+  );
+}
+
+function ExportPanel({
+  request,
+  plan,
+  onChange,
+  onCancel,
+  onExport,
+}: {
+  request: ExportRequest;
+  plan: ExportPlan | null;
+  onChange: (r: ExportRequest) => void;
+  onCancel: () => void;
+  onExport: () => void;
+}) {
+  const set = <K extends keyof ExportRequest>(key: K, value: ExportRequest[K]) =>
+    onChange({ ...request, [key]: value });
+
+  return (
+    <section className="export">
+      <div className="export-row">
+        <label>
+          Format
+          <select
+            value={request.format}
+            onChange={(e) => set("format", e.target.value as "png" | "tiff")}
+          >
+            <option value="tiff">TIFF (for a print bureau)</option>
+            <option value="png">PNG (quick look)</option>
+          </select>
+        </label>
+
+        <label>
+          Resolution
+          <select value={request.dpi} onChange={(e) => set("dpi", Number(e.target.value))}>
+            <option value={150}>150 DPI</option>
+            <option value={300}>300 DPI</option>
+            <option value={72}>72 DPI</option>
+            <option value={600}>600 DPI</option>
+          </select>
+        </label>
+
+        <label>
+          What to write
+          <select
+            value={request.shape}
+            onChange={(e) => set("shape", e.target.value as "tile" | "sheet")}
+          >
+            <option value="tile">One tile — the printer repeats it</option>
+            <option value="sheet">A repeated sheet — ready to print</option>
+          </select>
+        </label>
+
+        {request.shape === "sheet" && (
+          <>
+            <NumberField
+              label="Across"
+              unit="tiles"
+              value={request.min_cols}
+              min={1}
+              max={24}
+              step={1}
+              onChange={(v) => set("min_cols", v)}
+            />
+            <NumberField
+              label="Down"
+              unit="tiles"
+              value={request.min_rows}
+              min={1}
+              max={24}
+              step={1}
+              onChange={(v) => set("min_rows", v)}
+            />
+          </>
+        )}
+      </div>
+
+      {request.format === "tiff" && (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={request.compress}
+            onChange={(e) => set("compress", e.target.checked)}
+          />
+          <span>Compress (LZW — lossless, about a third the size)</span>
+        </label>
+      )}
+
+      {plan && (
+        <>
+          <dl className="readout">
+            <Readout
+              label="Physical size"
+              value={`${Math.round(plan.width_mm)} × ${Math.round(plan.height_mm)} mm`}
+            />
+            <Readout label="Pixels" value={`${plan.width_px} × ${plan.height_px}`} />
+            {request.shape === "sheet" && (
+              <Readout label="Tiles" value={`${plan.cols} × ${plan.rows}`} />
+            )}
+            <Readout label="About" value={`${plan.megabytes.toFixed(1)} MB`} />
+          </dl>
+
+          {plan.width_verdict === "wide" && (
+            <p className="hint">
+              {(plan.width_mm / 1000).toFixed(2)} m wide — past a standard{" "}
+              {(request.roll_width_mm / 1000).toFixed(1)} m fabric roll. Wide-format
+              printers take this; most do not.
+            </p>
+          )}
+          {plan.width_verdict === "too-wide" && (
+            <p className="error">
+              {(plan.width_mm / 1000).toFixed(2)} m wide — past grand format, so this is
+              unlikely to be printable as one piece. Export the tile instead and let the
+              printer repeat it.
+            </p>
+          )}
+          {request.shape === "sheet" &&
+            (plan.cols !== request.min_cols || plan.rows !== request.min_rows) && (
+              <p className="hint">
+                Written as {plan.cols} × {plan.rows} tiles rather than {request.min_cols} ×{" "}
+                {request.min_rows}: this repeat needs that many for the sheet itself to
+                tile.
+              </p>
+            )}
+        </>
+      )}
+
+      <div className="export-actions">
+        <button onClick={onCancel}>Cancel</button>
+        <button className="primary" onClick={onExport} disabled={!plan}>
+          Choose a file…
+        </button>
+      </div>
+    </section>
   );
 }

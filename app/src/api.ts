@@ -98,12 +98,34 @@ export const saveTarget = () => invoke<SaveTarget>("save_target");
 
 export const apply = (params: Params) => invoke<Preview>("apply", { params });
 
-export const exportPng = (
-  path: string,
-  dpi: number,
-  cols: number,
-  rows: number,
-) => invoke<string>("export_png", { path, dpi, cols, rows });
+/** What an export will be, before it is written. */
+export interface ExportPlan {
+  width_mm: number;
+  height_mm: number;
+  width_px: number;
+  height_px: number;
+  cols: number;
+  rows: number;
+  width_verdict: "fits" | "wide" | "too-wide";
+  megabytes: number;
+  suggested_name: string;
+}
+
+export interface ExportRequest {
+  format: "png" | "tiff";
+  dpi: number;
+  shape: "tile" | "sheet";
+  min_cols: number;
+  min_rows: number;
+  compress: boolean;
+  roll_width_mm: number;
+}
+
+export const exportPlan = (request: ExportRequest) =>
+  invoke<ExportPlan>("export_plan", { request });
+
+export const exportFile = (path: string, request: ExportRequest) =>
+  invoke<string>("export", { path, request });
 
 export const saveDocument = (path?: string) =>
   invoke<string>("save_document", { path: path ?? null });

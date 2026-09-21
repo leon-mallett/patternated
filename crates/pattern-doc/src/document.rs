@@ -675,3 +675,48 @@ fn relative_to(file: &Path, base: &Path) -> Option<PathBuf> {
         .ok()
         .map(|rest| Path::new("..").join(rest))
 }
+
+/// Render a pattern in the shape an export asks for.
+///
+/// The one place that knows a sheet must be a repeating unit. A pre-repeated
+/// image that does not tile shows a seam the moment the printer repeats it,
+/// which is the same failure as a broken tile arrived at one level up — and
+/// harder to spot, because every tile inside it is perfect.
+pub fn render_for_export(
+    document: &Document,
+    bank: &MotifBank,
+    export: pattern_io::Export,
+) -> Result<(tiny_skia::Pixmap, pattern_io::PrintSize)> {
+    let pattern = &document.pattern;
+    let (cols, rows) = match export.shape {
+        pattern_io::Shape::Tile => (1, 1),
+        pattern_io::Shape::Sheet { min_cols, min_rows } => {
+            pattern
+                .lattice
+                .repeating_window(pattern.tile_size_mm, min_cols.max(1), min_rows.max(1))
+        }
+    };
+
+    let pixmap = if cols == 1 && rows == 1 {
+        pattern_render::render_tile(pattern, bank, export.dpi)
+    } else {
+        pattern_render::render_field(pattern, bank, export.dpi, cols, rows)
+    }
+    .context("rendering for export")?;
+
+    // From the pixmap rather than from the design: rounding the tile to whole
+    // pixels, and to a count its lattice divides, moves the repeat slightly,
+    // and the number shown should be the one in the file.
+    let size = pattern_io::PrintSize::from_pixels(pixmap.width(), pixmap.height(), export.dpi);
+    Ok((pixmap, size))
+}
+
+/// The tiles a sheet will actually contain, which may exceed what was asked.
+#[must_use]
+pub fn sheet_tiles(document: &Document, min_cols: u32, min_rows: u32) -> (u32, u32) {
+    document.pattern.lattice.repeating_window(
+        document.pattern.tile_size_mm,
+        min_cols.max(1),
+        min_rows.max(1),
+    )
+}

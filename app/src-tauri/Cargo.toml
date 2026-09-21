@@ -16,6 +16,7 @@ tauri-build = { version = "2.5", features = [] }
 pattern-core.workspace = true
 pattern-render.workspace = true
 pattern-doc.workspace = true
+pattern-io.workspace = true
 glam.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -8,6 +8,7 @@ publish.workspace = true
 [dependencies]
 pattern-core.workspace = true
 pattern-render.workspace = true
+pattern-io.workspace = true
 motif-ingest.workspace = true
 glam.workspace = true
 serde.workspace = true

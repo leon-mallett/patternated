@@ -10,7 +10,8 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use motif_ingest::library::IngestParams;
 use motif_ingest::MatteMethod;
-use pattern_doc::{document, png_out, Document};
+use pattern_doc::{document, Document};
+use pattern_io::{Compression, Export, Format, Shape};
 
 #[derive(Parser)]
 #[command(
@@ -51,6 +52,11 @@ enum Command {
         /// Ignored by a document with authored placements.
         #[arg(long)]
         seed: Option<u64>,
+
+        /// Compress a TIFF with LZW. Lossless, about a third the size, and
+        /// slightly less universally readable than no compression at all.
+        #[arg(long)]
+        compress: bool,
     },
 
     /// Bring artwork into a motif library.
@@ -123,7 +129,8 @@ fn main() -> Result<()> {
             cols,
             rows,
             seed,
-        } => render(&document, &out, dpi, cols, rows, seed),
+            compress,
+        } => render(&document, &out, dpi, cols, rows, seed, compress),
         Command::Ingest {
             source,
             library,
@@ -155,107 +162,81 @@ fn render(
     cols: Option<u32>,
     rows: Option<u32>,
     seed: Option<u64>,
+    compress: bool,
 ) -> Result<()> {
     let (mut doc, bank) = Document::load(doc_path)?;
     if let Some(seed) = seed {
         doc.reseed(seed, &bank).context("reseeding scatter")?;
     }
 
-    let pixmap = match cols {
-        Some(c) => {
-            let r = rows.unwrap_or(c);
-            // A rectangle of tiles is not generally a repeating unit: a
-            // half-drop gains half a tile of drop per column, so an odd count
-            // ends half a tile out and the image will not tile even though
-            // every tile in it is perfect. Said rather than silently corrected,
-            // because a command line asked for three columns should give three.
-            let fits =
-                doc.pattern
-                    .lattice
-                    .repeating_window(doc.pattern.tile_size_mm, c.max(1), r.max(1));
-            if fits != (c.max(1), r.max(1)) {
-                eprintln!(
-                    "note: a {}x{} window of this repeat does not tile — its opposite edges \
-                     will not meet. {}x{} is the nearest that does. The single tile is \
-                     seamless either way.",
-                    c.max(1),
-                    r.max(1),
-                    fits.0,
-                    fits.1
-                );
-            }
-            pattern_render::render_field(&doc.pattern, &bank, dpi, c.max(1), r.max(1))
-                .context("rendering field")?
-        }
-        None => pattern_render::render_tile(&doc.pattern, &bank, dpi).context("rendering tile")?,
+    let format = match out.extension().and_then(|e| e.to_str()) {
+        Some(e) if e.eq_ignore_ascii_case("tif") || e.eq_ignore_ascii_case("tiff") => Format::Tiff,
+        _ => Format::Png,
+    };
+    let shape = match cols {
+        Some(c) => Shape::Sheet {
+            min_cols: c,
+            min_rows: rows.unwrap_or(c),
+        },
+        None => Shape::Tile,
     };
 
-    png_out::write_png(out, &pixmap, dpi)?;
-
-    let tile = doc.pattern.tile_size_mm;
-    println!(
-        "{} — {} x {} px at {dpi} DPI, repeat {} x {} mm, {} motifs, {} colours",
-        out.display(),
-        pixmap.width(),
-        pixmap.height(),
-        tile.x,
-        tile.y,
-        doc.pattern.placements.len(),
-        colour_count(&doc, &bank)
-    );
-    Ok(())
-}
-
-fn info(doc_path: &Path, dpi: f32) -> Result<()> {
-    let (doc, bank) = Document::load(doc_path)?;
-    let p = &doc.pattern;
-    let pl = pattern_render::pixel_lattice_for(p, dpi).context("quantising lattice")?;
-
-    println!("repeat      {} x {} mm", p.tile_size_mm.x, p.tile_size_mm.y);
-    println!(
-        "lattice     u = {:?}  v = {:?}  (mm)",
-        p.lattice.u, p.lattice.v
-    );
-    println!(
-        "at {dpi} DPI  tile {} x {} px, u = {:?}, v = {:?} (px)",
-        pl.tile_px.x, pl.tile_px.y, pl.u_px, pl.v_px
-    );
-    println!(
-        "placements  {}{}",
-        p.placements.len(),
-        if doc.scatter.is_some() {
-            " (scattered)"
-        } else {
-            " (authored)"
+    if let Shape::Sheet { min_cols, min_rows } = shape {
+        // Said rather than silently corrected: a command line asked for three
+        // columns should give three, and be told why it gave four.
+        let grown = pattern_doc::sheet_tiles(&doc, min_cols, min_rows);
+        if grown != (min_cols.max(1), min_rows.max(1)) {
+            eprintln!(
+                "note: a {}x{} sheet of this repeat would not tile — its opposite edges \
+                 would not meet. Writing {}x{}, the nearest that does.",
+                min_cols.max(1),
+                min_rows.max(1),
+                grown.0,
+                grown.1
+            );
         }
-    );
-    if let Some(spec) = &doc.scatter {
-        let motif_area: f32 = spec
-            .mix
-            .iter()
-            .filter_map(|e| doc.motif_size(&bank, &e.motif_id))
-            .map(|size| size.x * size.y)
-            .sum::<f32>()
-            / spec.mix.len().max(1) as f32;
-        let coverage =
-            p.placements.len() as f32 * motif_area / (p.tile_size_mm.x * p.tile_size_mm.y);
-        println!(
-            "density     {:.0}% asked, {:.0}% achieved",
-            spec.density * 100.0,
-            coverage * 100.0
-        );
-        println!(
-            "jitter      rotation +/-{:.0} deg, scale {:.2}-{:.2}",
-            spec.rotation_jitter_deg, spec.scale_range.0, spec.scale_range.1
-        );
     }
-    println!("motifs      {} resolved", bank.len());
+
+    let export = Export {
+        format,
+        compression: if compress {
+            Compression::Lzw
+        } else {
+            Compression::None
+        },
+        dpi,
+        shape,
+    };
+
+    let (pixmap, size) =
+        pattern_doc::render_for_export(&doc, &bank, export).context("rendering for export")?;
+    pattern_io::write(out, &pixmap, export).context("writing the export")?;
+
+    let motifs: Vec<pattern_core::Motif> = bank.motifs().into_iter().cloned().collect();
     println!(
-        "colours     {} resolved of {} in palette",
-        colour_count(&doc, &bank),
-        p.palette.len()
+        "{} — {} x {} px, {:.0} x {:.0} mm at {dpi} DPI, {} motifs, {} colours",
+        out.display(),
+        size.width_px,
+        size.height_px,
+        size.width_mm,
+        size.height_mm,
+        doc.pattern.placements.len(),
+        pattern_core::resolved_color_count(&doc.pattern, &motifs)
     );
-    println!("seed        {}", p.seed);
+    match size.width_verdict(pattern_io::STANDARD_ROLL_MM) {
+        pattern_io::WidthVerdict::Fits => {}
+        pattern_io::WidthVerdict::WiderThanStandardRoll => eprintln!(
+            "note: {:.2} m wide, past a standard {:.1} m fabric roll. Wide-format printers \
+             take this; most do not.",
+            size.width_mm / 1000.0,
+            pattern_io::STANDARD_ROLL_MM / 1000.0
+        ),
+        pattern_io::WidthVerdict::WiderThanGrandFormat => eprintln!(
+            "warning: {:.2} m wide, past grand format. This is unlikely to be printable as \
+             one piece — export the tile instead and let the printer repeat it.",
+            size.width_mm / 1000.0
+        ),
+    }
     Ok(())
 }
 
@@ -310,4 +291,54 @@ fn parse_hex(hex: &str) -> Result<pattern_core::Color> {
 fn colour_count(doc: &Document, bank: &pattern_render::MotifBank) -> usize {
     let motifs: Vec<pattern_core::Motif> = bank.motifs().into_iter().cloned().collect();
     pattern_core::resolved_color_count(&doc.pattern, &motifs)
+}
+
+/// Report what a document describes, without rendering it.
+fn info(doc_path: &Path, dpi: f32) -> Result<()> {
+    let (doc, bank) = Document::load(doc_path)?;
+    let p = &doc.pattern;
+    let pl = pattern_render::pixel_lattice_for(p, dpi).context("quantising lattice")?;
+
+    println!("repeat      {} x {} mm", p.tile_size_mm.x, p.tile_size_mm.y);
+    println!(
+        "lattice     u = {:?}  v = {:?}  (mm)",
+        p.lattice.u, p.lattice.v
+    );
+    println!(
+        "at {dpi} DPI  tile {} x {} px, u = {:?}, v = {:?} (px)",
+        pl.tile_px.x, pl.tile_px.y, pl.u_px, pl.v_px
+    );
+
+    // The window a preview or a sheet actually needs, which is not always the
+    // one asked for: a rectangle of tiles is not generally a repeating unit.
+    let (cols, rows) = pattern_doc::sheet_tiles(&doc, 3, 3);
+    println!("3x3 window  shown as {cols}x{rows} to make a repeating unit");
+
+    println!(
+        "placements  {}{}",
+        p.placements.len(),
+        if doc.scatter.is_some() {
+            " (scattered)"
+        } else if doc.grid.is_some() {
+            " (grid)"
+        } else {
+            " (authored)"
+        }
+    );
+    println!("motifs      {} resolved", bank.len());
+    println!(
+        "colours     {} resolved of {} in palette",
+        colour_count(&doc, &bank),
+        p.palette.len()
+    );
+
+    for dpi in [150.0f32, 300.0] {
+        let size = pattern_io::PrintSize::new(p.tile_size_mm, dpi);
+        println!(
+            "tile at {:>3} {} x {} px  ({:.0} x {:.0} mm)",
+            dpi as i32, size.width_px, size.height_px, size.width_mm, size.height_mm
+        );
+    }
+    println!("seed        {}", p.seed);
+    Ok(())
 }

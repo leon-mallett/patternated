@@ -2,8 +2,9 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::Path;
 
-use anyhow::{Context, Result};
 use tiny_skia::Pixmap;
+
+use crate::ExportError;
 
 /// Metres per inch, for the PNG `pHYs` chunk, which is specified in pixels per
 /// metre.
@@ -16,8 +17,11 @@ const METRES_PER_INCH: f32 = 0.0254;
 /// physical size in it is a file whose scale has to be re-established by
 /// whoever opens it, and a print at the wrong scale looks fine on screen right
 /// up until the fabric arrives.
-pub fn write_png(path: &Path, pixmap: &Pixmap, dpi: f32) -> Result<()> {
-    let file = File::create(path).with_context(|| format!("creating output {}", path.display()))?;
+pub(crate) fn write_png(path: &Path, pixmap: &Pixmap, dpi: f32) -> Result<(), ExportError> {
+    let file = File::create(path).map_err(|source| ExportError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
     let mut encoder = png::Encoder::new(BufWriter::new(file), pixmap.width(), pixmap.height());
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
@@ -38,8 +42,9 @@ pub fn write_png(path: &Path, pixmap: &Pixmap, dpi: f32) -> Result<()> {
 
     encoder
         .write_header()
-        .context("writing PNG header")?
-        .write_image_data(&data)
-        .with_context(|| format!("writing PNG data to {}", path.display()))?;
-    Ok(())
+        .and_then(|mut w| w.write_image_data(&data))
+        .map_err(|e| ExportError::Encode {
+            path: path.to_path_buf(),
+            reason: e.to_string(),
+        })
 }

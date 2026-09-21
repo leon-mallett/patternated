@@ -198,3 +198,16 @@ code {
 
 .check { flex-direction: row; align-items: center; gap: 8px; }
 .check input { accent-color: var(--accent); }
+
+.export {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.export-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.export-row label { min-width: 150px; }
+.export-actions { display: flex; gap: 8px; justify-content: flex-end; }
