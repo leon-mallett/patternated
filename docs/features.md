@@ -50,6 +50,14 @@ diagonal, gentle diagonal. The names are how anybody asks for them.
 A grid ignores the seed for position — rerolling changes which motif sits where,
 not where the cells are. That is what "classic" means here.
 
+**Overlap prevention applies here too**, and differently. A grid cannot respond
+by placing fewer motifs, because its cells are fixed by the rows and columns, so
+it shrinks them to fit instead. The limit is the closest any two positions come
+on the lattice torus rather than the cell size: on a brick or diagonal offset
+the nearest neighbour is a staggered one, and for any layout the closest pair
+may be across a tile edge. The preview says when motifs have been shrunk, so a
+size control that has stopped moving has a stated reason.
+
 Circular and wave arrangements are deliberately absent. They belong to the ogee
 and damask family the spec places in v2, and they are neither a lattice nor a
 grid, so building them ad hoc would be the wrong shape.

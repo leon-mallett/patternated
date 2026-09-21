@@ -546,6 +546,18 @@ would sit 40% looser than it needs. The radius is measured from the artwork's
 own alpha instead, and is rotation-invariant by construction — a bound that
 changed as a motif turned would let overlaps back in at some angles.
 
+**Carried to the grid afterwards, which it should not have needed.** The guard
+shipped working for the scatter and doing nothing for grid layouts, with its
+control rendered inside a panel that grid layouts hide — so it looked absent and
+was absent. A control that appears general and silently covers half the cases is
+the partial implementation this project's rules are about, and the milestone
+rule ("do not implement ahead") does not excuse implementing *behind*: a feature
+added to one code path has to be followed to the others that share its meaning.
+
+A grid answers differently because its cells are fixed by rows and columns and
+it cannot place fewer motifs. It shrinks them to fit, which is visible and
+reversible, and reports that it did.
+
 **Known limit.** A circle is still a crude model of a cloud. Two wide, flat
 motifs stacked vertically are held apart by their width. True shape-aware
 packing would need the alpha masks compared at every candidate position, which
