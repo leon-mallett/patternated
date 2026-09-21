@@ -1,6 +1,7 @@
 # Features
 
-What exists today: M1 to M5. Everything else is in [Roadmap](./roadmap.md).
+What exists today: M1 to M5, and the mockup half of M6. Everything else is in
+[Roadmap](./roadmap.md).
 
 ## Seamless tiling
 
@@ -282,6 +283,29 @@ Two accuracies worth knowing. PNG records pixels per *metre* as an integer, so
 And the physical size reported is the one implied by the file's pixels rather
 than the design's nominal size, because quantising the tile moves it by a
 fraction of a millimetre — see below.
+
+## Garment mockups
+
+The print on a garment, at true scale. Six to choose from, built from standard
+size-chart figures: t-shirts from age 3–4 to adult L, and a 45 cm cushion.
+
+The size range is the point. A 240 mm repeat reads completely differently on an
+adult shirt and a three-year-old's, and the only way to see that is to look.
+Beside each is **repeats across the chest** — two is a bold print, eleven is a
+texture, a fifth of one is a placement print that happens to be tiled.
+
+A silhouette rather than a photograph. Warping a print onto folds is a much
+larger piece of work, and it would make the one thing this exists for — the
+relationship between the repeat and the body — harder to judge rather than
+easier.
+
+The resolution follows from the garment's real width, so nothing in the render
+can pick a size that flatters the print. The garment view follows the pattern
+live, so a scale judgement is made against what is actually on screen.
+
+The measurements are approximate standard figures rather than any one
+manufacturer's chart: right enough to judge a repeat against, and not a
+substitute for a real spec.
 
 ## Colour management
 

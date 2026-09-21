@@ -27,6 +27,8 @@ constraints that shape it come from a specific printer nobody has picked.
 
 ## M6 — Mockups and tracking detection
 
+**Mockups are built** — see [Features](./features.md#garment-mockups).
+
 **Tracking detection was attempted and is not built.** Two approaches were
 measured against real output and neither separates a corridored pattern from a
 clean one; both were removed rather than shipped behind a threshold that does
@@ -34,13 +36,10 @@ not discriminate. The numbers and the likely next approach are in
 [Decisions](./decisions.md#not-shipping-tracking-detection-having-built-it-twice).
 
 
-Garment preview at true scale, and Radon-based corridor detection over a
-low-resolution three-by-three mask with automatic reseed.
-
-Both look cosmetic and are not. Seeing a print at true scale on a shirt is how a
-scale error gets caught before fabric is bought. Tracking detection is a
-convenience for Peel Club and a prerequisite for Dreamwoven, so it is built
-properly here rather than as a warning badge.
+What remains is corridor detection with automatic reseed. It is a convenience
+for Peel Club and a prerequisite for Dreamwoven, so it wants building properly
+rather than as a warning badge — which is why a version that could not
+discriminate was removed rather than shipped.
 
 ## M7 — Dreamwoven pipeline
 
