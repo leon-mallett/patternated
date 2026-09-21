@@ -1,7 +1,6 @@
 # Features
 
-What exists today: M1 to M4, and the export half of M5. Everything else is in
-[Roadmap](./roadmap.md).
+What exists today: M1 to M5. Everything else is in [Roadmap](./roadmap.md).
 
 ## Seamless tiling
 
@@ -284,7 +283,32 @@ And the physical size reported is the one implied by the file's pixels rather
 than the design's nominal size, because quantising the tile moves it by a
 fraction of a millimetre — see below.
 
-CMYK, ICC profiles and palette editing are the rest of M5.
+## Colour management
+
+Conversion to CMYK happens in the tool, so nobody needs Photoshop to produce a
+file for a bureau. **There is no formula anywhere in it.** "It looked different
+on screen" is the commonest complaint in fabric printing and is almost always a
+formula applied where a profile was needed, so everything goes through an ICC
+profile and the profile is a file somebody chose.
+
+**Nothing is bundled, and that is a decision.** Every CMYK profile that is free
+to redistribute describes an *offset litho* press, and a digital textile press
+is not one. Shipping one as a default would produce a file that looks converted
+and is wrong — worse than producing nothing, because the point of colour
+management is that the numbers mean something. The bureau has the right
+profile; asking for it is a one-line email.
+
+**RGB stays the default.** Many digital textile bureaux prefer it and do their
+own separation, because they know their press and you do not.
+
+**Soft proofing** converts to the press's colours and straight back, so anything
+it cannot reach comes back changed. An electric green goes visibly flat while a
+magenta survives — and seeing that before the fabric is bought is the entire
+purpose.
+
+A CMYK export carries its profile inside the file. Without it the file is a set
+of numbers nobody can interpret, which is the failure colour management exists
+to prevent.
 
 ## Validation
 

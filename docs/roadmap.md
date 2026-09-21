@@ -5,45 +5,11 @@ something usable, and nothing here requires the milestone after it. An item
 becomes a [Features](./features.md) entry when it is built, and disappears from
 this page.
 
-**M1 to M4 are complete.** Their contents are in [Features](./features.md).
+**M1 to M5 are complete.** Their contents are in [Features](./features.md).
 
 **The spec directs a stop and reassessment here**, on the grounds that a working
 tool producing one good range answers the product question better than more
 planning. Everything below is explicitly optional.
-
-## M5 — Colourways and export
-
-Palette management in the app, named house palettes, colour management through
-a real ICC profile, and file naming that carries the repeat size and resolution.
-
-Colour management is the one to be careful with: a conversion through a real
-profile rather than a formula, with soft-proofing. "It looked different on
-screen" is the commonest complaint in fabric printing and is almost always an
-unmanaged conversion.
-
-**Narrowed by the print-route decision.** Peel Club prints digitally, so there
-is no per-colour cost and no colour-count ceiling to enforce. Per-colour
-separations have moved out of this milestone to the list below, because they
-only mean anything for screen printing and building them now would be a partial
-implementation of a route nobody has chosen.
-
-**Export and colour are built** — see [Export](./features.md#export) and
-[Colourways](./features.md#colourways). What remains is the conversion itself:
-
-- **Colour management in the tool**, so nobody needs Photoshop to make a CMYK
-  file. `moxcms` does ICC transforms between RGB and CMYK through an XYZ or Lab
-  connection space, in pure Rust — which removes the C binding this milestone
-  was expected to need. Best done once a bureau has said what they want, since
-  the bundled profiles are offset litho ones and a textile press is not.
-- **Openly licensed profiles only**: `sRGB2014` for RGB, and PSO Coated or
-  GRACoL for CMYK, all redistributable without restriction. Loading a bureau's
-  own profile must be easy, because those defaults are offset litho profiles
-  and a textile press is not one.
-- **Physical size shown in the interface**, with a gentle warning past a
-  standard 1.6 m roll and a firm one past 3.2 m. Both adjustable.
-- **House palettes** shared across documents, so a brand's colours are stored
-  once rather than per pattern. Colourways are per-document today, which covers
-  a range; it does not yet cover several ranges agreeing with each other.
 
 ## Screen printing, if a range goes that way
 
@@ -129,6 +95,13 @@ Not milestones, but not forgotten.
   are not granted to the terminal. `~/Projects/AI_UI_TEST_AUTOMATION.md` and
   `DESKTOP_APP_CONTROL.md` describe the house approach when that becomes worth
   doing.
+- **House palettes shared across documents.** Colourways live in one document,
+  which covers a range; it does not yet cover several ranges agreeing with each
+  other. Small, and worth doing when there is a second range.
+- **No CMYK profile ships with the tool**, deliberately — see
+  [colour management](./features.md#colour-management). Until a bureau supplies
+  one, a CMYK export cannot be produced at all, which is the honest state of
+  affairs rather than a gap to paper over.
 - **Whether a scatter tracks is still judged by eye.** M2 removes clumps and
   bald patches, both of which are measurable and tested. Corridors are neither,
   until [M6](./roadmap.md#m6--mockups-and-tracking-detection) builds the Radon

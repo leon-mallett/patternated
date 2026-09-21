@@ -78,7 +78,7 @@ to a small slot set without unacceptable loss — in which case the raster path
 stays literal-coloured and slots apply only to vectorised motifs, which is a
 narrowing rather than a reversal.
 
-Governs [colourways](./roadmap.md#m5--colourways-and-export).
+Governs [colourways](./features.md#colourways).
 
 ---
 
@@ -666,3 +666,51 @@ and the loading path each had tests; the round trip had none.
 **Would reopen if.** Never — but the shape is worth remembering: two components
 that are individually correct can still be incompatible at their join, and only
 a test that crosses the join will say so.
+
+---
+
+## Shipping no CMYK profile at all
+
+**Decided.** The tool converts to CMYK through a profile the user supplies.
+None is bundled.
+
+**Why.** The licensing was researched and several CMYK profiles are free to
+redistribute without restriction — ECI's PSO Coated, IDEAlliance's GRACoL and
+SWOP. Any of them could have shipped. All of them describe an **offset litho
+press**, and a digital textile press is not one.
+
+A bundled default would make the button work, and the file it produced would be
+wrong in a way nobody could see until fabric arrived. That is worse than the
+button being unavailable, because the entire proposition of colour management is
+that the numbers mean something. A conversion through the wrong profile is a
+formula with extra steps.
+
+The bureau has the correct profile. Asking for it is a one-line email, and the
+[question list](./commercialisation.md#output-spec--decided) asks
+for it already.
+
+**Rejected.** Bundling one with a warning. Warnings are read once and the file
+is produced every time.
+
+**Would reopen if.** A textile-press profile turns up that is genuinely
+representative and freely redistributable, which would make a default better
+than nothing rather than worse.
+
+---
+
+## moxcms 0.8.1 rather than the current release
+
+**Decided.** Colour management uses `moxcms` 0.8.1, not 0.9.1.
+
+**Why.** 0.9.1 was six days old with 2,600 downloads; 0.8.1 has 47 million.
+Reading both showed the CMYK transform path is the same, so the settled release
+costs nothing. Same reasoning that picked `tauri` 2.11.5 over a release
+published the day before, and it is becoming a pattern worth naming: **prefer
+the version other people have already run**, unless the newer one does something
+the older cannot.
+
+**Verified before building on it.** A probe converted white to almost no ink,
+black to 87% on the black plate, and red to magenta and yellow rather than
+cyan — because a colour library that compiles is not the same as one that
+converts correctly, and its own documentation was ambiguous about whether CMYK
+was supported at all.
