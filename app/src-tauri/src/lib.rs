@@ -664,6 +664,81 @@ fn export(app: State<'_, App>, path: String, request: ExportRequest) -> Reply<St
     Ok(path.display().to_string())
 }
 
+/// The garments a print can be seen on.
+#[derive(Serialize)]
+struct GarmentOption {
+    name: String,
+    chest_mm: f32,
+    length_mm: f32,
+}
+
+#[tauri::command]
+fn garments() -> Vec<GarmentOption> {
+    pattern_render::Garment::standard()
+        .into_iter()
+        .map(|g| GarmentOption {
+            name: g.name,
+            chest_mm: g.chest_mm,
+            length_mm: g.length_mm,
+        })
+        .collect()
+}
+
+/// A print on a garment, at true scale.
+#[derive(Serialize)]
+struct MockupView {
+    png_base64: String,
+    width: u32,
+    height: u32,
+    /// How many repeats span the chest — the number this view exists to make
+    /// obvious.
+    repeats_across: f32,
+    chest_mm: f32,
+    length_mm: f32,
+}
+
+/// Show the print on a garment.
+///
+/// Worth its weight despite looking cosmetic: seeing a repeat at its real size
+/// against a real body is how a scale error is caught before fabric is bought.
+#[tauri::command]
+fn mockup(
+    app: State<'_, App>,
+    params: Params,
+    garment: String,
+    width_px: u32,
+) -> Reply<MockupView> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_mut().ok_or("no document is open")?;
+    write_params(session, &params).map_err(|e| fail("could not apply those settings", e))?;
+
+    let chosen = pattern_render::Garment::standard()
+        .into_iter()
+        .find(|g| g.name == garment)
+        .ok_or_else(|| format!("no garment called '{garment}'"))?;
+
+    let rendered = pattern_render::render_mockup(
+        &session.document.pattern,
+        &session.bank,
+        &chosen,
+        width_px.clamp(160, 1600),
+    )
+    .map_err(|e| fail("could not render the garment", e))?;
+
+    let png = rendered
+        .pixmap
+        .encode_png()
+        .map_err(|e| fail("could not encode the mockup", e))?;
+    Ok(MockupView {
+        png_base64: base64::encode(&png),
+        width: rendered.pixmap.width(),
+        height: rendered.pixmap.height(),
+        repeats_across: rendered.repeats_across,
+        chest_mm: chosen.chest_mm,
+        length_mm: chosen.length_mm,
+    })
+}
+
 /// Preview a pattern in the colours a press can reach.
 ///
 /// Converts to the press's colours and straight back, so anything it cannot
@@ -872,6 +947,8 @@ pub fn run() {
             export_plan,
             export,
             proof,
+            garments,
+            mockup,
             save_document,
             set_slot_colour,
             derive_colourway,

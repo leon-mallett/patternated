@@ -10,6 +10,7 @@ pattern-core.workspace = true
 glam.workspace = true
 tiny-skia.workspace = true
 thiserror.workspace = true
+serde.workspace = true
 
 [dev-dependencies]
 motif-ingest.workspace = true

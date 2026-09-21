@@ -239,3 +239,16 @@ code {
   cursor: pointer;
   font: inherit;
 }
+
+.worn {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.worn img { max-height: 260px; width: auto; display: block; border-radius: 4px; }
+.worn-caption { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.garment-pick { max-width: 190px; }

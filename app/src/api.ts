@@ -157,3 +157,25 @@ export const proof = (params: Params, cmykProfile: string) =>
 
 export const saveDocument = (path?: string) =>
   invoke<string>("save_document", { path: path ?? null });
+
+/** A garment a print can be seen on, by the measurements a size chart lists. */
+export interface GarmentOption {
+  name: string;
+  chest_mm: number;
+  length_mm: number;
+}
+
+export const garments = () => invoke<GarmentOption[]>("garments");
+
+/** A print on a garment, at true scale. */
+export interface MockupView {
+  png_base64: string;
+  width: number;
+  height: number;
+  repeats_across: number;
+  chest_mm: number;
+  length_mm: number;
+}
+
+export const mockup = (params: Params, garment: string, widthPx: number) =>
+  invoke<MockupView>("mockup", { params, garment, widthPx });

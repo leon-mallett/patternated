@@ -2440,6 +2440,7 @@ dependencies = [
  "glam",
  "motif-ingest",
  "pattern-core",
+ "serde",
  "thiserror 2.0.20",
  "tiny-skia",
 ]

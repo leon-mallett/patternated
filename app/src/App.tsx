@@ -5,6 +5,8 @@ import {
   deriveColourway,
   exportFile,
   exportPlan,
+  garments,
+  mockup,
   newFromImages,
   openDocument,
   proof,
@@ -20,6 +22,8 @@ import {
   type ExportPlan,
   type ExportRequest,
   type PaletteState,
+  type GarmentOption,
+  type MockupView,
   LAYOUTS,
 } from "./api";
 
@@ -55,6 +59,14 @@ export default function App() {
   const [gridCols, setGridCols] = useState(3);
   const [palette, setPalette] = useState<PaletteState | null>(null);
 
+  const [wearing, setWearing] = useState<string | null>(null);
+  const [garmentList, setGarmentList] = useState<GarmentOption[]>([]);
+  const [worn, setWorn] = useState<MockupView | null>(null);
+
+  useEffect(() => {
+    garments().then(setGarmentList).catch(() => setGarmentList([]));
+  }, []);
+
   const [exporting, setExporting] = useState(false);
   const [plan, setPlan] = useState<ExportPlan | null>(null);
   const [exp, setExp] = useState<ExportRequest>({
@@ -89,11 +101,8 @@ export default function App() {
   // Guards against a slow render landing after a newer one and overwriting it.
   const generation = useRef(0);
 
-  const refresh = useCallback(async () => {
-    if (!doc) return;
-    const mine = ++generation.current;
-    setBusy(true);
-    const params: Params = {
+  const currentParams = useCallback(
+    (): Params => ({
       tile_mm: tile,
       lattice,
       density,
@@ -109,7 +118,28 @@ export default function App() {
       preview_width_px: Math.max(320, Math.round(paneRef.current?.clientWidth ?? 720)),
       cols: FIELD,
       rows: FIELD,
-    };
+    }),
+    [
+      tile,
+      lattice,
+      density,
+      jitter,
+      scale,
+      seed,
+      layout,
+      preventOverlap,
+      gridRows,
+      gridCols,
+      weights,
+      sizes,
+    ],
+  );
+
+  const refresh = useCallback(async () => {
+    if (!doc) return;
+    const mine = ++generation.current;
+    setBusy(true);
+    const params = currentParams();
     try {
       const next =
         proofing && exp.cmyk_profile
@@ -124,23 +154,23 @@ export default function App() {
     } finally {
       if (mine === generation.current) setBusy(false);
     }
-  }, [
-    doc,
-    tile,
-    lattice,
-    density,
-    jitter,
-    scale,
-    seed,
-    weights,
-    sizes,
-    layout,
-    preventOverlap,
-    gridRows,
-    gridCols,
-    proofing,
-    exp.cmyk_profile,
-  ]);
+  }, [doc, currentParams, proofing, exp.cmyk_profile]);
+
+  // The garment view follows the pattern rather than being a snapshot of it,
+  // so a scale decision is made against what is actually on screen.
+  useEffect(() => {
+    if (!doc || !wearing) {
+      setWorn(null);
+      return;
+    }
+    let live = true;
+    mockup(currentParams(), wearing, 520)
+      .then((m) => live && setWorn(m))
+      .catch((e) => live && setError(String(e)));
+    return () => {
+      live = false;
+    };
+  }, [doc, wearing, currentParams, preview]);
 
   // Coalesce a drag into one render rather than one per pixel.
   useEffect(() => {
@@ -323,6 +353,19 @@ export default function App() {
                 {proofing ? "Proofing" : "Soft proof"}
               </button>
             )}
+            <select
+              className="garment-pick"
+              value={wearing ?? ""}
+              onChange={(e) => setWearing(e.target.value || null)}
+              title="See the print at true scale on a garment"
+            >
+              <option value="">No garment</option>
+              {garmentList.map((g) => (
+                <option key={g.name} value={g.name}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
             <button onClick={onNew}>New…</button>
             <button onClick={onOpen}>Open…</button>
             <button onClick={onSave}>Save</button>
@@ -331,6 +374,23 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {wearing && worn && (
+          <div className="worn">
+            <img
+              src={`data:image/png;base64,${worn.png_base64}`}
+              alt={`The print on a ${wearing}`}
+            />
+            <div className="worn-caption">
+              <strong>{wearing}</strong>
+              <span className="muted">
+                {Math.round(worn.chest_mm / 10)} × {Math.round(worn.length_mm / 10)} cm
+                {" · "}
+                {worn.repeats_across.toFixed(1)} repeats across the chest
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className={busy ? "canvas working" : "canvas"}>
           {preview ? (

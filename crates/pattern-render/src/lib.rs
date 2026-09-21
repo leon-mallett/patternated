@@ -4,6 +4,7 @@
 //! agree pixel for pixel is what proves the repeat is seamless. See
 //! [`render_field`] and [`render_field_direct`].
 
+pub mod mockup;
 pub mod motif;
 mod pixel_lattice;
 
@@ -12,6 +13,7 @@ use pattern_core::{wrap_into_tile, Color, Motif, Pattern, PatternError};
 use thiserror::Error;
 use tiny_skia::{FilterQuality, Pixmap, PixmapPaint, PremultipliedColorU8, Transform};
 
+pub use mockup::{render_mockup, Garment, Mockup};
 pub use motif::{resolve, MotifBank};
 pub use pixel_lattice::PixelLattice;
 
