@@ -12,6 +12,8 @@ export interface Opened {
   scale_range: [number, number];
   motifs: MotifEntry[];
   palette: string[];
+  colourways: string[];
+  active_colourway: string | null;
   scattered: boolean;
   layout: string;
   prevent_overlap: boolean;
@@ -95,6 +97,25 @@ export interface SaveTarget {
 }
 
 export const saveTarget = () => invoke<SaveTarget>("save_target");
+
+/** The palette as it stands, after any change. */
+export interface PaletteState {
+  palette: string[];
+  colourways: string[];
+  active_colourway: string | null;
+}
+
+export const setSlotColour = (slot: number, colour: string) =>
+  invoke<PaletteState>("set_slot_colour", { slot, colour });
+
+export const deriveColourway = (kind: string, amount: number) =>
+  invoke<PaletteState>("derive_colourway", { kind, amount });
+
+export const rememberColourway = (name: string) =>
+  invoke<PaletteState>("remember_colourway", { name });
+
+export const useColourway = (name: string | null) =>
+  invoke<PaletteState>("use_colourway", { name });
 
 export const apply = (params: Params) => invoke<Preview>("apply", { params });
 

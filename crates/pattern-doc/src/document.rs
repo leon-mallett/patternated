@@ -43,6 +43,37 @@ pub struct Document {
     /// When present, placements are generated rather than authored.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scatter: Option<ScatterSpec>,
+    /// Named alternative palettes for this same pattern.
+    ///
+    /// A colourway is the same print in different colours, and a range sells in
+    /// several — so they belong in one document rather than in copies of it.
+    /// Keeping them together is also what stops them drifting: a placement
+    /// edited in one copy and not the others is a range that no longer
+    /// coordinates.
+    ///
+    /// Every colourway must have the same number of slots as the palette the
+    /// motifs were quantised against, because slot 3 has to mean the same part
+    /// of the artwork in all of them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub colourways: Vec<Colourway>,
+    /// Which colourway is currently rendered, by name. None means the
+    /// pattern's own palette, which is the one motifs were quantised against.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_colourway: Option<String>,
+    /// Whether the placements were produced by the scatter or grid above,
+    /// rather than written by hand.
+    ///
+    /// Both are stored, and they have to be told apart. A saved document keeps
+    /// its placements so that the print reopens exactly as approved even if the
+    /// sampler changes — a seed is a recipe, and a recipe is not a record. But
+    /// a document carrying hand-placed motifs *and* a generator is genuinely
+    /// ambiguous and is refused, because silently discarding either would be
+    /// the worse failure.
+    ///
+    /// Without this flag the two cases are indistinguishable, and saving a
+    /// scattered pattern produced a file that could not be reopened.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub placements_are_generated: bool,
     /// The other way of generating them: motifs on a regular grid.
     ///
     /// Mutually exclusive with `scatter`. A document carrying both is refused,
@@ -89,6 +120,13 @@ fn prevent_overlap_default() -> bool {
 
 fn one() -> f32 {
     1.0
+}
+
+/// One named alternative palette.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Colourway {
+    pub name: String,
+    pub palette: Palette,
 }
 
 /// A grid layout as a document describes it.
@@ -181,6 +219,13 @@ impl Document {
         let mut doc: Self = serde_json::from_str(&text)
             .with_context(|| format!("parsing pattern document {}", path.display()))?;
 
+        // The design palette is settled before motifs resolve, because that is
+        // what they are quantised against. Switching colourway afterwards
+        // changes what the slots look like, never which slot a pixel is.
+        doc.pin_design_palette();
+        doc.apply_colourway()
+            .with_context(|| format!("selecting a colourway in {}", path.display()))?;
+
         let bank = doc
             .load_motifs(path)
             .with_context(|| format!("loading motifs for {}", path.display()))?;
@@ -190,6 +235,70 @@ impl Document {
             .validate()
             .with_context(|| format!("validating pattern in {}", path.display()))?;
         Ok((doc, bank))
+    }
+
+    /// Remember the palette the motifs are quantised against.
+    ///
+    /// Without this, switching colourway on a document whose motifs come from
+    /// loose files would re-quantise the artwork against the colourway — asking
+    /// which of an unrelated set of colours a red cherry is nearest to, which
+    /// is the mistake `design_palette` exists to prevent. Pinning it the first
+    /// time a document is opened makes every later switch a swap rather than a
+    /// re-ingest.
+    pub fn pin_design_palette(&mut self) {
+        if self.design_palette.is_none() && !self.colourways.is_empty() {
+            self.design_palette = Some(self.pattern.palette.clone());
+        }
+    }
+
+    /// Put the named colourway into the pattern, if one is selected.
+    pub fn apply_colourway(&mut self) -> Result<()> {
+        let Some(name) = self.active_colourway.clone() else {
+            return Ok(());
+        };
+        let chosen = self
+            .colourways
+            .iter()
+            .find(|c| c.name == name)
+            .ok_or_else(|| anyhow!("this document has no colourway called '{name}'"))?
+            .palette
+            .clone();
+
+        let expected = self
+            .design_palette
+            .as_ref()
+            .map(|p| p.len())
+            .unwrap_or_else(|| self.pattern.palette.len());
+        if chosen.len() != expected {
+            return Err(anyhow!(
+                "colourway '{name}' has {} colours and the motifs were quantised against {}; \
+                 slots would not line up",
+                chosen.len(),
+                expected
+            ));
+        }
+        self.pattern.palette = chosen;
+        Ok(())
+    }
+
+    /// Store the pattern's current palette under a name.
+    ///
+    /// Replaces a colourway of the same name rather than adding a second, since
+    /// two colourways called "Night" is not a state anybody wants.
+    pub fn remember_colourway(&mut self, name: &str) {
+        self.pin_design_palette();
+        if self.design_palette.is_none() {
+            self.design_palette = Some(self.pattern.palette.clone());
+        }
+        let palette = self.pattern.palette.clone();
+        match self.colourways.iter_mut().find(|c| c.name == name) {
+            Some(existing) => existing.palette = palette,
+            None => self.colourways.push(Colourway {
+                name: name.to_string(),
+                palette,
+            }),
+        }
+        self.active_colourway = Some(name.to_string());
     }
 
     /// Physical size of a motif as this document and its library see it.
@@ -211,18 +320,28 @@ impl Document {
                 "document has both a scatter and a grid; keep one or the other"
             ));
         }
+        if self.scatter.is_none() && self.grid.is_none() {
+            return Ok(());
+        }
+        if !self.pattern.placements.is_empty() {
+            if self.placements_are_generated {
+                // Written by this generator and saved. Keep them: the file is
+                // the record of a print somebody approved, and regenerating
+                // from the seed would only reproduce it as long as the sampler
+                // never changes.
+                return Ok(());
+            }
+            return Err(anyhow!(
+                "document has {} hand-placed motifs and a generator; keep one or the other",
+                self.pattern.placements.len()
+            ));
+        }
         if let Some(spec) = self.grid.clone() {
             return self.apply_grid(&spec, bank);
         }
         let Some(spec) = &self.scatter else {
             return Ok(());
         };
-        if !self.pattern.placements.is_empty() {
-            return Err(anyhow!(
-                "document has {} authored placements and a scatter; keep one or the other",
-                self.pattern.placements.len()
-            ));
-        }
 
         let mut mix = Vec::with_capacity(spec.mix.len());
         for entry in &spec.mix {
@@ -257,6 +376,7 @@ impl Document {
         self.pattern.seed = spec.seed;
         self.pattern.placements =
             scatter(&params, self.pattern.tile_size_mm, &self.pattern.lattice);
+        self.placements_are_generated = true;
 
         if self.pattern.placements.is_empty() {
             return Err(anyhow!(
@@ -269,13 +389,6 @@ impl Document {
 
     /// Lay motifs out on a grid rather than strewing them.
     fn apply_grid(&mut self, spec: &GridSpec, bank: &MotifBank) -> Result<()> {
-        if !self.pattern.placements.is_empty() {
-            return Err(anyhow!(
-                "document has {} authored placements and a grid; keep one or the other",
-                self.pattern.placements.len()
-            ));
-        }
-
         let mut mix = Vec::with_capacity(spec.mix.len());
         for entry in &spec.mix {
             let motif = bank.get(&entry.motif_id).ok_or_else(|| {
@@ -312,6 +425,7 @@ impl Document {
             &self.pattern.lattice,
         );
         self.pattern.placements = placements;
+        self.placements_are_generated = true;
         self.grid_scale_applied = outcome.scale_applied;
         if self.pattern.placements.is_empty() {
             return Err(anyhow!(
@@ -627,6 +741,9 @@ pub fn new_from_images(
             seed: 1,
         },
         grid: None,
+        placements_are_generated: false,
+        colourways: Vec::new(),
+        active_colourway: None,
         grid_scale_applied: 1.0,
         scatter: Some(ScatterSpec {
             density: 0.3,

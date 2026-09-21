@@ -2,18 +2,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import {
   apply,
+  deriveColourway,
   exportFile,
   exportPlan,
   newFromImages,
   openDocument,
+  rememberColourway,
   saveDocument,
   saveTarget,
+  setSlotColour,
+  useColourway,
   type MotifEntry,
   type Opened,
   type Params,
   type Preview,
   type ExportPlan,
   type ExportRequest,
+  type PaletteState,
   LAYOUTS,
 } from "./api";
 
@@ -47,6 +52,7 @@ export default function App() {
   const [preventOverlap, setPreventOverlap] = useState(true);
   const [gridRows, setGridRows] = useState(3);
   const [gridCols, setGridCols] = useState(3);
+  const [palette, setPalette] = useState<PaletteState | null>(null);
 
   const [exporting, setExporting] = useState(false);
   const [plan, setPlan] = useState<ExportPlan | null>(null);
@@ -148,6 +154,11 @@ export default function App() {
     setSizes(
       Object.fromEntries(opened.motifs.map((m) => [m.id, m.longest_edge_mm])),
     );
+    setPalette({
+      palette: opened.palette,
+      colourways: opened.colourways,
+      active_colourway: opened.active_colourway,
+    });
     setLayout(opened.layout);
     setPreventOverlap(opened.prevent_overlap);
     setGridRows(opened.grid_rows);
@@ -169,6 +180,18 @@ export default function App() {
       // size control the moment the pattern is on screen.
       const opened = await newFromImages(files, 50);
       adopt(opened, `Started a pattern from ${files.length} image${files.length > 1 ? "s" : ""}`);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /// Apply a palette change and re-render, since colour is resolved at draw
+  /// time rather than stored in the motifs.
+  async function changePalette(action: () => Promise<PaletteState>) {
+    try {
+      setPalette(await action());
+      setError(null);
+      await refresh();
     } catch (e) {
       setError(String(e));
     }
@@ -524,15 +547,81 @@ export default function App() {
           </Group>
         )}
 
-        <Group title="Palette">
+        <Group title="Colour">
           <div className="swatches">
-            {doc.palette.map((c, i) => (
-              <span key={i} className="swatch" style={{ background: c }} title={`Slot ${i}${i === 0 ? " (ground)" : ""} · ${c}`} />
+            {(palette?.palette ?? doc.palette).map((c, i) => (
+              <label
+                key={i}
+                className="swatch-edit"
+                title={`Slot ${i}${i === 0 ? " — the ground" : ""} · ${c}`}
+              >
+                <input
+                  type="color"
+                  value={c}
+                  onChange={(e) =>
+                    changePalette(() => setSlotColour(i, e.target.value))
+                  }
+                />
+                <span className="swatch" style={{ background: c }} />
+              </label>
             ))}
           </div>
           <p className="hint">
-            Motifs store slots, not colours, so a colourway is a palette swap.
-            Editing palettes arrives with export, in M5.
+            Motifs store slots, not colours, so changing one recolours every
+            motif at once. Slot 0 is the ground — inverting a print to a dark
+            background is an ordinary edit here.
+          </p>
+
+          <div className="derive">
+            <button onClick={() => changePalette(() => deriveColourway("hue", 40))}>
+              Shift hue
+            </button>
+            <button onClick={() => changePalette(() => deriveColourway("lighter", 0.2))}>
+              Lighter
+            </button>
+            <button onClick={() => changePalette(() => deriveColourway("darker", 0.2))}>
+              Darker
+            </button>
+            <button onClick={() => changePalette(() => deriveColourway("invert", 1))}>
+              Swap ground
+            </button>
+          </div>
+          <p className="hint">
+            Candidates to pick from rather than answers. Everything moves
+            together, so a palette that worked keeps its relationships.
+          </p>
+        </Group>
+
+        <Group title="Colourways">
+          {(palette?.colourways ?? []).length > 0 && (
+            <div className="colourways">
+              {(palette?.colourways ?? []).map((name) => (
+                <button
+                  key={name}
+                  className={
+                    palette?.active_colourway === name ? "chip active" : "chip"
+                  }
+                  onClick={() => changePalette(() => useColourway(name))}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => {
+              const name = window.prompt(
+                "Name this colourway",
+                `Colourway ${(palette?.colourways.length ?? 0) + 1}`,
+              );
+              if (name) changePalette(() => rememberColourway(name));
+            }}
+          >
+            Save this colourway…
+          </button>
+          <p className="hint">
+            A range sells in colourways, so they live in one document rather
+            than in copies of it — which is also what stops them drifting apart.
           </p>
         </Group>
 

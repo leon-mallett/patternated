@@ -211,3 +211,20 @@ code {
 .export-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
 .export-row label { min-width: 150px; }
 .export-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+.swatch-edit { position: relative; display: inline-flex; cursor: pointer; }
+.swatch-edit input[type="color"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+.swatch-edit:hover .swatch { border-color: var(--muted); }
+.derive { display: flex; flex-wrap: wrap; gap: 6px; }
+.colourways { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; }
+.chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }

@@ -46,6 +46,8 @@ struct Opened {
     scale_range: [f32; 2],
     motifs: Vec<MotifEntry>,
     palette: Vec<String>,
+    colourways: Vec<String>,
+    active_colourway: Option<String>,
     scattered: bool,
     layout: String,
     prevent_overlap: bool,
@@ -175,6 +177,8 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
             })
             .collect(),
         palette: p.palette.colors.iter().map(hex).collect(),
+        colourways: document.colourways.iter().map(|c| c.name.clone()).collect(),
+        active_colourway: document.active_colourway.clone(),
         scattered: scatter.is_some() || document.grid.is_some(),
         layout: document
             .grid
@@ -649,6 +653,105 @@ fn save_document(app: State<'_, App>, path: Option<String>) -> Reply<String> {
     session.saved = true;
     Ok(target.display().to_string())
 }
+/// Parse a CSS hex colour, which is how the interface talks about colour.
+fn parse_hex(hex: &str) -> Option<Color> {
+    let hex = hex.trim().trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+    let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+    Some(Color::new(byte(0)?, byte(2)?, byte(4)?))
+}
+
+/// The palette as it stands, after any change.
+#[derive(Serialize)]
+struct PaletteState {
+    palette: Vec<String>,
+    colourways: Vec<String>,
+    active_colourway: Option<String>,
+}
+
+fn palette_state(session: &Session) -> PaletteState {
+    PaletteState {
+        palette: session
+            .document
+            .pattern
+            .palette
+            .colors
+            .iter()
+            .map(hex)
+            .collect(),
+        colourways: session
+            .document
+            .colourways
+            .iter()
+            .map(|c| c.name.clone())
+            .collect(),
+        active_colourway: session.document.active_colourway.clone(),
+    }
+}
+
+/// Change one slot's colour.
+///
+/// Slot 0 is the ground and is edited like any other, which is the point of
+/// having made it a slot: inverting a print to a dark background is an
+/// ordinary palette edit rather than a special case.
+#[tauri::command]
+fn set_slot_colour(app: State<'_, App>, slot: u8, colour: String) -> Reply<PaletteState> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_mut().ok_or("no document is open")?;
+    let colour = parse_hex(&colour).ok_or_else(|| format!("'{colour}' is not a hex colour"))?;
+    session.document.pattern.palette =
+        pattern_core::with_colour(&session.document.pattern.palette, slot, colour);
+    Ok(palette_state(session))
+}
+
+/// Derive a candidate colourway from the one on screen.
+///
+/// Four colourways in a second and pick one, which is what the spec asks of
+/// this: the moves are cheap and the judgement is not.
+#[tauri::command]
+fn derive_colourway(app: State<'_, App>, kind: String, amount: f32) -> Reply<PaletteState> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_mut().ok_or("no document is open")?;
+    let current = &session.document.pattern.palette;
+    let derived = match kind.as_str() {
+        "hue" => pattern_core::rotate_hue(current, amount),
+        "lighter" => pattern_core::shift_lightness(current, amount.abs()),
+        "darker" => pattern_core::shift_lightness(current, -amount.abs()),
+        "invert" => pattern_core::swap_ground(current, amount.max(1.0) as u8),
+        other => return Err(format!("no such colourway move: '{other}'")),
+    };
+    session.document.pattern.palette = derived;
+    Ok(palette_state(session))
+}
+
+/// Store the palette on screen under a name.
+#[tauri::command]
+fn remember_colourway(app: State<'_, App>, name: String) -> Reply<PaletteState> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_mut().ok_or("no document is open")?;
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("a colourway needs a name".into());
+    }
+    session.document.remember_colourway(name);
+    Ok(palette_state(session))
+}
+
+/// Switch to a stored colourway.
+#[tauri::command]
+fn use_colourway(app: State<'_, App>, name: Option<String>) -> Reply<PaletteState> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_mut().ok_or("no document is open")?;
+    session.document.active_colourway = name;
+    session
+        .document
+        .apply_colourway()
+        .map_err(|e| fail("could not switch colourway", e))?;
+    Ok(palette_state(session))
+}
+
 /// The house palettes a document can be rendered in.
 ///
 /// Reads what the document already carries rather than offering an editor:
@@ -681,6 +784,10 @@ pub fn run() {
             export_plan,
             export,
             save_document,
+            set_slot_colour,
+            derive_colourway,
+            remember_colourway,
+            use_colourway,
             palette
         ])
         .run(tauri::generate_context!())
@@ -1044,6 +1151,22 @@ mod tests {
             v: Vec2::new(0.0, 180.0),
         };
         assert_eq!(lattice_name(&odd, tile), "custom");
+    }
+
+    #[test]
+    fn hex_colours_are_read_the_way_a_colour_input_writes_them() {
+        assert_eq!(parse_hex("#faf6ee"), Some(Color::new(250, 246, 238)));
+        assert_eq!(parse_hex("FAF6EE"), Some(Color::new(250, 246, 238)));
+        assert_eq!(parse_hex("  #000000 "), Some(Color::new(0, 0, 0)));
+    }
+
+    #[test]
+    fn a_colour_that_is_not_a_colour_is_refused_rather_than_guessed() {
+        // Silently substituting a colour is the failure mode this whole
+        // palette model exists to avoid.
+        for bad in ["", "#fff", "#gggggg", "rebeccapurple", "#1234567"] {
+            assert_eq!(parse_hex(bad), None, "{bad:?} was accepted");
+        }
     }
 
     #[test]

@@ -16,3 +16,6 @@ serde_json.workspace = true
 anyhow.workspace = true
 tiny-skia.workspace = true
 png.workspace = true
+
+[dev-dependencies]
+pattern-render.workspace = true
