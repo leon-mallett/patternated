@@ -92,3 +92,32 @@ were answered by synthetic fixtures in `crates/motif-ingest/tests/pipeline.rs`.
 
 The five scan fixtures in that file encode everything this round found, so the
 findings survive without the images.
+
+---
+
+## Round three: pop-art bananas, cut out
+
+Three motifs generated on 2026-09-22 as stand-in Peel Club artwork, by
+`make-bananas.py` beside this file. A single banana half-peeled, a whole one,
+and a bunch — sharing one style block so they read as one illustrator, for the
+same reason the fruit set did.
+
+The difference from the earlier rounds is `"background": "transparent"`. Artwork
+that arrives already cut out takes the `ExistingAlpha` path through ingest with
+no matting at all, which is the easiest route there is and the one Peel Club's
+own exports will most likely take. Measured: 58% to 77% of each image fully
+transparent, with a 7% to 12% feathered rim.
+
+They found a real defect on arrival. `derive-palette` mattes before sampling —
+correctly, since a palette derived from an un-matted scan is a palette of paper
+— but it always used the paper-measuring method. A transparent PNG has no paper,
+so the brightest thing in frame is the subject and the whole image was removed;
+the derived palette contained nothing but its ground. The choice of matting
+method now lives in one function that both routes call, because it was being
+made in two places and they disagreed.
+
+The images are gitignored like the rest. Regenerate with:
+
+```bash
+python3 examples/generated-motifs/make-bananas.py
+```

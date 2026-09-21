@@ -18,7 +18,7 @@ mod vectorise;
 
 pub mod library;
 
-pub use matte::{border_retained, luminance, matte, MatteMethod};
+pub use matte::{border_retained, luminance, matte, method_for, MatteMethod};
 pub use pattern_core::GROUND_SLOT;
 pub use quantise::{colour_distance_sq, derive_palette, quantise, QuantisationReport};
 pub use source::SourceImage;

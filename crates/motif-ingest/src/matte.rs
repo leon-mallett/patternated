@@ -102,6 +102,27 @@ fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     t * t * (3.0 - 2.0 * t)
 }
 
+/// Choose how to cut a subject out, from the image itself.
+///
+/// Artwork that already carries alpha has been cut out by whoever exported it,
+/// and measuring paper that is not there produces nonsense — a transparent PNG
+/// has no paper, so the brightest thing in frame is the subject and the whole
+/// image gets removed.
+///
+/// One function rather than a judgement made at each call site, because it was
+/// made at two and they disagreed: creating a pattern from images chose
+/// correctly and deriving a palette from the same images did not, so a set of
+/// transparent motifs produced a palette containing only its ground.
+#[must_use]
+pub fn method_for(image: &SourceImage) -> MatteMethod {
+    let has_alpha = image.pixels.chunks(4).any(|p| p[3] < 250);
+    if has_alpha {
+        MatteMethod::ExistingAlpha
+    } else {
+        MatteMethod::default()
+    }
+}
+
 /// Blocks per axis in the illumination estimate.
 ///
 /// Coarse on purpose. The estimate must follow the lighting, which varies
@@ -496,6 +517,29 @@ mod tests {
             uniform,
             "ExistingAlpha is the method for artwork that is already cut out"
         );
+    }
+
+    #[test]
+    fn artwork_that_is_already_cut_out_is_left_alone() {
+        // The case that was got wrong: a transparent PNG has no paper, so
+        // measuring one removes the subject.
+        let mut cut_out = SourceImage::filled(8, 8, [0, 0, 0, 0]);
+        for x in 2..6 {
+            cut_out.set_pixel(x, 4, RED);
+        }
+        assert_eq!(method_for(&cut_out), MatteMethod::ExistingAlpha);
+
+        let matted = matte(&cut_out, method_for(&cut_out));
+        assert_eq!(matted.pixel(4, 4)[3], 255, "the subject was removed");
+        assert_eq!(matted.pixel(0, 0)[3], 0);
+    }
+
+    #[test]
+    fn opaque_artwork_gets_its_background_measured() {
+        assert!(matches!(
+            method_for(&paper_with_a_mark()),
+            MatteMethod::PaperRelative { .. }
+        ));
     }
 
     #[test]

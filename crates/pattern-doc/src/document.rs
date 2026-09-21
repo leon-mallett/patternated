@@ -632,8 +632,11 @@ pub fn derive_palette_from(
         .map(|p| {
             let source = load_source(p)?;
             // Matte first: a palette derived from un-matted scans is a palette
-            // of paper, since the background outnumbers the subject.
-            Ok(motif_ingest::matte(&source, MatteMethod::default()))
+            // of paper, since the background outnumbers the subject. The method
+            // comes from the image, because artwork that already carries alpha
+            // has no paper to measure.
+            let method = motif_ingest::method_for(&source);
+            Ok(motif_ingest::matte(&source, method))
         })
         .collect::<Result<Vec<_>>>()?;
     let refs: Vec<&SourceImage> = images.iter().collect();
@@ -678,20 +681,9 @@ pub fn new_from_images(
         sources.push((path.clone(), load_source(path)?));
     }
 
-    // Artwork exported with transparency is already cut out; anything opaque
-    // needs the background measuring away.
-    let method = |image: &SourceImage| {
-        let has_alpha = image.pixels.chunks(4).any(|p| p[3] < 250);
-        if has_alpha {
-            MatteMethod::ExistingAlpha
-        } else {
-            MatteMethod::default()
-        }
-    };
-
     let matted: Vec<SourceImage> = sources
         .iter()
-        .map(|(_, image)| motif_ingest::matte(image, method(image)))
+        .map(|(_, image)| motif_ingest::matte(image, motif_ingest::method_for(image)))
         .collect();
     let refs: Vec<&SourceImage> = matted.iter().collect();
 
@@ -720,7 +712,7 @@ pub fn new_from_images(
             id: id.clone(),
             file: Some(path.clone()),
             natural_size_mm: Some(size),
-            matte: Some(method(image)),
+            matte: Some(motif_ingest::method_for(image)),
         });
         mix.push(MixEntry {
             motif_id: id,

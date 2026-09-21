@@ -635,19 +635,47 @@ export default function App() {
           </Group>
         )}
 
-        <Group title="Colour">
+        <Group title="Background">
+          {(() => {
+            const colours = palette?.palette ?? doc.palette;
+            const ground = colours[0] ?? "#ffffff";
+            return (
+              <>
+                <label className="ground">
+                  <input
+                    type="color"
+                    value={ground}
+                    onChange={(e) =>
+                      changePalette(() => setSlotColour(0, e.target.value))
+                    }
+                  />
+                  <span className="swatch large" style={{ background: ground }} />
+                  <span className="ground-value">{ground}</span>
+                </label>
+                <p className="hint">
+                  The colour of the unprinted fabric. It is slot 0 of the
+                  palette rather than a special case, which is why inverting a
+                  print to a dark ground costs nothing — and why it recolours
+                  with a colourway like everything else.
+                </p>
+              </>
+            );
+          })()}
+        </Group>
+
+        <Group title="Motif colours">
           <div className="swatches">
-            {(palette?.palette ?? doc.palette).map((c, i) => (
+            {(palette?.palette ?? doc.palette).slice(1).map((c, i) => (
               <label
-                key={i}
+                key={i + 1}
                 className="swatch-edit"
-                title={`Slot ${i}${i === 0 ? " — the ground" : ""} · ${c}`}
+                title={`Slot ${i + 1} · ${c}`}
               >
                 <input
                   type="color"
                   value={c}
                   onChange={(e) =>
-                    changePalette(() => setSlotColour(i, e.target.value))
+                    changePalette(() => setSlotColour(i + 1, e.target.value))
                   }
                 />
                 <span className="swatch" style={{ background: c }} />
@@ -656,8 +684,7 @@ export default function App() {
           </div>
           <p className="hint">
             Motifs store slots, not colours, so changing one recolours every
-            motif at once. Slot 0 is the ground — inverting a print to a dark
-            background is an ordinary edit here.
+            motif that uses it at once.
           </p>
 
           <div className="derive">
