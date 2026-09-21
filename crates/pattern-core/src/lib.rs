@@ -5,6 +5,7 @@
 //! millimetres — pixels appear only in the render and export layers.
 
 mod error;
+mod grid;
 mod lattice;
 mod motif;
 mod palette;
@@ -14,6 +15,7 @@ mod scatter;
 mod torus;
 
 pub use error::PatternError;
+pub use grid::{grid, GridParams};
 pub use lattice::{Lattice, NEIGHBOUR_COUNT};
 pub use motif::{IndexedMotif, Motif};
 pub use palette::{Color, Palette, GROUND_SLOT};

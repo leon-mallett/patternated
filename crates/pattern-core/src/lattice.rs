@@ -43,6 +43,32 @@ impl Lattice {
         }
     }
 
+    /// Brick (half-brick) repeat: each row shifted sideways by half a tile.
+    ///
+    /// The horizontal counterpart of a half-drop, and the one that suits
+    /// geometrics and stripes — where a vertical stagger reads as a mistake and
+    /// a horizontal one reads as masonry.
+    #[must_use]
+    pub fn brick(tile_size_mm: Vec2) -> Self {
+        Self {
+            u: Vec2::new(tile_size_mm.x, 0.0),
+            v: Vec2::new(tile_size_mm.x / 2.0, tile_size_mm.y),
+        }
+    }
+
+    /// Quarter-drop repeat: a gentler diagonal than a half-drop.
+    ///
+    /// Worth having as its own thing rather than as a half-drop turned down:
+    /// the diagonal it produces runs at a different angle, which is the whole
+    /// reason a designer reaches for it.
+    #[must_use]
+    pub fn quarter_drop(tile_size_mm: Vec2) -> Self {
+        Self {
+            u: Vec2::new(tile_size_mm.x, tile_size_mm.y / 4.0),
+            v: Vec2::new(0.0, tile_size_mm.y),
+        }
+    }
+
     /// The nine offsets a motif must be drawn at for the tile to be seamless.
     ///
     /// These come from `u` and `v` themselves. Substituting the tile's own
@@ -138,8 +164,28 @@ mod tests {
     }
 
     #[test]
+    fn brick_staggers_sideways_rather_than_downwards() {
+        let l = Lattice::brick(TILE);
+        assert_eq!(l.u, Vec2::new(240.0, 0.0));
+        assert_eq!(l.v, Vec2::new(120.0, 180.0));
+    }
+
+    #[test]
+    fn quarter_drop_is_a_gentler_slope_than_half_drop() {
+        let q = Lattice::quarter_drop(TILE);
+        let h = Lattice::half_drop(TILE);
+        assert_eq!(q.u, Vec2::new(240.0, 45.0));
+        assert!(q.u.y < h.u.y, "a quarter drop should fall less than a half");
+    }
+
+    #[test]
     fn every_lattice_contains_the_identity_offset() {
-        for l in [Lattice::block(TILE), Lattice::half_drop(TILE)] {
+        for l in [
+            Lattice::block(TILE),
+            Lattice::half_drop(TILE),
+            Lattice::brick(TILE),
+            Lattice::quarter_drop(TILE),
+        ] {
             assert!(l.neighbour_offsets().contains(&Vec2::ZERO));
         }
     }
@@ -149,8 +195,17 @@ mod tests {
         // A half-drop shears the lattice without changing how much fabric one
         // tile covers.
         let tile_area = TILE.x * TILE.y;
-        assert!((Lattice::block(TILE).cell_area_mm2() - tile_area).abs() < 1e-3);
-        assert!((Lattice::half_drop(TILE).cell_area_mm2() - tile_area).abs() < 1e-3);
+        for lattice in [
+            Lattice::block(TILE),
+            Lattice::half_drop(TILE),
+            Lattice::brick(TILE),
+            Lattice::quarter_drop(TILE),
+        ] {
+            assert!(
+                (lattice.cell_area_mm2() - tile_area).abs() < 1e-3,
+                "{lattice:?} does not cover exactly one tile"
+            );
+        }
     }
 
     #[test]

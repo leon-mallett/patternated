@@ -13,7 +13,21 @@ export interface Opened {
   motifs: MotifEntry[];
   palette: string[];
   scattered: boolean;
+  layout: string;
+  prevent_overlap: boolean;
+  grid_rows: number;
+  grid_cols: number;
 }
+
+/** The classic repeats, as a designer names them. */
+export const LAYOUTS = [
+  { id: "tossed", label: "Tossed (scattered)" },
+  { id: "square", label: "Square grid" },
+  { id: "brick", label: "Brick" },
+  { id: "half-drop", label: "Half-drop" },
+  { id: "diagonal", label: "Diagonal" },
+  { id: "gentle-diagonal", label: "Gentle diagonal" },
+] as const;
 
 export interface MotifEntry {
   id: string;
@@ -32,6 +46,10 @@ export interface Params {
   rotation_jitter_deg: number;
   scale_range: [number, number];
   seed: number;
+  layout: string;
+  prevent_overlap: boolean;
+  grid_rows: number;
+  grid_cols: number;
   weights: [string, number][];
   sizes: [string, number][];
   preview_width_px: number;

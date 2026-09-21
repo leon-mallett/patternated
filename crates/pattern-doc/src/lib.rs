@@ -15,6 +15,6 @@ pub mod png_out;
 
 pub use document::{
     derive_palette_from, ingest_to_library, load_source, new_from_images, save_to, Document,
-    MotifRef,
+    GridSpec, MotifRef, ScatterSpec,
 };
 pub use png_out::write_png;

@@ -11,6 +11,7 @@ import {
   type Opened,
   type Params,
   type Preview,
+  LAYOUTS,
 } from "./api";
 
 /**
@@ -39,6 +40,10 @@ export default function App() {
   const [scale, setScale] = useState<[number, number]>([0.85, 1.15]);
   const [seed, setSeed] = useState(1);
   const [weights, setWeights] = useState<Record<string, number>>({});
+  const [layout, setLayout] = useState("tossed");
+  const [preventOverlap, setPreventOverlap] = useState(true);
+  const [gridRows, setGridRows] = useState(3);
+  const [gridCols, setGridCols] = useState(3);
   const [sizes, setSizes] = useState<Record<string, number>>({});
 
   const paneRef = useRef<HTMLDivElement | null>(null);
@@ -57,6 +62,10 @@ export default function App() {
       rotation_jitter_deg: jitter,
       scale_range: scale,
       seed,
+      layout,
+      prevent_overlap: preventOverlap,
+      grid_rows: gridRows,
+      grid_cols: gridCols,
       weights: Object.entries(weights),
       sizes: Object.entries(sizes),
       preview_width_px: Math.max(320, Math.round(paneRef.current?.clientWidth ?? 720)),
@@ -74,7 +83,21 @@ export default function App() {
     } finally {
       if (mine === generation.current) setBusy(false);
     }
-  }, [doc, tile, lattice, density, jitter, scale, seed, weights, sizes]);
+  }, [
+    doc,
+    tile,
+    lattice,
+    density,
+    jitter,
+    scale,
+    seed,
+    weights,
+    sizes,
+    layout,
+    preventOverlap,
+    gridRows,
+    gridCols,
+  ]);
 
   // Coalesce a drag into one render rather than one per pixel.
   useEffect(() => {
@@ -97,6 +120,10 @@ export default function App() {
     setSizes(
       Object.fromEntries(opened.motifs.map((m) => [m.id, m.longest_edge_mm])),
     );
+    setLayout(opened.layout);
+    setPreventOverlap(opened.prevent_overlap);
+    setGridRows(opened.grid_rows);
+    setGridCols(opened.grid_cols);
     setError(null);
     setStatus(note);
   }
@@ -252,12 +279,49 @@ export default function App() {
       </section>
 
       <aside className="controls">
+        <Group title="Layout">
+          <label>
+            Arrangement
+            <select value={layout} onChange={(e) => setLayout(e.target.value)}>
+              {LAYOUTS.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {layout !== "tossed" && (
+            <>
+              <NumberField
+                label="Rows"
+                unit="per tile"
+                value={gridRows}
+                min={1}
+                max={24}
+                step={1}
+                onChange={setGridRows}
+              />
+              <NumberField
+                label="Columns"
+                unit="per tile"
+                value={gridCols}
+                min={1}
+                max={24}
+                step={1}
+                onChange={setGridCols}
+              />
+            </>
+          )}
+        </Group>
+
         <Group title="Repeat">
           <label>
             Type
             <select value={lattice} onChange={(e) => setLattice(e.target.value)}>
               <option value="half-drop">Half-drop</option>
               <option value="block">Block</option>
+              <option value="brick">Brick</option>
+              <option value="quarter-drop">Quarter-drop</option>
             </select>
           </label>
           <NumberField
@@ -282,7 +346,21 @@ export default function App() {
 
         {doc.scattered ? (
           <>
+            {layout === "tossed" && (
             <Group title="Scatter">
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={preventOverlap}
+                  onChange={(e) => setPreventOverlap(e.target.checked)}
+                />
+                <span>Prevent overlapping</span>
+              </label>
+              <p className="hint">
+                Keeps motifs from intersecting. Turn it off to let them layer.
+                With it on, asking for more coverage than fits simply stops
+                adding motifs — the coverage readout shows what was reached.
+              </p>
               <Slider
                 label="Coverage"
                 value={density}
@@ -320,6 +398,25 @@ export default function App() {
                 onChange={(v) => setScale([Math.min(scale[0], v), v])}
               />
             </Group>
+            )}
+
+            {layout !== "tossed" && (
+              <Group title="Variation">
+                <Slider
+                  label="Rotation"
+                  value={jitter}
+                  min={0}
+                  max={180}
+                  step={1}
+                  format={(v) => `±${Math.round(v)}°`}
+                  onChange={setJitter}
+                />
+                <p className="hint">
+                  A grid with no rotation stays strict, which is usually the
+                  point of choosing one.
+                </p>
+              </Group>
+            )}
 
             <Group title="Seed">
               <div className="seed">
@@ -334,8 +431,9 @@ export default function App() {
                 </button>
               </div>
               <p className="hint">
-                The same seed and settings always give the same print, so one you
-                like can be returned to.
+                {layout === "tossed"
+                  ? "The same seed and settings always give the same print, so one you like can be returned to."
+                  : "On a grid the cells do not move — rerolling changes which motif sits where."}
               </p>
             </Group>
 

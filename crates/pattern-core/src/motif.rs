@@ -85,6 +85,53 @@ impl IndexedMotif {
         self.slots_used().last().copied()
     }
 
+    /// Radius of the smallest circle centred on the motif that contains all of
+    /// its ink, as a fraction of half the bounding box diagonal.
+    ///
+    /// The number overlap prevention needs, and the reason it is a *fraction*
+    /// rather than a length is that a motif's physical size is a design
+    /// decision changed with a slider, while its shape is not.
+    ///
+    /// Measured from the artwork rather than assumed from the box. A trimmed
+    /// bounding box touches the ink on all four sides, but its corners are
+    /// usually empty: a round motif fills a square box to about 0.71 of the
+    /// diagonal, so spacing by the box would hold motifs 40% further apart than
+    /// they need to be and make every pattern look thin.
+    ///
+    /// Rotation-invariant by construction, which matters because scatter
+    /// jitters rotation and a bound that changed as a motif turned would let
+    /// overlaps back in at some angles.
+    #[must_use]
+    pub fn coverage_radius_fraction(&self) -> f32 {
+        let (w, h) = (self.width as f32, self.height as f32);
+        let (cx, cy) = (w / 2.0, h / 2.0);
+        let half_diagonal = (w * w + h * h).sqrt() / 2.0;
+        if half_diagonal <= f32::EPSILON {
+            return 1.0;
+        }
+
+        let mut furthest = 0.0f32;
+        for (i, alpha) in self.alpha.iter().enumerate() {
+            // Half coverage is the edge: a feathered rim fades well past where
+            // the eye reads the motif ending, and bounding to the faintest
+            // pixel would inflate every radius.
+            if *alpha < 128 {
+                continue;
+            }
+            let x = (i % self.width.max(1) as usize) as f32 + 0.5;
+            let y = (i / self.width.max(1) as usize) as f32 + 0.5;
+            let d = (x - cx) * (x - cx) + (y - cy) * (y - cy);
+            furthest = furthest.max(d);
+        }
+
+        // A covered pixel is a square of ink, not a point: its far corner sits
+        // half a diagonal beyond its centre. Ignoring that understates every
+        // radius by up to a pixel, which is nothing on a 500 px motif and 12%
+        // on an 8 px one — and the small case is the one a test fixture uses.
+        const PIXEL_HALF_DIAGONAL: f32 = std::f32::consts::SQRT_2 / 2.0;
+        ((furthest.sqrt() + PIXEL_HALF_DIAGONAL) / half_diagonal).clamp(0.05, 1.0)
+    }
+
     /// Check every slot resolves against `palette`.
     pub fn check_resolvable(&self, palette: &Palette) -> Result<(), PatternError> {
         if let Some(slot) = self
@@ -193,6 +240,57 @@ mod tests {
         assert_eq!(&rgba[4..8], &[120, 200, 255, 255]);
         // Alpha is untouched by a colourway change.
         assert_eq!(rgba[11], 128);
+    }
+
+    #[test]
+    fn a_full_bleed_motif_reaches_the_corners_of_its_box() {
+        let solid = IndexedMotif::new(8, 8, vec![1; 64], vec![255; 64]).expect("fixture");
+        assert!((solid.coverage_radius_fraction() - 1.0).abs() < 0.02);
+    }
+
+    #[test]
+    fn a_round_motif_is_measurably_smaller_than_its_box() {
+        // The whole reason this is measured. A disc in a square box reaches
+        // about 0.71 of the diagonal; spacing by the box would hold motifs 40%
+        // further apart than they need to be.
+        let n = 64u32;
+        let (mut slots, mut alpha) = (Vec::new(), Vec::new());
+        let c = n as f32 / 2.0;
+        for y in 0..n {
+            for x in 0..n {
+                let d = (((x as f32 + 0.5) - c).powi(2) + ((y as f32 + 0.5) - c).powi(2)).sqrt();
+                slots.push(1);
+                alpha.push(if d <= c { 255 } else { 0 });
+            }
+        }
+        let disc = IndexedMotif::new(n, n, slots, alpha).expect("fixture");
+        let f = disc.coverage_radius_fraction();
+        assert!(
+            (f - 0.707).abs() < 0.03,
+            "a disc should reach about 0.71 of the diagonal, got {f:.3}"
+        );
+    }
+
+    #[test]
+    fn a_faint_rim_does_not_inflate_the_radius() {
+        // Feathering fades well past where the eye reads the motif ending.
+        let n = 32u32;
+        let (mut slots, mut alpha) = (Vec::new(), Vec::new());
+        let c = n as f32 / 2.0;
+        for y in 0..n {
+            for x in 0..n {
+                let d = (((x as f32 + 0.5) - c).powi(2) + ((y as f32 + 0.5) - c).powi(2)).sqrt();
+                slots.push(1);
+                // Solid core, then a barely-there halo all the way out.
+                alpha.push(if d <= c * 0.4 { 255 } else { 20 });
+            }
+        }
+        let haloed = IndexedMotif::new(n, n, slots, alpha).expect("fixture");
+        assert!(
+            haloed.coverage_radius_fraction() < 0.45,
+            "the halo inflated the radius to {}",
+            haloed.coverage_radius_fraction()
+        );
     }
 
     #[test]

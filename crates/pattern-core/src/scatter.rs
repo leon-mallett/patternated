@@ -42,6 +42,18 @@ pub struct MotifWeight {
     /// Needed to turn a coverage target into a separation radius, and to keep
     /// a large motif from being packed as tightly as a small one.
     pub natural_size_mm: Vec2,
+    /// How much of its bounding box the motif's ink actually reaches, as a
+    /// fraction of half the box diagonal. See
+    /// [`IndexedMotif::coverage_radius_fraction`](crate::IndexedMotif::coverage_radius_fraction).
+    ///
+    /// Defaults to 1 — the whole box — because a caller that does not know the
+    /// shape should be spaced conservatively rather than allowed to overlap.
+    #[serde(default = "full_box")]
+    pub radius_fraction: f32,
+}
+
+fn full_box() -> f32 {
+    1.0
 }
 
 /// Everything a scatter needs that is not the tile or the lattice.
@@ -63,7 +75,27 @@ pub struct ScatterParams {
     #[serde(default = "unit_range")]
     pub scale_range: (f32, f32),
     pub motif_mix: Vec<MotifWeight>,
+    /// Keep motifs from intersecting each other.
+    ///
+    /// On by default. Poisson-disc sampling guarantees a minimum distance
+    /// between motif *centres*, solved from the coverage target — which says
+    /// nothing about their edges. Past a certain density that separation is
+    /// smaller than the motifs themselves and they begin to intersect. That is
+    /// occasionally wanted and usually a defect.
+    ///
+    /// With this on, the required separation between two motifs is the greater
+    /// of the density's radius and the sum of their own radii, so coverage
+    /// still controls spacing while it can and overlap becomes a floor once it
+    /// cannot. A pattern asked for more coverage than can be reached without
+    /// overlapping therefore lands short of its target, which the achieved
+    /// figure reports rather than hiding.
+    #[serde(default = "prevent_overlap_default")]
+    pub prevent_overlap: bool,
     pub seed: u64,
+}
+
+fn prevent_overlap_default() -> bool {
+    true
 }
 
 fn unit_range() -> (f32, f32) {
@@ -96,18 +128,102 @@ pub fn scatter(params: &ScatterParams, tile_size_mm: Vec2, lattice: &Lattice) ->
     }
 
     let mut rng = ChaCha8Rng::seed_from_u64(params.seed);
-    let points = poisson_disc(radius, tile_size_mm, lattice, &mut rng);
+    poisson_disc(params, radius, tile_size_mm, lattice, &mut rng)
+}
 
-    points
-        .into_iter()
-        .map(|position_mm| {
-            let motif = choose_motif(&params.motif_mix, &mut rng);
-            Placement {
-                motif_id: motif.motif_id.clone(),
-                position_mm,
-                rotation_deg: symmetric(&mut rng, params.rotation_jitter_deg),
-                scale: between(&mut rng, params.scale_range.0, params.scale_range.1),
+/// One accepted motif, with everything the separation test needs to know.
+struct Sample {
+    position_mm: Vec2,
+    motif: usize,
+    rotation_deg: f32,
+    scale: f32,
+    /// Radius of the circle containing this motif's ink at this scale.
+    radius_mm: f32,
+}
+
+/// Bridson's dart-throwing, with every distance measured on the lattice torus.
+///
+/// Motif, rotation and scale are drawn for each *candidate* rather than
+/// assigned afterwards, because with overlap prevention the distance a
+/// candidate needs depends on which motif it turned out to be and how large it
+/// is. Deciding that after the position is fixed would mean testing one motif's
+/// spacing and then placing another.
+///
+/// Deliberately brute-force: each candidate is checked against every accepted
+/// sample. The spatial grid the algorithm is usually written with indexes the
+/// tile rectangle, and on an oblique lattice the rectangle is the wrong
+/// neighbourhood — a correct grid would have to be built in lattice
+/// coordinates, where the metric is sheared and the cell bounds stop being
+/// obvious. At the counts a textile repeat uses, tens to a few hundred motifs,
+/// the scan costs milliseconds and cannot be wrong in that particular way.
+fn poisson_disc(
+    params: &ScatterParams,
+    radius: f32,
+    tile_size_mm: Vec2,
+    lattice: &Lattice,
+    rng: &mut ChaCha8Rng,
+) -> Vec<Placement> {
+    let radius_sq = radius * radius;
+
+    let draw = |rng: &mut ChaCha8Rng, position_mm: Vec2| -> Sample {
+        let motif = choose_motif_index(&params.motif_mix, rng);
+        let rotation_deg = symmetric_value(rng, params.rotation_jitter_deg);
+        let scale = between_values(rng, params.scale_range.0, params.scale_range.1);
+        let entry = &params.motif_mix[motif];
+        let half_diagonal = entry.natural_size_mm.length() / 2.0;
+        Sample {
+            position_mm,
+            motif,
+            rotation_deg,
+            scale,
+            radius_mm: half_diagonal * entry.radius_fraction.clamp(0.05, 1.0) * scale,
+        }
+    };
+
+    let start = Vec2::new(unit(rng) * tile_size_mm.x, unit(rng) * tile_size_mm.y);
+    let first = draw(rng, start);
+    let mut samples = vec![first];
+    let mut active = vec![0usize];
+
+    while !active.is_empty() {
+        let slot = bounded(rng, active.len() as u32) as usize;
+        let origin = samples[active[slot]].position_mm;
+        let mut accepted = false;
+
+        for _ in 0..CANDIDATES_PER_SAMPLE {
+            let position = wrap_into_tile(origin + annulus_offset(rng, radius), tile_size_mm);
+            let candidate = draw(rng, position);
+
+            let fits = samples.iter().all(|s| {
+                let required_sq = if params.prevent_overlap {
+                    let touching = candidate.radius_mm + s.radius_mm;
+                    radius_sq.max(touching * touching)
+                } else {
+                    radius_sq
+                };
+                lattice_distance_sq(candidate.position_mm, s.position_mm, lattice) >= required_sq
+            });
+
+            if fits {
+                samples.push(candidate);
+                active.push(samples.len() - 1);
+                accepted = true;
+                break;
             }
+        }
+
+        if !accepted {
+            active.swap_remove(slot);
+        }
+    }
+
+    samples
+        .into_iter()
+        .map(|s| Placement {
+            motif_id: params.motif_mix[s.motif].motif_id.clone(),
+            position_mm: s.position_mm,
+            rotation_deg: s.rotation_deg,
+            scale: s.scale,
         })
         .collect()
 }
@@ -144,51 +260,6 @@ fn separation_radius(params: &ScatterParams, tile_size_mm: Vec2) -> f32 {
     (PACKING_EFFICIENCY * TWO_OVER_ROOT_THREE * tile_area / wanted).sqrt()
 }
 
-/// Bridson's dart-throwing, with every distance measured on the lattice torus.
-///
-/// Deliberately brute-force: each candidate is checked against every accepted
-/// sample. The spatial grid the algorithm is usually written with indexes the
-/// tile rectangle, and on an oblique lattice the rectangle is the wrong
-/// neighbourhood — a correct grid would have to be built in lattice
-/// coordinates, where the metric is sheared and the cell bounds stop being
-/// obvious. At the counts a textile repeat uses, tens to a few hundred motifs,
-/// the scan costs milliseconds and cannot be wrong in that particular way.
-fn poisson_disc(
-    radius: f32,
-    tile_size_mm: Vec2,
-    lattice: &Lattice,
-    rng: &mut ChaCha8Rng,
-) -> Vec<Vec2> {
-    let radius_sq = radius * radius;
-    let first = Vec2::new(unit(rng) * tile_size_mm.x, unit(rng) * tile_size_mm.y);
-    let mut samples = vec![first];
-    let mut active = vec![0usize];
-
-    while !active.is_empty() {
-        let slot = bounded(rng, active.len() as u32) as usize;
-        let origin = samples[active[slot]];
-        let mut accepted = false;
-
-        for _ in 0..CANDIDATES_PER_SAMPLE {
-            let candidate = wrap_into_tile(origin + annulus_offset(rng, radius), tile_size_mm);
-            if samples
-                .iter()
-                .all(|s| lattice_distance_sq(candidate, *s, lattice) >= radius_sq)
-            {
-                samples.push(candidate);
-                active.push(samples.len() - 1);
-                accepted = true;
-                break;
-            }
-        }
-
-        if !accepted {
-            active.swap_remove(slot);
-        }
-    }
-    samples
-}
-
 /// A displacement uniformly distributed in the annulus between `r` and `2r`.
 ///
 /// Found by rejection in the bounding square rather than from an angle and a
@@ -201,7 +272,10 @@ fn annulus_offset(rng: &mut ChaCha8Rng, radius: f32) -> Vec2 {
     let inner_sq = radius * radius;
     let outer_sq = 4.0 * inner_sq;
     loop {
-        let candidate = Vec2::new(symmetric(rng, 2.0 * radius), symmetric(rng, 2.0 * radius));
+        let candidate = Vec2::new(
+            symmetric_value(rng, 2.0 * radius),
+            symmetric_value(rng, 2.0 * radius),
+        );
         let d = candidate.length_squared();
         if d >= inner_sq && d <= outer_sq {
             return candidate;
@@ -209,21 +283,21 @@ fn annulus_offset(rng: &mut ChaCha8Rng, radius: f32) -> Vec2 {
     }
 }
 
-fn choose_motif<'a>(mix: &'a [MotifWeight], rng: &mut ChaCha8Rng) -> &'a MotifWeight {
+pub(crate) fn choose_motif_index(mix: &[MotifWeight], rng: &mut ChaCha8Rng) -> usize {
     let total: f32 = mix.iter().map(|m| m.weight.max(0.0)).sum();
     if total <= 0.0 {
-        return &mix[0];
+        return 0;
     }
     let mut target = unit(rng) * total;
-    for m in mix {
+    for (i, m) in mix.iter().enumerate() {
         target -= m.weight.max(0.0);
         if target <= 0.0 {
-            return m;
+            return i;
         }
     }
     // Only reachable through floating-point accumulation at the very top of the
     // range; the last weighted motif is the right answer there.
-    mix.iter().rev().find(|m| m.weight > 0.0).unwrap_or(&mix[0])
+    mix.iter().rposition(|m| m.weight > 0.0).unwrap_or(0)
 }
 
 /// A float in `[0, 1)`.
@@ -238,12 +312,12 @@ fn unit(rng: &mut ChaCha8Rng) -> f32 {
 }
 
 /// A float in `[-bound, bound]`.
-fn symmetric(rng: &mut ChaCha8Rng, bound: f32) -> f32 {
+pub(crate) fn symmetric_value(rng: &mut ChaCha8Rng, bound: f32) -> f32 {
     (unit(rng) * 2.0 - 1.0) * bound
 }
 
 /// A float in `[low, high]`, tolerating the two being given the wrong way round.
-fn between(rng: &mut ChaCha8Rng, low: f32, high: f32) -> f32 {
+pub(crate) fn between_values(rng: &mut ChaCha8Rng, low: f32, high: f32) -> f32 {
     let (low, high) = if low <= high {
         (low, high)
     } else {
@@ -273,6 +347,7 @@ mod tests {
             motif_id: "cherry".into(),
             weight: 1.0,
             natural_size_mm: Vec2::new(22.0, 22.0),
+            radius_fraction: 1.0,
         }]
     }
 
@@ -282,12 +357,24 @@ mod tests {
             rotation_jitter_deg: 20.0,
             scale_range: (0.85, 1.15),
             motif_mix: mix(),
+            // Off in most fixtures: these tests measure the sampler's own
+            // separation guarantee, and overlap prevention adds a second,
+            // larger floor that would mask it.
+            prevent_overlap: false,
             seed,
         }
     }
 
     /// Closest pair among all lattice copies, which is the separation that
     /// actually reaches fabric.
+    /// Parameters for measuring the sampler itself: one motif, no overlap
+    /// floor, so what is measured is the separation guarantee and nothing else.
+    fn probe_params() -> ScatterParams {
+        let mut p = params(0.45, 0);
+        p.prevent_overlap = false;
+        p
+    }
+
     fn min_separation(placements: &[Placement], lattice: &Lattice) -> f32 {
         let mut best = f32::MAX;
         for (i, a) in placements.iter().enumerate() {
@@ -296,6 +383,130 @@ mod tests {
             }
         }
         best.sqrt()
+    }
+
+    /// The closest any two motifs' ink comes, in millimetres. Negative means
+    /// they intersect.
+    fn closest_approach(placements: &[Placement], lattice: &Lattice, mix: &[MotifWeight]) -> f32 {
+        let radius_of = |p: &Placement| {
+            let entry = mix
+                .iter()
+                .find(|m| m.motif_id == p.motif_id)
+                .expect("placement names a motif in the mix");
+            entry.natural_size_mm.length() / 2.0 * entry.radius_fraction * p.scale
+        };
+        let mut worst = f32::MAX;
+        for (i, a) in placements.iter().enumerate() {
+            for b in &placements[i + 1..] {
+                let d = lattice_distance_sq(a.position_mm, b.position_mm, lattice).sqrt();
+                worst = worst.min(d - radius_of(a) - radius_of(b));
+            }
+        }
+        worst
+    }
+
+    #[test]
+    fn motifs_can_be_kept_from_intersecting() {
+        // Reported from the app: at a plausible coverage the motifs visibly
+        // overlapped. The sampler was doing what it promised — a minimum
+        // distance between *centres*, solved from the coverage target — which
+        // says nothing about where their edges are.
+        let lattice = Lattice::half_drop(TILE);
+        let mut p = params(0.6, 4);
+        p.motif_mix[0].natural_size_mm = Vec2::new(40.0, 40.0);
+        p.motif_mix[0].radius_fraction = 0.72;
+
+        p.prevent_overlap = false;
+        let loose = scatter(&p, TILE, &lattice);
+        assert!(
+            closest_approach(&loose, &lattice, &p.motif_mix) < 0.0,
+            "this fixture is meant to overlap without the guard"
+        );
+
+        p.prevent_overlap = true;
+        let guarded = scatter(&p, TILE, &lattice);
+        assert!(
+            closest_approach(&guarded, &lattice, &p.motif_mix) >= -1e-3,
+            "motifs still intersect by {:.2} mm",
+            closest_approach(&guarded, &lattice, &p.motif_mix)
+        );
+        assert!(guarded.len() > 3, "the guard emptied the pattern");
+    }
+
+    #[test]
+    fn preventing_overlap_holds_across_the_tile_boundary() {
+        // Overlap at a seam is the expensive kind: invisible in one tile and
+        // obvious on fabric, which is the same trap the toroidal distance
+        // exists for.
+        let lattice = Lattice::half_drop(TILE);
+        let mut p = params(0.6, 11);
+        p.motif_mix[0].natural_size_mm = Vec2::new(38.0, 38.0);
+        p.motif_mix[0].radius_fraction = 0.72;
+        p.prevent_overlap = true;
+
+        let placements = scatter(&p, TILE, &lattice);
+        let mut checked = 0;
+        for (i, a) in placements.iter().enumerate() {
+            for b in &placements[i + 1..] {
+                let wrapped = lattice_distance_sq(a.position_mm, b.position_mm, &lattice).sqrt();
+                let interior = (a.position_mm - b.position_mm).length();
+                if wrapped < interior - 1e-3 {
+                    checked += 1;
+                    let radius = 38.0 * std::f32::consts::SQRT_2 / 2.0 * 0.72;
+                    assert!(
+                        wrapped >= radius * (a.scale + b.scale) - 1e-2,
+                        "a pair overlapping across the seam at {wrapped:.2} mm"
+                    );
+                }
+            }
+        }
+        assert!(
+            checked > 0,
+            "no pair was closest via a neighbour, so this proved nothing"
+        );
+    }
+
+    #[test]
+    fn preventing_overlap_costs_coverage_rather_than_failing() {
+        // A pattern asked for more coverage than fits without overlapping
+        // lands short. That is the honest outcome, and the achieved figure is
+        // what tells a designer so.
+        let lattice = Lattice::half_drop(TILE);
+        let mut p = params(0.85, 6);
+        p.motif_mix[0].natural_size_mm = Vec2::new(40.0, 40.0);
+        p.motif_mix[0].radius_fraction = 0.72;
+
+        p.prevent_overlap = false;
+        let loose = scatter(&p, TILE, &lattice).len();
+        p.prevent_overlap = true;
+        let guarded = scatter(&p, TILE, &lattice).len();
+
+        assert!(
+            guarded < loose,
+            "the guard changed nothing: {loose} then {guarded}"
+        );
+        assert!(guarded > 0, "the guard emptied the pattern");
+    }
+
+    #[test]
+    fn a_looser_shape_packs_tighter_than_its_bounding_box() {
+        // Why the radius is measured from the artwork rather than the box: a
+        // round motif reaches about 0.71 of its box diagonal, and spacing by
+        // the box would hold every pattern 40% further apart than it needs.
+        let lattice = Lattice::block(TILE);
+        let mut p = params(0.6, 3);
+        p.prevent_overlap = true;
+        p.motif_mix[0].natural_size_mm = Vec2::new(36.0, 36.0);
+
+        p.motif_mix[0].radius_fraction = 1.0;
+        let boxed = scatter(&p, TILE, &lattice).len();
+        p.motif_mix[0].radius_fraction = 0.71;
+        let shaped = scatter(&p, TILE, &lattice).len();
+
+        assert!(
+            shaped > boxed,
+            "shape-aware spacing gave {boxed} then {shaped}"
+        );
     }
 
     #[test]
@@ -438,7 +649,7 @@ mod tests {
         for seed in 0..8u64 {
             let radius = 18.0;
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
-            let points = poisson_disc(radius, TILE, &lattice, &mut rng);
+            let points = poisson_disc(&probe_params(), radius, TILE, &lattice, &mut rng);
 
             let area = TILE.x * TILE.y;
             let hexagonal = 1.154_700_5 * area / (radius * radius);
@@ -560,16 +771,19 @@ mod tests {
             density: 0.5,
             rotation_jitter_deg: 0.0,
             scale_range: (1.0, 1.0),
+            prevent_overlap: false,
             motif_mix: vec![
                 MotifWeight {
                     motif_id: "cherry".into(),
                     weight: 6.0,
                     natural_size_mm: Vec2::new(30.0, 30.0),
+                    radius_fraction: 1.0,
                 },
                 MotifWeight {
                     motif_id: "pineapple".into(),
                     weight: 1.0,
                     natural_size_mm: Vec2::new(30.0, 30.0),
+                    radius_fraction: 1.0,
                 },
             ],
             seed: 42,

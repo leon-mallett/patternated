@@ -47,6 +47,10 @@ struct Opened {
     motifs: Vec<MotifEntry>,
     palette: Vec<String>,
     scattered: bool,
+    layout: String,
+    prevent_overlap: bool,
+    grid_rows: u32,
+    grid_cols: u32,
 }
 
 #[derive(Serialize)]
@@ -68,6 +72,15 @@ struct Params {
     rotation_jitter_deg: f32,
     scale_range: [f32; 2],
     seed: u64,
+    /// "tossed" for a scatter, or a named grid preset.
+    #[serde(default)]
+    layout: String,
+    #[serde(default)]
+    prevent_overlap: bool,
+    #[serde(default)]
+    grid_rows: u32,
+    #[serde(default)]
+    grid_cols: u32,
     weights: Vec<(String, f32)>,
     /// Longest edge per motif, in millimetres.
     #[serde(default)]
@@ -147,8 +160,39 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
             })
             .collect(),
         palette: p.palette.colors.iter().map(hex).collect(),
-        scattered: scatter.is_some(),
+        scattered: scatter.is_some() || document.grid.is_some(),
+        layout: document
+            .grid
+            .as_ref()
+            .map(|g| preset_name(g.row_offset))
+            .unwrap_or_else(|| "tossed".into()),
+        prevent_overlap: scatter.map(|s| s.prevent_overlap).unwrap_or(true),
+        grid_rows: document.grid.as_ref().map(|g| g.rows).unwrap_or(3),
+        grid_cols: document.grid.as_ref().map(|g| g.cols).unwrap_or(3),
     }
+}
+
+/// The classic repeats, as a designer names them.
+///
+/// Each is a row offset plus a lattice, both of which the engine already had —
+/// a square grid is a block lattice with no offset, brickwork is the same grid
+/// with alternate rows shifted half a cell, and a diagonal is rows that walk
+/// steadily across. Naming them is most of the work, because the names are how
+/// anybody asks for them.
+const PRESETS: &[(&str, f32, &str)] = &[
+    ("square", 0.0, "block"),
+    ("brick", 0.5, "brick"),
+    ("half-drop", 0.5, "half-drop"),
+    ("diagonal", 1.0 / 3.0, "half-drop"),
+    ("gentle-diagonal", 0.25, "quarter-drop"),
+];
+
+fn preset_name(row_offset: f32) -> String {
+    PRESETS
+        .iter()
+        .find(|(_, offset, _)| (offset - row_offset).abs() < 1e-3)
+        .map(|(name, _, _)| (*name).to_string())
+        .unwrap_or_else(|| "square".into())
 }
 
 fn hex(c: &Color) -> String {
@@ -166,6 +210,10 @@ fn lattice_name(lattice: &Lattice, tile: Vec2) -> String {
         "block".into()
     } else if close(Lattice::half_drop(tile)) {
         "half-drop".into()
+    } else if close(Lattice::brick(tile)) {
+        "brick".into()
+    } else if close(Lattice::quarter_drop(tile)) {
+        "quarter-drop".into()
     } else {
         "custom".into()
     }
@@ -224,6 +272,8 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
     session.document.pattern.tile_size_mm = tile;
     session.document.pattern.lattice = match params.lattice.as_str() {
         "block" => Lattice::block(tile),
+        "brick" => Lattice::brick(tile),
+        "quarter-drop" => Lattice::quarter_drop(tile),
         _ => Lattice::half_drop(tile),
     };
 
@@ -241,8 +291,13 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
         }
     }
 
+    // Switching between a scatter and a grid rewrites which of the two the
+    // document carries, since they are mutually exclusive by design.
+    apply_layout(session, params)?;
+
     if let Some(spec) = session.document.scatter.as_mut() {
         spec.density = params.density.clamp(0.0, 2.0);
+        spec.prevent_overlap = params.prevent_overlap;
         spec.rotation_jitter_deg = params.rotation_jitter_deg;
         spec.scale_range = (params.scale_range[0], params.scale_range[1]);
         spec.seed = params.seed;
@@ -260,8 +315,81 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
         }
     }
 
+    if let Some(spec) = session.document.grid.as_mut() {
+        spec.rows = params.grid_rows.clamp(1, 24);
+        spec.cols = params.grid_cols.clamp(1, 24);
+        spec.rotation_jitter_deg = params.rotation_jitter_deg;
+        spec.scale_range = (params.scale_range[0], params.scale_range[1]);
+        spec.seed = params.seed;
+        for (id, weight) in &params.weights {
+            if let Some(entry) = spec.mix.iter_mut().find(|e| &e.motif_id == id) {
+                entry.weight = *weight;
+            }
+        }
+        if spec.mix.iter().all(|e| e.weight <= 0.0) {
+            anyhow::bail!("every motif is switched off");
+        }
+    }
+
     let bank = session.bank.clone();
     session.document.reseed(params.seed, &bank)?;
+    Ok(())
+}
+
+/// Move the document between a scatter and a named grid preset.
+///
+/// The two are mutually exclusive, so this swaps one for the other and carries
+/// the motif mix across — a designer trying layouts should not lose which
+/// motifs they had chosen.
+fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
+    let wants_grid = params.layout != "tossed";
+    let mix: Vec<pattern_doc::document::MixEntry> = session
+        .document
+        .scatter
+        .as_ref()
+        .map(|s| s.mix.clone())
+        .or_else(|| session.document.grid.as_ref().map(|g| g.mix.clone()))
+        .unwrap_or_default();
+    if mix.is_empty() {
+        return Ok(());
+    }
+
+    if wants_grid {
+        let (_, row_offset, lattice) = PRESETS
+            .iter()
+            .find(|(name, _, _)| *name == params.layout)
+            .copied()
+            .unwrap_or(("square", 0.0, "block"));
+
+        let tile = session.document.pattern.tile_size_mm;
+        session.document.pattern.lattice = match lattice {
+            "block" => Lattice::block(tile),
+            "brick" => Lattice::brick(tile),
+            "quarter-drop" => Lattice::quarter_drop(tile),
+            _ => Lattice::half_drop(tile),
+        };
+        session.document.scatter = None;
+        session.document.grid = Some(pattern_doc::GridSpec {
+            rows: params.grid_rows.clamp(1, 24),
+            cols: params.grid_cols.clamp(1, 24),
+            row_offset,
+            rotation_jitter_deg: params.rotation_jitter_deg,
+            scale_range: (params.scale_range[0], params.scale_range[1]),
+            mix,
+            seed: params.seed,
+        });
+    } else if session.document.scatter.is_none() {
+        session.document.grid = None;
+        session.document.scatter = Some(pattern_doc::ScatterSpec {
+            density: params.density.clamp(0.0, 2.0),
+            prevent_overlap: params.prevent_overlap,
+            rotation_jitter_deg: params.rotation_jitter_deg,
+            scale_range: (params.scale_range[0], params.scale_range[1]),
+            mix,
+            seed: params.seed,
+        });
+    }
+    session.document.pattern.placements.clear();
     Ok(())
 }
 
@@ -437,6 +565,10 @@ mod tests {
             seed,
             weights: vec![("cherry".into(), 1.0)],
             sizes: vec![],
+            layout: "tossed".into(),
+            prevent_overlap: true,
+            grid_rows: 3,
+            grid_cols: 3,
             preview_width_px: 600,
             cols: 3,
             rows: 3,
@@ -517,6 +649,87 @@ mod tests {
         write_params(&mut s, &p).expect("apply");
         let many = s.document.pattern.placements.len();
         assert!(many > few, "shrinking motifs gave {few} then {many}");
+    }
+
+    #[test]
+    fn switching_to_a_grid_swaps_the_layout_rather_than_keeping_both() {
+        // Scatter and grid are mutually exclusive; a document carrying both is
+        // refused, so the swap has to be complete.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        p.layout = "brick".into();
+        write_params(&mut s, &p).expect("apply");
+        assert!(s.document.grid.is_some() && s.document.scatter.is_none());
+        assert_eq!(
+            s.document.pattern.placements.len(),
+            (p.grid_rows * p.grid_cols) as usize
+        );
+
+        p.layout = "tossed".into();
+        write_params(&mut s, &p).expect("apply");
+        assert!(s.document.scatter.is_some() && s.document.grid.is_none());
+    }
+
+    #[test]
+    fn the_motif_mix_survives_a_change_of_layout() {
+        // A designer trying arrangements should not lose which motifs they
+        // chose along the way.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        p.layout = "diagonal".into();
+        write_params(&mut s, &p).expect("apply");
+        let grid_mix: Vec<String> = s
+            .document
+            .grid
+            .as_ref()
+            .expect("grid")
+            .mix
+            .iter()
+            .map(|e| e.motif_id.clone())
+            .collect();
+        assert_eq!(grid_mix, vec!["cherry".to_string()]);
+    }
+
+    #[test]
+    fn each_preset_picks_its_own_repeat() {
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        for (preset, expected) in [
+            ("square", "block"),
+            ("brick", "brick"),
+            ("gentle-diagonal", "quarter-drop"),
+            ("diagonal", "half-drop"),
+        ] {
+            p.layout = preset.into();
+            write_params(&mut s, &p).expect("apply");
+            assert_eq!(
+                lattice_name(&s.document.pattern.lattice, s.document.pattern.tile_size_mm),
+                expected,
+                "preset {preset}"
+            );
+        }
+    }
+
+    #[test]
+    fn preventing_overlap_is_on_by_default_and_can_be_turned_off() {
+        // Reported from the app: motifs visibly intersecting at a plausible
+        // coverage.
+        let mut s = session();
+        let mut p = params(0.7, 3);
+        p.sizes = vec![("cherry".into(), 70.0)];
+
+        p.prevent_overlap = true;
+        write_params(&mut s, &p).expect("apply");
+        let guarded = s.document.pattern.placements.len();
+
+        p.prevent_overlap = false;
+        write_params(&mut s, &p).expect("apply");
+        let loose = s.document.pattern.placements.len();
+
+        assert!(
+            loose > guarded,
+            "the guard changed nothing: {guarded} guarded, {loose} loose"
+        );
     }
 
     #[test]

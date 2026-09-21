@@ -43,6 +43,13 @@ pub struct Document {
     /// When present, placements are generated rather than authored.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scatter: Option<ScatterSpec>,
+    /// The other way of generating them: motifs on a regular grid.
+    ///
+    /// Mutually exclusive with `scatter`. A document carrying both is refused,
+    /// on the same reasoning as one carrying a scatter and hand-placed motifs:
+    /// there is no sensible merge and silently picking one would discard work.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grid: Option<GridSpec>,
 }
 
 /// A scatter as a document describes it.
@@ -54,6 +61,10 @@ pub struct Document {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScatterSpec {
     pub density: f32,
+    /// Keep motifs from intersecting. On unless a document says otherwise,
+    /// including documents written before the option existed.
+    #[serde(default = "prevent_overlap_default")]
+    pub prevent_overlap: bool,
     #[serde(default)]
     pub rotation_jitter_deg: f32,
     #[serde(default = "unit_range")]
@@ -67,8 +78,28 @@ fn unit_range() -> (f32, f32) {
     (1.0, 1.0)
 }
 
-/// One motif's share of a scatter.
+fn prevent_overlap_default() -> bool {
+    true
+}
+
+/// A grid layout as a document describes it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GridSpec {
+    pub rows: u32,
+    pub cols: u32,
+    #[serde(default)]
+    pub row_offset: f32,
+    #[serde(default)]
+    pub rotation_jitter_deg: f32,
+    #[serde(default = "unit_range")]
+    pub scale_range: (f32, f32),
+    pub mix: Vec<MixEntry>,
+    #[serde(default)]
+    pub seed: u64,
+}
+
+/// One motif's share of a scatter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MixEntry {
     pub motif_id: String,
     pub weight: f32,
@@ -163,6 +194,14 @@ impl Document {
     /// scatter's separation guarantee does not know about motifs it did not
     /// place.
     fn apply_scatter(&mut self, bank: &MotifBank) -> Result<()> {
+        if self.scatter.is_some() && self.grid.is_some() {
+            return Err(anyhow!(
+                "document has both a scatter and a grid; keep one or the other"
+            ));
+        }
+        if let Some(spec) = self.grid.clone() {
+            return self.apply_grid(&spec, bank);
+        }
         let Some(spec) = &self.scatter else {
             return Ok(());
         };
@@ -188,6 +227,10 @@ impl Document {
                 motif_id: entry.motif_id.clone(),
                 weight: entry.weight,
                 natural_size_mm,
+                radius_fraction: bank
+                    .get(&entry.motif_id)
+                    .map(|m| m.indexed.coverage_radius_fraction())
+                    .unwrap_or(1.0),
             });
         }
 
@@ -196,6 +239,7 @@ impl Document {
             rotation_jitter_deg: spec.rotation_jitter_deg,
             scale_range: spec.scale_range,
             motif_mix: mix,
+            prevent_overlap: spec.prevent_overlap,
             seed: spec.seed,
         };
         self.pattern.seed = spec.seed;
@@ -206,6 +250,56 @@ impl Document {
             return Err(anyhow!(
                 "scatter produced no placements; check density ({}) and motif sizes",
                 spec.density
+            ));
+        }
+        Ok(())
+    }
+
+    /// Lay motifs out on a grid rather than strewing them.
+    fn apply_grid(&mut self, spec: &GridSpec, bank: &MotifBank) -> Result<()> {
+        if !self.pattern.placements.is_empty() {
+            return Err(anyhow!(
+                "document has {} authored placements and a grid; keep one or the other",
+                self.pattern.placements.len()
+            ));
+        }
+
+        let mut mix = Vec::with_capacity(spec.mix.len());
+        for entry in &spec.mix {
+            let motif = bank.get(&entry.motif_id).ok_or_else(|| {
+                anyhow!(
+                    "grid uses motif '{}', which the document does not define",
+                    entry.motif_id
+                )
+            })?;
+            mix.push(MotifWeight {
+                motif_id: entry.motif_id.clone(),
+                weight: entry.weight,
+                natural_size_mm: motif.natural_size_mm,
+                radius_fraction: motif.indexed.coverage_radius_fraction(),
+            });
+        }
+        mix.retain(|m| m.weight > 0.0);
+        if mix.is_empty() {
+            return Err(anyhow!("every motif is switched off"));
+        }
+
+        self.pattern.seed = spec.seed;
+        self.pattern.placements = pattern_core::grid(
+            &pattern_core::GridParams {
+                rows: spec.rows,
+                cols: spec.cols,
+                row_offset: spec.row_offset,
+                rotation_jitter_deg: spec.rotation_jitter_deg,
+                scale_range: spec.scale_range,
+                motif_mix: mix,
+                seed: spec.seed,
+            },
+            self.pattern.tile_size_mm,
+        );
+        if self.pattern.placements.is_empty() {
+            return Err(anyhow!(
+                "that grid places no motifs; check rows and columns"
             ));
         }
         Ok(())
@@ -222,6 +316,11 @@ impl Document {
     pub fn reseed(&mut self, seed: u64, bank: &MotifBank) -> Result<()> {
         if let Some(spec) = self.scatter.as_mut() {
             spec.seed = seed;
+        }
+        if let Some(spec) = self.grid.as_mut() {
+            spec.seed = seed;
+        }
+        if self.scatter.is_some() || self.grid.is_some() {
             self.pattern.placements.clear();
             self.apply_scatter(bank)?;
             self.pattern.validate()?;
@@ -511,8 +610,10 @@ pub fn new_from_images(
             palette,
             seed: 1,
         },
+        grid: None,
         scatter: Some(ScatterSpec {
             density: 0.3,
+            prevent_overlap: true,
             rotation_jitter_deg: 20.0,
             scale_range: (0.85, 1.15),
             mix,

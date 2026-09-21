@@ -158,7 +158,11 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
             motif_id: "cherry".into(),
             weight: 1.0,
             natural_size_mm: Vec2::new(26.0, 26.0),
+            radius_fraction: 1.0,
         }],
+        // Off here: these fixtures exist to stress the tiling with motifs that
+        // straddle and overlap edges, which is exactly what the guard removes.
+        prevent_overlap: false,
         seed,
     };
     Pattern {
