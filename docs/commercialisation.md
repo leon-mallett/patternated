@@ -26,6 +26,8 @@ Dreamwoven carries two risks that can stop the business rather than merely
 degrade the output — character IP, covered in [Licensing](./licensing.md#the-unresolved-one),
 and UK nightwear regulation, below.
 
+Peel Club prints digitally; see [Print route](#print-route--decided).
+
 ## Scope discipline as a commercial position
 
 The spec's instruction to stop and reassess after **M4, which is now
@@ -34,18 +36,58 @@ question better than any amount of further planning. Everything after M4 is
 explicitly optional, and the build is scoped so the first outcome alone is worth
 having.
 
-## Open questions
+## Print route — decided
 
-Both bite at [M5](./roadmap.md#m5--colourways-and-export) and neither blocks
-anything before it. Both need answering before the export layer is built,
-because the wrong assumption is invisible until a sample arrives.
+**Digital printing first**, confirmed 21 September 2026. Screen printing stays
+on the roadmap as an option rather than a requirement.
 
-- **Is Peel Club printing digitally or by screen?** This decides how hard the
-  colour-count limit bites. Screen printing charges per colour and is simply
-  unavailable past a certain count; digital has no such limit. It changes how
-  the palette generator should behave and what the UI should warn about.
-- **What is the target bureau's spec?** DPI expectations and colour handling
-  vary, and the export layer should not be built against a guess.
+What follows from that, and it is mostly good news for the build:
+
+- **The colour-count limit does not bite.** Digital printing has no per-colour
+  cost, so a pattern resolving to twenty slots is as printable as one resolving
+  to five. The count is still displayed, because it is the number that decides
+  whether a design *could* move to screen later, and because a print that
+  quietly needs thirty colours is usually a print whose palette wants looking
+  at.
+- **Per-colour separations leave M5.** They are only meaningful for screen
+  printing, and building them now would be a partial implementation of a route
+  nobody has chosen. They become a roadmap item, to be built when a range is
+  actually going to screen.
+- **M5 narrows to what digital needs**: palette management, colour management
+  through a real ICC profile, and correct file naming.
+
+Keeping the door open costs almost nothing, because the palette-slot model is
+already exactly what separations need — one file per slot is a rendering pass
+over data that already exists.
+
+## The open question: the bureau's spec
+
+Still unanswered, and it is the one that should be settled before the export
+layer is built rather than after, because a wrong assumption here is invisible
+until a sample arrives.
+
+Concretely, what to ask whoever will print the fabric:
+
+1. **Resolution.** What DPI do they want artwork at? 150 is common for fabric,
+   some want 300. This decides the pixel dimensions of every export.
+2. **Colour space, and whose profile.** RGB or CMYK? If RGB, which profile —
+   sRGB or Adobe RGB? If CMYK, do they supply their own press profile, and can
+   they send it? "Convert to CMYK" without a named profile is the single most
+   common cause of a print that does not match the screen.
+3. **File format.** PNG, or TIFF? If TIFF, what compression, and flattened or
+   layered?
+4. **What exactly they want in the file.** Just the one tile, ready to be
+   stepped and repeated by them? Or a pre-repeated sheet? And do they want
+   bleed around the tile, or the tile exactly?
+5. **How they learn the physical size.** Do they read it from the embedded DPI,
+   or do you state the repeat size separately on the order? Both, ideally — but
+   it is worth knowing which one they actually act on.
+6. **Maximum printable width**, and the fabric roll width. This constrains how
+   large a repeat can sensibly be, and a repeat wider than the roll is a design
+   that cannot be printed.
+
+Answers to 1, 2 and 3 are what M5 is built against. Answers to 4, 5 and 6 are
+what the export dialog needs to say.
 
 ## Regulation — UK children's nightwear
 

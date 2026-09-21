@@ -5,6 +5,7 @@ use glam::Vec2;
 use motif_ingest::library::{IngestParams, Library};
 use motif_ingest::{matte, quantise, trim, MatteMethod, SourceImage};
 use pattern_core::{scatter, Motif, MotifWeight, Palette, Pattern, ScatterParams};
+
 use pattern_render::MotifBank;
 use serde::{Deserialize, Serialize};
 
@@ -207,6 +208,13 @@ impl Document {
                 spec.density
             ));
         }
+        Ok(())
+    }
+
+    /// Run the scatter for a document assembled in memory rather than loaded.
+    pub fn apply_scatter_public(&mut self, bank: &MotifBank) -> Result<()> {
+        self.apply_scatter(bank)?;
+        self.pattern.validate()?;
         Ok(())
     }
 
@@ -415,4 +423,137 @@ fn warn_if_background_kept(id: &str, matted: &SourceImage) {
             retained * 100.0
         );
     }
+}
+
+/// Build a document from loose image files, with nothing else to hand.
+///
+/// The starting point M4 was missing. The app could open a document and had no
+/// way to make one, so the only route in was hand-writing JSON — which is
+/// precisely what the milestone exists to remove.
+///
+/// Everything here is a default meant to be changed immediately: a 240 x 180 mm
+/// half-drop scattered at 30%. The one thing that is *not* guessed is the
+/// palette, which is derived from the artwork itself, because a guessed palette
+/// is how a motif ends up quantised onto colours it does not contain.
+pub fn new_from_images(
+    files: &[PathBuf],
+    longest_edge_mm: f32,
+    colours: usize,
+) -> Result<Document> {
+    if files.is_empty() {
+        return Err(anyhow!("no images were chosen"));
+    }
+
+    let mut sources = Vec::with_capacity(files.len());
+    for path in files {
+        sources.push((path.clone(), load_source(path)?));
+    }
+
+    // Artwork exported with transparency is already cut out; anything opaque
+    // needs the background measuring away.
+    let method = |image: &SourceImage| {
+        let has_alpha = image.pixels.chunks(4).any(|p| p[3] < 250);
+        if has_alpha {
+            MatteMethod::ExistingAlpha
+        } else {
+            MatteMethod::default()
+        }
+    };
+
+    let matted: Vec<SourceImage> = sources
+        .iter()
+        .map(|(_, image)| motif_ingest::matte(image, method(image)))
+        .collect();
+    let refs: Vec<&SourceImage> = matted.iter().collect();
+
+    // Slot 0 is the ground and is a design decision rather than a property of
+    // the artwork, so it is supplied. A warm off-white reads as unprinted
+    // fabric, which is what most ranges sit on.
+    let ground = pattern_core::Color::new(250, 246, 238);
+    let palette = motif_ingest::derive_palette(&refs, ground, colours.max(3));
+
+    let mut motifs = Vec::with_capacity(files.len());
+    let mut mix = Vec::with_capacity(files.len());
+    for ((path, image), matted) in sources.iter().zip(&matted) {
+        let id = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().replace(['.', '/', '\\'], "-"))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| format!("motif-{}", motifs.len() + 1));
+
+        // Size from the trimmed subject, not the file, so a motif drawn small
+        // on a big canvas is not scaled by its margins.
+        let (trimmed, _) = motif_ingest::trim(matted, 8)
+            .ok_or_else(|| anyhow!("'{}' is empty once its background is removed", id))?;
+        let size = motif_ingest::natural_size_mm(trimmed.width, trimmed.height, longest_edge_mm);
+
+        motifs.push(MotifRef {
+            id: id.clone(),
+            file: Some(path.clone()),
+            natural_size_mm: Some(size),
+            matte: Some(method(image)),
+        });
+        mix.push(MixEntry {
+            motif_id: id,
+            weight: 1.0,
+        });
+    }
+
+    let tile = Vec2::new(240.0, 180.0);
+    Ok(Document {
+        motifs,
+        library: None,
+        design_palette: None,
+        pattern: Pattern {
+            tile_size_mm: tile,
+            lattice: pattern_core::Lattice::half_drop(tile),
+            placements: Vec::new(),
+            palette,
+            seed: 1,
+        },
+        scatter: Some(ScatterSpec {
+            density: 0.3,
+            rotation_jitter_deg: 20.0,
+            scale_range: (0.85, 1.15),
+            mix,
+            seed: 1,
+        }),
+    })
+}
+
+/// Write a document, making motif paths relative to where it lands.
+///
+/// A document created from loose files holds absolute paths, which break the
+/// moment the project folder is moved or shared. Rewriting them on save keeps
+/// the promise the `file` field already makes.
+pub fn save_to(document: &Document, path: &Path) -> Result<Document> {
+    let base = path.parent().unwrap_or(Path::new("."));
+    let mut out = document.clone();
+    for motif in &mut out.motifs {
+        if let Some(file) = &motif.file {
+            if let Some(relative) = relative_to(file, base) {
+                motif.file = Some(relative);
+            }
+        }
+    }
+    let text = serde_json::to_string_pretty(&out).context("serialising the document")?;
+    std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))?;
+    Ok(out)
+}
+
+/// A path expressed relative to `base`, where that is possible without `..`
+/// climbing out of the filesystem.
+fn relative_to(file: &Path, base: &Path) -> Option<PathBuf> {
+    let file = file.canonicalize().ok()?;
+    let base = base.canonicalize().ok()?;
+    if let Ok(stripped) = file.strip_prefix(&base) {
+        return Some(stripped.to_path_buf());
+    }
+    // One level up covers the common case of a document beside its images'
+    // folder; beyond that an absolute path is more honest than a chain of
+    // parent hops.
+    let parent = base.parent()?;
+    file.strip_prefix(parent)
+        .ok()
+        .map(|rest| Path::new("..").join(rest))
 }

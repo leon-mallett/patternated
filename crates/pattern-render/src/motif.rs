@@ -32,6 +32,18 @@ impl MotifBank {
         self.motifs.get(id)
     }
 
+    /// Change the physical size a motif stands for.
+    ///
+    /// Scale is a design decision, not a property of the file: the same
+    /// drawing at 40 mm and at 90 mm is two different prints. Changing it must
+    /// not mean matting and quantising the artwork again, so it is set on the
+    /// resolved motif rather than back at ingest.
+    pub fn set_natural_size(&mut self, id: &str, natural_size_mm: glam::Vec2) {
+        if let Some(motif) = self.motifs.get_mut(id) {
+            motif.natural_size_mm = natural_size_mm;
+        }
+    }
+
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.motifs.is_empty()

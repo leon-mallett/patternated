@@ -22,6 +22,10 @@ struct Session {
     path: PathBuf,
     document: Document,
     bank: MotifBank,
+    /// False until the document has been written somewhere. A new pattern has
+    /// a suggested path but no file, so Save must ask rather than silently
+    /// creating one.
+    saved: bool,
 }
 
 #[derive(Default)]
@@ -49,6 +53,9 @@ struct Opened {
 struct MotifEntry {
     id: String,
     natural_size_mm: [f32; 2],
+    /// Longest edge in millimetres, which is the handle a designer actually
+    /// wants: aspect ratio comes from the artwork and is never adjusted.
+    longest_edge_mm: f32,
     weight: f32,
 }
 
@@ -62,6 +69,9 @@ struct Params {
     scale_range: [f32; 2],
     seed: u64,
     weights: Vec<(String, f32)>,
+    /// Longest edge per motif, in millimetres.
+    #[serde(default)]
+    sizes: Vec<(String, f32)>,
     /// How wide the preview should come back, in screen pixels. The UI knows
     /// its own layout; the engine turns that into a resolution.
     preview_width_px: u32,
@@ -101,6 +111,7 @@ fn open_document(app: State<'_, App>, path: String) -> Reply<Opened> {
         path,
         document,
         bank,
+        saved: true,
     });
     Ok(opened)
 }
@@ -128,6 +139,7 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
             .map(|m| MotifEntry {
                 id: m.id.clone(),
                 natural_size_mm: [m.natural_size_mm.x, m.natural_size_mm.y],
+                longest_edge_mm: m.natural_size_mm.x.max(m.natural_size_mm.y),
                 weight: scatter
                     .and_then(|s| s.mix.iter().find(|e| e.motif_id == m.id))
                     .map(|e| e.weight)
@@ -159,6 +171,44 @@ fn lattice_name(lattice: &Lattice, tile: Vec2) -> String {
     }
 }
 
+/// Start a pattern from image files, with no document in existence.
+///
+/// The route M4 was missing. Until this existed the only way into the app was
+/// a hand-written JSON file, which is the thing the milestone is supposed to
+/// remove.
+#[tauri::command]
+fn new_from_images(app: State<'_, App>, files: Vec<String>, longest_edge_mm: f32) -> Reply<Opened> {
+    let paths: Vec<PathBuf> = files.into_iter().map(PathBuf::from).collect();
+    let document = pattern_doc::new_from_images(&paths, longest_edge_mm.max(2.0), 6)
+        .map_err(|e| fail("could not start a pattern from those images", e))?;
+
+    // An unsaved document has no path of its own yet; the first save asks.
+    let anchor = paths
+        .first()
+        .and_then(|p| p.parent())
+        .map(|p| p.join("untitled.json"))
+        .unwrap_or_else(|| PathBuf::from("untitled.json"));
+
+    let mut session = Session {
+        path: anchor.clone(),
+        document,
+        bank: MotifBank::new(),
+        saved: false,
+    };
+    session.bank = session
+        .document
+        .load_motifs(&anchor)
+        .map_err(|e| fail("could not read those images", e))?;
+    session
+        .document
+        .apply_scatter_public(&session.bank)
+        .map_err(|e| fail("could not scatter those motifs", e))?;
+
+    let opened = describe(&anchor, &session.document, &session.bank);
+    *app.session.lock().map_err(|e| fail("state", e))? = Some(session);
+    Ok(opened)
+}
+
 #[tauri::command]
 fn apply(app: State<'_, App>, params: Params) -> Reply<Preview> {
     let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
@@ -176,6 +226,20 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
         "block" => Lattice::block(tile),
         _ => Lattice::half_drop(tile),
     };
+
+    // Motif sizes first: the scatter solves its separation radius from motif
+    // area, so a size change has to be visible to it.
+    for (id, longest_edge) in &params.sizes {
+        if let Some(motif) = session.bank.get(id) {
+            let natural = motif.natural_size_mm;
+            let longest = natural.x.max(natural.y).max(1e-3);
+            let scaled = natural * (longest_edge.max(2.0) / longest);
+            session.bank.set_natural_size(id, scaled);
+            if let Some(entry) = session.document.motifs.iter_mut().find(|m| &m.id == id) {
+                entry.natural_size_mm = Some(scaled);
+            }
+        }
+    }
 
     if let Some(spec) = session.document.scatter.as_mut() {
         spec.density = params.density.clamp(0.0, 2.0);
@@ -262,25 +326,47 @@ fn export_png(app: State<'_, App>, path: String, dpi: f32, cols: u32, rows: u32)
     Ok(path.display().to_string())
 }
 
+/// Whether Save can write without asking, and where it would suggest.
+#[derive(Serialize)]
+struct SaveTarget {
+    needs_path: bool,
+    suggested: String,
+}
+
+#[tauri::command]
+fn save_target(app: State<'_, App>) -> Reply<SaveTarget> {
+    let guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_ref().ok_or("no document is open")?;
+    Ok(SaveTarget {
+        needs_path: !session.saved,
+        suggested: session.path.display().to_string(),
+    })
+}
+
 #[tauri::command]
 fn save_document(app: State<'_, App>, path: Option<String>) -> Reply<String> {
     let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
     let session = guard.as_mut().ok_or("no document is open")?;
-    let target = path
-        .map(PathBuf::from)
-        .unwrap_or_else(|| session.path.clone());
+    let target = match path {
+        Some(p) => PathBuf::from(p),
+        None if session.saved => session.path.clone(),
+        None => return Err("this pattern has not been saved yet, so it needs a filename".into()),
+    };
 
-    // Placements are saved with the document. A scatter regenerates them from
-    // the seed, but writing them out means the file still renders identically
-    // if the sampler ever changes — the document is the record of what was
-    // approved, not a recipe for approximating it.
-    let text = serde_json::to_string_pretty(&session.document)
-        .map_err(|e| fail("could not serialise the document", e))?;
-    std::fs::write(&target, text).map_err(|e| fail("could not write the file", e))?;
+    // Motif paths are rewritten relative to wherever the document lands, so a
+    // project folder can be moved or shared without breaking.
+    //
+    // Placements are written out too. A scatter regenerates them from the seed,
+    // but recording them means the file still renders identically if the
+    // sampler ever changes — a document is the record of what was approved,
+    // not a recipe for approximating it.
+    let rewritten = pattern_doc::save_to(&session.document, &target)
+        .map_err(|e| fail("could not write the file", e))?;
+    session.document = rewritten;
     session.path = target.clone();
+    session.saved = true;
     Ok(target.display().to_string())
 }
-
 /// The house palettes a document can be rendered in.
 ///
 /// Reads what the document already carries rather than offering an editor:
@@ -307,7 +393,9 @@ pub fn run() {
         .manage(App::default())
         .invoke_handler(tauri::generate_handler![
             open_document,
+            new_from_images,
             apply,
+            save_target,
             export_png,
             save_document,
             palette
@@ -335,6 +423,7 @@ mod tests {
             path,
             document,
             bank,
+            saved: true,
         }
     }
 
@@ -347,10 +436,87 @@ mod tests {
             scale_range: [0.85, 1.15],
             seed,
             weights: vec![("cherry".into(), 1.0)],
+            sizes: vec![],
             preview_width_px: 600,
             cols: 3,
             rows: 3,
         }
+    }
+
+    /// Files a designer would actually pick: loose artwork, no document.
+    fn artwork() -> Vec<PathBuf> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+        vec![
+            root.join("generated-motifs/01-cherries.png"),
+            root.join("generated-motifs/03-lemon-slice.png"),
+        ]
+    }
+
+    #[test]
+    fn a_pattern_can_be_started_from_images_alone() {
+        // The gap M4 shipped with: the app could open a document and had no way
+        // to make one, so the only route in was hand-writing JSON — which is
+        // the thing the milestone exists to remove.
+        let files = artwork();
+        if !files.iter().all(|f| f.exists()) {
+            // The generated artwork is not committed; skip rather than fail on
+            // a machine that has not produced it.
+            return;
+        }
+        let mut document =
+            pattern_doc::new_from_images(&files, 50.0, 6).expect("should build a document");
+        let anchor = files[0].parent().unwrap().join("untitled.json");
+        let bank = document
+            .load_motifs(&anchor)
+            .expect("should read the images");
+        document
+            .apply_scatter_public(&bank)
+            .expect("should scatter");
+
+        assert_eq!(bank.len(), 2, "both images should become motifs");
+        assert!(
+            !document.pattern.placements.is_empty(),
+            "a new pattern should arrive already scattered, not blank"
+        );
+        // The palette is derived rather than guessed, which is what stops a new
+        // pattern quantising its artwork onto colours it does not contain.
+        assert!(document.pattern.palette.len() >= 3);
+        assert!(document.scatter.is_some(), "a new pattern is scattered");
+    }
+
+    #[test]
+    fn motif_size_is_a_control_rather_than_a_property_of_the_file() {
+        // The same drawing at 40 mm and 90 mm is two different prints, and
+        // changing it must not mean ingesting the artwork again.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        p.sizes = vec![("cherry".into(), 90.0)];
+        write_params(&mut s, &p).expect("apply");
+        let big = s.bank.get("cherry").expect("motif").natural_size_mm;
+        assert!((big.x.max(big.y) - 90.0).abs() < 0.01);
+
+        p.sizes = vec![("cherry".into(), 30.0)];
+        write_params(&mut s, &p).expect("apply");
+        let small = s.bank.get("cherry").expect("motif").natural_size_mm;
+        assert!((small.x.max(small.y) - 30.0).abs() < 0.01);
+
+        // Aspect ratio comes from the artwork and is never adjusted.
+        assert!(((big.x / big.y) - (small.x / small.y)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn a_smaller_motif_means_more_of_them_at_the_same_coverage() {
+        // Density is a share of the fabric, not a count, so shrinking a motif
+        // has to put more of them down to cover the same area.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        p.sizes = vec![("cherry".into(), 60.0)];
+        write_params(&mut s, &p).expect("apply");
+        let few = s.document.pattern.placements.len();
+        p.sizes = vec![("cherry".into(), 25.0)];
+        write_params(&mut s, &p).expect("apply");
+        let many = s.document.pattern.placements.len();
+        assert!(many > few, "shrinking motifs gave {few} then {many}");
     }
 
     #[test]

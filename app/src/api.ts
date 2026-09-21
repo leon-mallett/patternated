@@ -18,6 +18,9 @@ export interface Opened {
 export interface MotifEntry {
   id: string;
   natural_size_mm: [number, number];
+  /** Longest edge in mm — the handle a designer wants. Aspect comes from the
+   *  artwork and is never adjusted. */
+  longest_edge_mm: number;
   weight: number;
 }
 
@@ -30,6 +33,7 @@ export interface Params {
   scale_range: [number, number];
   seed: number;
   weights: [string, number][];
+  sizes: [string, number][];
   preview_width_px: number;
   cols: number;
   rows: number;
@@ -54,6 +58,17 @@ export interface Preview {
 
 export const openDocument = (path: string) =>
   invoke<Opened>("open_document", { path });
+
+/** Start a pattern from image files, with no document in existence. */
+export const newFromImages = (files: string[], longestEdgeMm: number) =>
+  invoke<Opened>("new_from_images", { files, longestEdgeMm });
+
+export interface SaveTarget {
+  needs_path: boolean;
+  suggested: string;
+}
+
+export const saveTarget = () => invoke<SaveTarget>("save_target");
 
 export const apply = (params: Params) => invoke<Preview>("apply", { params });
 

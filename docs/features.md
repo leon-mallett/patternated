@@ -220,7 +220,16 @@ scatter, a motif picker, seed reroll, and export.
 cd app && npm install && npm run tauri dev
 ```
 
-Three decisions in it are worth knowing:
+**Two ways in.** *New pattern from artwork* takes one or more PNG images, each
+showing a single motif, and builds a pattern from them — matting the background
+away, deriving a palette from the artwork itself, and scattering at a starting
+density. *Open a saved pattern* takes a `.json` document written earlier.
+
+A saved pattern is a small JSON file recording the repeat, the motifs it uses
+and where they sit. Motif paths are rewritten relative to wherever the document
+is saved, so a project folder can be moved or shared without breaking.
+
+Three further decisions are worth knowing:
 
 **The preview is fixed at 3×3.** A single tile says nothing about whether a
 pattern tracks, and the spec is explicit that this is the view a designer will
@@ -237,6 +246,11 @@ density control actually delivered rather than what was asked for.
 Renders are coalesced on a short timer and tagged, so dragging a slider asks
 for one render rather than one per pixel and a slow render landing late cannot
 overwrite a newer one.
+
+Each motif has its own size control, in millimetres on its longest edge. Scale
+is a design decision rather than a property of the file — the same drawing at
+40 mm and 90 mm is two different prints — and changing it does not re-ingest the
+artwork. Aspect ratio always comes from the artwork and is never adjusted.
 
 Palette editing is deliberately absent — that is M5, and a half-built colour
 editor is the kind of partial implementation that gets trusted.

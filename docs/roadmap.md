@@ -13,17 +13,37 @@ planning. Everything below is explicitly optional.
 
 ## M5 — Colourways and export
 
-Palette management, named house palettes, live colour-count display with a
-settable maximum, CMYK and ICC export, per-colour separations, and file naming
-that carries the repeat size and resolution.
+Palette management in the app, named house palettes, colour management through
+a real ICC profile, and file naming that carries the repeat size and resolution.
 
-Colour management is the one to be careful with: RGB to CMYK through a real ICC
+Colour management is the one to be careful with: a conversion through a real
 profile rather than a formula, with soft-proofing. "It looked different on
 screen" is the commonest complaint in fabric printing and is almost always an
 unmanaged conversion.
 
-Blocked on an [open question](./commercialisation.md#open-questions): whether
-Peel Club prints digitally or by screen, and the target bureau's spec.
+**Narrowed by the print-route decision.** Peel Club prints digitally, so there
+is no per-colour cost and no colour-count ceiling to enforce. Per-colour
+separations have moved out of this milestone to the list below, because they
+only mean anything for screen printing and building them now would be a partial
+implementation of a route nobody has chosen.
+
+Still needs [the bureau's spec](./commercialisation.md#the-open-question-the-bureaus-spec) —
+resolution, colour space and whose profile, and file format — which is what the
+export layer gets built against.
+
+## Screen printing, if a range goes that way
+
+Not a milestone, because nothing has chosen it. Recorded so the door stays
+visibly open.
+
+Per-colour separations are one file per palette slot, which is a rendering pass
+over data the engine already holds — the slot model was built for colourways
+and happens to be exactly what separations need. Alongside it: enforcing a
+maximum colour count in the palette generator, and showing a designer when a
+print has drifted past what screen printing can do.
+
+Cheap to add when wanted. Expensive to have guessed at now, because the
+constraints that shape it come from a specific printer nobody has picked.
 
 ## M6 — Mockups and tracking detection
 

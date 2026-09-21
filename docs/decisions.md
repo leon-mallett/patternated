@@ -468,3 +468,49 @@ debris.
 
 **Would reopen if.** A motif style appears with deliberate fine speckle as part
 of the artwork — spatter, stippling — where the distinction stops holding.
+
+---
+
+## Digital printing first, screen printing left open
+
+**Decided** 21 September 2026. Peel Club prints digitally. Screen printing is a
+roadmap option rather than a requirement.
+
+**What it changes.** No per-colour cost, so no colour-count ceiling to enforce
+and no palette generator constrained by one. Per-colour separations move out of
+M5, because they mean nothing for digital and building them would be a partial
+implementation of an unchosen route. M5 narrows to palette management, colour
+management through a real profile, and file naming.
+
+**What it does not change.** The colour count stays on screen. It is what
+decides whether a design could move to screen later, and a print quietly
+resolving to thirty colours usually has a palette worth looking at whatever the
+route.
+
+**Cheap to reverse**, which is why leaving it open costs nothing: separations
+are one file per palette slot, and the slot model already exists because
+colourways needed it.
+
+---
+
+## The app needed a way to start, not just a way to open
+
+**Decided.** The shell creates a pattern from image files: matte, derive a
+palette from the artwork, scatter at a starting density.
+
+**Why.** M4 shipped able to open a document and unable to make one, so the only
+route in was hand-writing JSON — which is exactly what the milestone exists to
+remove. Its stated acceptance test is that a designer produces a print without
+touching a config file, and the first thing the app asked for was a config file.
+That was caught by someone opening it, not by any test, which is the honest
+lesson: **an empty state is a feature, and it is the one most likely to be
+tested only by the person who cannot see it fresh.**
+
+**Derived, not guessed.** The palette comes from the artwork. Everything else —
+240 × 180 mm, half-drop, 30% coverage, 50 mm motifs — is a starting point meant
+to be changed within seconds. A guessed *palette* is different in kind: it is
+how a motif ends up quantised onto colours it does not contain, and the failure
+is not obvious on screen.
+
+**Would reopen if.** Ingesting into a library becomes the normal route, at
+which point this is a shortcut for trying things rather than the main door.

@@ -3,8 +3,10 @@ import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialo
 import {
   apply,
   exportPng,
+  newFromImages,
   openDocument,
   saveDocument,
+  saveTarget,
   type MotifEntry,
   type Opened,
   type Params,
@@ -37,6 +39,7 @@ export default function App() {
   const [scale, setScale] = useState<[number, number]>([0.85, 1.15]);
   const [seed, setSeed] = useState(1);
   const [weights, setWeights] = useState<Record<string, number>>({});
+  const [sizes, setSizes] = useState<Record<string, number>>({});
 
   const paneRef = useRef<HTMLDivElement | null>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -55,6 +58,7 @@ export default function App() {
       scale_range: scale,
       seed,
       weights: Object.entries(weights),
+      sizes: Object.entries(sizes),
       preview_width_px: Math.max(320, Math.round(paneRef.current?.clientWidth ?? 720)),
       cols: FIELD,
       rows: FIELD,
@@ -70,7 +74,7 @@ export default function App() {
     } finally {
       if (mine === generation.current) setBusy(false);
     }
-  }, [doc, tile, lattice, density, jitter, scale, seed, weights]);
+  }, [doc, tile, lattice, density, jitter, scale, seed, weights, sizes]);
 
   // Coalesce a drag into one render rather than one per pixel.
   useEffect(() => {
@@ -80,6 +84,41 @@ export default function App() {
     return () => window.clearTimeout(timer.current);
   }, [doc, refresh]);
 
+  /** Adopt a freshly opened or created document into the controls. */
+  function adopt(opened: Opened, note: string) {
+    setDoc(opened);
+    setTile(opened.tile_mm);
+    setLattice(opened.lattice === "block" ? "block" : "half-drop");
+    setDensity(opened.density);
+    setJitter(opened.rotation_jitter_deg);
+    setScale(opened.scale_range);
+    setSeed(opened.seed);
+    setWeights(Object.fromEntries(opened.motifs.map((m) => [m.id, m.weight])));
+    setSizes(
+      Object.fromEntries(opened.motifs.map((m) => [m.id, m.longest_edge_mm])),
+    );
+    setError(null);
+    setStatus(note);
+  }
+
+  async function onNew() {
+    const chosen = await openDialog({
+      title: "Choose the artwork for this pattern",
+      multiple: true,
+      filters: [{ name: "Artwork", extensions: ["png"] }],
+    });
+    const files = Array.isArray(chosen) ? chosen : chosen ? [chosen] : [];
+    if (files.length === 0) return;
+    try {
+      // 50 mm is a starting point, not a decision — every motif gets its own
+      // size control the moment the pattern is on screen.
+      const opened = await newFromImages(files, 50);
+      adopt(opened, `Started a pattern from ${files.length} image${files.length > 1 ? "s" : ""}`);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   async function onOpen() {
     const chosen = await openDialog({
       title: "Open a pattern document",
@@ -88,16 +127,7 @@ export default function App() {
     if (typeof chosen !== "string") return;
     try {
       const opened = await openDocument(chosen);
-      setDoc(opened);
-      setTile(opened.tile_mm);
-      setLattice(opened.lattice === "block" ? "block" : "half-drop");
-      setDensity(opened.density);
-      setJitter(opened.rotation_jitter_deg);
-      setScale(opened.scale_range);
-      setSeed(opened.seed);
-      setWeights(Object.fromEntries(opened.motifs.map((m) => [m.id, m.weight])));
-      setError(null);
-      setStatus(`Opened ${opened.name}`);
+      adopt(opened, `Opened ${opened.name}`);
     } catch (e) {
       setError(String(e));
     }
@@ -121,7 +151,20 @@ export default function App() {
 
   async function onSave() {
     try {
-      const where = await saveDocument();
+      // A pattern started from images has never been written anywhere, so
+      // Save asks rather than inventing a filename beside the artwork.
+      const target = await saveTarget();
+      let path: string | undefined;
+      if (target.needs_path) {
+        const chosen = await saveDialog({
+          title: "Save this pattern",
+          defaultPath: target.suggested,
+          filters: [{ name: "Pattern document", extensions: ["json"] }],
+        });
+        if (typeof chosen !== "string") return;
+        path = chosen;
+      }
+      const where = await saveDocument(path);
       setStatus(`Saved ${where}`);
     } catch (e) {
       setError(String(e));
@@ -132,13 +175,27 @@ export default function App() {
     return (
       <main className="empty">
         <h1>Pattern Engine</h1>
-        <p>
-          Open a pattern document to begin. Everything is measured in
-          millimetres; resolution is chosen only when you export.
+        <p className="lede">
+          Turn illustrations into repeating prints. Everything is measured in
+          millimetres — a resolution is chosen only when you export.
         </p>
-        <button className="primary" onClick={onOpen}>
-          Open a document…
-        </button>
+        <div className="start">
+          <button className="primary" onClick={onNew}>
+            New pattern from artwork…
+          </button>
+          <button onClick={onOpen}>Open a saved pattern…</button>
+        </div>
+        <p className="hint start-hint">
+          Start with one or more PNG images, each showing a single motif. They
+          can have a transparent background or sit on plain paper — the
+          background is measured away either way. A palette is worked out from
+          the artwork itself.
+        </p>
+        <p className="hint start-hint">
+          A <strong>saved pattern</strong> is a small <code>.json</code> file
+          recording the repeat, the motifs it uses and where they sit. There are
+          examples under <code>examples/</code> in the project folder.
+        </p>
         {error && <p className="error">{error}</p>}
       </main>
     );
@@ -153,6 +210,7 @@ export default function App() {
             <span className="muted"> · {FIELD}×{FIELD} repeat</span>
           </div>
           <div className="actions">
+            <button onClick={onNew}>New…</button>
             <button onClick={onOpen}>Open…</button>
             <button onClick={onSave}>Save</button>
             <button className="primary" onClick={onExport}>
@@ -287,7 +345,9 @@ export default function App() {
                   key={m.id}
                   motif={m}
                   weight={weights[m.id] ?? 0}
-                  onChange={(w) => setWeights({ ...weights, [m.id]: w })}
+                  size={sizes[m.id] ?? m.longest_edge_mm}
+                  onWeight={(w) => setWeights({ ...weights, [m.id]: w })}
+                  onSize={(v) => setSizes({ ...sizes, [m.id]: v })}
                 />
               ))}
               <p className="hint">
@@ -413,32 +473,37 @@ function NumberField({
 function MotifRow({
   motif,
   weight,
-  onChange,
+  size,
+  onWeight,
+  onSize,
 }: {
   motif: MotifEntry;
   weight: number;
-  onChange: (w: number) => void;
+  size: number;
+  onWeight: (w: number) => void;
+  onSize: (v: number) => void;
 }) {
-  const [w, h] = motif.natural_size_mm;
   return (
-    <label className="slider">
-      <span className="row">
-        <span>
-          {motif.id}{" "}
-          <span className="muted">
-            {Math.round(w)}×{Math.round(h)} mm
-          </span>
-        </span>
-        <output>{weight.toFixed(1)}</output>
-      </span>
-      <input
-        type="range"
+    <div className="motif">
+      <div className="motif-name">{motif.id}</div>
+      <Slider
+        label="How often"
         value={weight}
         min={0}
         max={8}
         step={0.5}
-        onChange={(e) => onChange(Number(e.target.value))}
+        format={(v) => (v === 0 ? "off" : v.toFixed(1))}
+        onChange={onWeight}
       />
-    </label>
+      <Slider
+        label="Size"
+        value={size}
+        min={5}
+        max={400}
+        step={1}
+        format={(v) => `${Math.round(v)} mm`}
+        onChange={onSize}
+      />
+    </div>
   );
 }
