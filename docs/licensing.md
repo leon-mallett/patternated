@@ -17,10 +17,23 @@ All permissively licensed (MIT or Apache-2.0, or both): `glam`, `tiny-skia`,
 copyleft, nothing with an attribution obligation beyond notice, and `cargo
 audit` is clean as of 2026-09-20.
 
-`lcms2` arrives at M5 and deserves checking before it lands rather than after:
-it sits in the export path, where a licence problem would be expensive to
-unwind, and it is a binding to a C library rather than a Rust crate, which makes
-it a different kind of decision from everything currently in the tree.
+`moxcms` (BSD-3-Clause or Apache-2.0) and `tiff` (MIT) arrive at M5. `moxcms`
+replaces the `lcms2` the spec names, which is a binding to a C library and would
+have been the first non-Rust dependency in the tree.
+
+## Colour profiles
+
+M5 ships ICC profiles, which is a licensing decision as much as a colour one,
+and the terms were read rather than assumed. Every profile chosen is
+redistributable without restriction: `sRGB2014.icc` from the ICC, and the ECI
+and IDEAlliance CMYK profiles (PSO Coated, GRACoL, SWOP, CGATS21, XCMYK 2017).
+Heidelberg's `ISOcoated` series is deliberately avoided — bundleable, but with
+conditions about not charging extra for it, which is a needless complication
+when unrestricted equivalents exist. Nothing from Adobe.
+
+See [Commercialisation](./commercialisation.md#which-profiles-specifically) for
+the table and the caveat that these are all offset litho profiles rather than
+textile ones.
 
 ## Artwork
 

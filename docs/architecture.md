@@ -17,7 +17,7 @@ See [Decisions](./decisions.md) for why each boundary sits where it does, and
 | `pattern-cli` | Command line over `pattern-doc` | the above, `clap` | Built |
 | `pattern-app` | Tauri 2 shell: session state and commands | the above, `tauri`, `tauri-plugin-dialog` | Built |
 | `motif-ingest` | Matting, trim, quantise, vectorise, library | `pattern-core`, `visioncortex` | Built |
-| `pattern-io` | CMYK, ICC profiles, separations, file naming | `lcms2`, `tiff` | M5 |
+| `pattern-io` | CMYK, ICC profiles, file naming | `moxcms`, `tiff` | M5 |
 | `app/src` | React and TypeScript front end | `react`, `vite` | Built |
 
 `pattern-cli` and `pattern-doc` are not in the spec's crate table. The spec
@@ -116,6 +116,12 @@ somebody generated from it, which proves nothing about whether tiles join. See
 - **`png`** used directly, alongside the copy `tiny-skia` already pulls in,
   because `Pixmap::encode_png` writes no `pHYs` chunk and physical size has to
   survive into the file.
+- **`moxcms`** rather than `lcms2` when colour management arrives at M5. The
+  spec names `lcms2`, which is a binding to a C library and would have been the
+  first non-Rust dependency in the tree. `moxcms` does ICC transforms between
+  RGB and CMYK through an XYZ or Lab connection space in pure Rust, under
+  BSD-3-Clause or Apache-2.0. Confirmed by reading its transform code rather
+  than its description — its own documentation is ambiguous about CMYK.
 - **`visioncortex`** for tracing, rather than the `vtracer` wrapper around it —
   see [Decisions](./decisions.md#visioncortex-rather-than-vtracer). Notably
   `motif-ingest` has **no image-format dependency at all**: it takes decoded

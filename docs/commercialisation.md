@@ -60,34 +60,80 @@ Keeping the door open costs almost nothing, because the palette-slot model is
 already exactly what separations need — one file per slot is a rendering pass
 over data that already exists.
 
-## The open question: the bureau's spec
+## Output spec — decided
 
-Still unanswered, and it is the one that should be settled before the export
-layer is built rather than after, because a wrong assumption here is invisible
-until a sample arrives.
+Settled 21 September 2026. These are the requirements M5 is built against.
 
-Concretely, what to ask whoever will print the fabric:
+**Resolution: both 150 and 300 DPI, and anything else.** The engine already
+renders at an arbitrary resolution, so this is an export choice rather than a
+constraint. The reasoning behind it is the more important part: *we cannot
+control what another printer asks for*, so the export layer is built to be told
+rather than to assume.
 
-1. **Resolution.** What DPI do they want artwork at? 150 is common for fabric,
-   some want 300. This decides the pixel dimensions of every export.
-2. **Colour space, and whose profile.** RGB or CMYK? If RGB, which profile —
-   sRGB or Adobe RGB? If CMYK, do they supply their own press profile, and can
-   they send it? "Convert to CMYK" without a named profile is the single most
-   common cause of a print that does not match the screen.
-3. **File format.** PNG, or TIFF? If TIFF, what compression, and flattened or
-   layered?
-4. **What exactly they want in the file.** Just the one tile, ready to be
-   stepped and repeated by them? Or a pre-repeated sheet? And do they want
-   bleed around the tile, or the tile exactly?
-5. **How they learn the physical size.** Do they read it from the embedded DPI,
-   or do you state the repeat size separately on the order? Both, ideally — but
-   it is worth knowing which one they actually act on.
-6. **Maximum printable width**, and the fabric roll width. This constrains how
-   large a repeat can sensibly be, and a repeat wider than the roll is a design
-   that cannot be printed.
+**Colour: no proprietary profiles.** sRGB rather than Adobe RGB, and CMYK
+through an openly licensed profile. The conversion happens in this tool — a
+designer should not need Photoshop or Illustrator to produce a CMYK file.
 
-Answers to 1, 2 and 3 are what M5 is built against. Answers to 4, 5 and 6 are
-what the export dialog needs to say.
+**Format: TIFF definitely, PNG probably.** Minimal compression, flattened, no
+layers.
+
+**Two export shapes, as an option:** one large pre-repeated image that works
+as-is for a printer with no tiling of its own, or one small tileable image for
+printers that step and repeat themselves.
+
+**The physical size is shown in the interface**, not left to be worked out. If
+a design comes to 50 cm and someone needs 1.5 m, they should be able to see
+that and decide between enlarging the repeat and exporting the tileable version
+for the printer to handle.
+
+### Which profiles, specifically
+
+Researched rather than assumed, because a profile bundled into software that
+might one day be public is a licensing decision as much as a colour one.
+
+| Profile | Covers | Licence |
+| --- | --- | --- |
+| `sRGB2014.icc` | RGB | ICC. "Copied, distributed, embedded, made, used, and sold without restriction." |
+| `PSO Coated` (ECI) | CMYK, European offset | ECI. "Used, embedded, exchanged, and shared without restriction." |
+| `GRACoL` / `SWOP` / `CGATS21` | CMYK, US offset | IDEAlliance, X-Rite. Same unrestricted terms. |
+| `XCMYK 2017` | CMYK, extended gamut | IDEAlliance / ColorLogic. Same unrestricted terms. |
+
+Deliberately **not** used: `ISOcoated*` from Heidelberg, which is bundleable but
+carries conditions about not charging extra for it — a needless complication
+when equivalents are unrestricted. And anything from Adobe.
+
+**The caveat that matters more than the list.** Every one of those is an
+*offset litho* profile. Digital textile printing has a different gamut, and the
+correct profile is the bureau's own. These are sensible defaults that let
+someone produce a plausible CMYK file today; loading a supplied profile must be
+easy, because that is what a real job will use.
+
+### Print width
+
+No single number, so this is a setting with defaults rather than a rule.
+
+Standard apparel and home-textile printers run **1.6 to 1.8 m**, which is what
+most fabric rolls are. Wide-format machines reach **3.2 m**, the conventional
+start of "grand format", and industrial roll-to-roll goes to 5 m.
+
+Erring high as instructed: warn gently above 1.6 m, since a repeat wider than a
+standard roll is usually a mistake, and treat 3.2 m as the point where it is
+almost certainly wrong. Both adjustable, because the real limit belongs to a
+specific printer.
+
+### One thing worth flagging
+
+The reasoning given for resolution flexibility — that we cannot control what
+other printers ask for, ahead of the app being commercialised or made public —
+points somewhere the spec argues against. Its closing note is that selling this
+to pattern designers is a weak bet in a crowded category, and that the strength
+of the position is that the engine sits under two garment brands.
+
+Nothing decided here conflicts with that: building an export layer that can be
+*told* its target rather than assuming one is better engineering for a single
+bureau too, and costs nothing extra. It is only worth noticing that a
+"someone else might use this" requirement has entered the build, and that if it
+grows, it is a strategy change rather than a feature.
 
 ## Regulation — UK children's nightwear
 
