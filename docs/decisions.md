@@ -714,3 +714,56 @@ black to 87% on the black plate, and red to magenta and yellow rather than
 cyan — because a colour library that compiles is not the same as one that
 converts correctly, and its own documentation was ambiguous about whether CMYK
 was supported at all.
+
+---
+
+## Not shipping tracking detection, having built it twice
+
+**Decided.** M6's tracking detection is not implemented. Two approaches were
+built and measured, neither separates a corridored pattern from a clean one on
+patterns this engine actually produces, and both were removed rather than
+shipped behind a threshold that does not work.
+
+**What was tried.**
+
+*The spec's approach*: render the field to a low-resolution mask and measure how
+unevenly coverage spreads along each of fifteen integer directions, scoring the
+worst against the others. On synthetic masks it works cleanly — evenly spread
+blobs score 1.3, a field with one corridor added scores 9.0, hard stripes score
+191 to 320. On real patterns it does not. Forty-five good scatters across three
+lattices, three densities and five seeds scored **1.66 to 6.57**; eight of the
+same patterns with a line of motifs walked through them scored **2.57 to 6.61**.
+
+*Measuring positions instead of pixels*: for each direction, project every motif
+centre and its eight lattice copies onto the perpendicular, and find the
+fullest band. Cheaper, exact, and more directly a measure of alignment. Clean
+scatters scored **2.09 to 3.99**; corridored ones **2.58 to 3.49** — entirely
+inside the clean range.
+
+**Why both fail.** A repeat is not a field of independently placed motifs. A
+three-by-three view is nine copies of one tile, so whatever structure that tile
+has repeats coherently instead of averaging out; and with twenty to forty
+motifs per tile that structure is large and varies a great deal between seeds.
+The natural variation between good patterns is bigger than the signal from a
+corridor. Poisson-disc sampling makes it worse, not better: it produces a
+characteristic spacing, which is itself structure.
+
+**Why it was removed rather than left behind a flag.** The spec makes this a
+*blocking gate* for Dreamwoven — a pattern fails it and is regenerated with no
+human in the loop. A gate built on a measurement that does not discriminate
+would pass and fail prints at random, and would be trusted precisely because
+nobody could see it working. The project's rule that a partial implementation is
+worse than none was written for exactly this.
+
+**What would likely work**, recorded so the next attempt does not start from
+nothing: the frequency domain. Tracking is periodic structure at frequencies
+the lattice does not explain, which is what a two-dimensional power spectrum
+shows and what neither of these spatial measures can isolate. It needs an FFT,
+which brings transcendental arithmetic — acceptable for a warning, and needing
+thought before a *seed* is chosen from the result, since that would make a
+chosen print platform-dependent.
+
+**Also worth knowing:** the synthetic fixtures said it worked. Both approaches
+passed every unit test written against hand-made masks. Only calibrating
+against output from the real pipeline showed the distributions overlapping —
+the same lesson as the export defect, arrived at from the other end.

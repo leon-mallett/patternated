@@ -27,6 +27,13 @@ constraints that shape it come from a specific printer nobody has picked.
 
 ## M6 — Mockups and tracking detection
 
+**Tracking detection was attempted and is not built.** Two approaches were
+measured against real output and neither separates a corridored pattern from a
+clean one; both were removed rather than shipped behind a threshold that does
+not discriminate. The numbers and the likely next approach are in
+[Decisions](./decisions.md#not-shipping-tracking-detection-having-built-it-twice).
+
+
 Garment preview at true scale, and Radon-based corridor detection over a
 low-resolution three-by-three mask with automatic reseed.
 
@@ -102,10 +109,11 @@ Not milestones, but not forgotten.
   [colour management](./features.md#colour-management). Until a bureau supplies
   one, a CMYK export cannot be produced at all, which is the honest state of
   affairs rather than a gap to paper over.
-- **Whether a scatter tracks is still judged by eye.** M2 removes clumps and
-  bald patches, both of which are measurable and tested. Corridors are neither,
-  until [M6](./roadmap.md#m6--mockups-and-tracking-detection) builds the Radon
-  check. Until then "no visible corridors" is an opinion, and it should be
+- **Whether a scatter tracks is still judged by eye**, and after one serious
+  attempt it is not clear when that will change. Clumps and bald patches are
+  measurable and tested; corridors resisted two different measurements. See
+  [Decisions](./decisions.md#not-shipping-tracking-detection-having-built-it-twice).
+  Until something works, "no visible corridors" is an opinion and should be
   described as one.
 - **Scatter is brute-force**, checking each candidate against every accepted
   sample. Milliseconds at textile counts; the usual spatial grid indexes the
