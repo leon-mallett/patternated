@@ -274,12 +274,32 @@ export default function App() {
               value={String(preview.colours)}
               hint="What a screen printer charges by"
             />
+            {preview.size_limited_to < 0.999 && (
+              <Readout
+                label="Motif size"
+                value={`limited to ${Math.round(preview.size_limited_to * 100)}%`}
+                hint="Shrunk to fit the grid without overlapping. Use fewer rows or columns, or turn the guard off."
+              />
+            )}
           </dl>
         )}
       </section>
 
       <aside className="controls">
         <Group title="Layout">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={preventOverlap}
+              onChange={(e) => setPreventOverlap(e.target.checked)}
+            />
+            <span>Prevent overlapping</span>
+          </label>
+          <p className="hint">
+            {layout === "tossed"
+              ? "Keeps motifs from intersecting. Asking for more coverage than fits simply stops adding motifs — the coverage readout shows what was reached."
+              : "Keeps motifs from intersecting. A grid's cells are fixed, so motifs too large for them are shrunk to fit rather than drawn over each other."}
+          </p>
           <label>
             Arrangement
             <select value={layout} onChange={(e) => setLayout(e.target.value)}>
@@ -348,19 +368,6 @@ export default function App() {
           <>
             {layout === "tossed" && (
             <Group title="Scatter">
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={preventOverlap}
-                  onChange={(e) => setPreventOverlap(e.target.checked)}
-                />
-                <span>Prevent overlapping</span>
-              </label>
-              <p className="hint">
-                Keeps motifs from intersecting. Turn it off to let them layer.
-                With it on, asking for more coverage than fits simply stops
-                adding motifs — the coverage readout shows what was reached.
-              </p>
               <Slider
                 label="Coverage"
                 value={density}

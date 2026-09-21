@@ -75,7 +75,9 @@ struct Params {
     /// "tossed" for a scatter, or a named grid preset.
     #[serde(default)]
     layout: String,
-    #[serde(default)]
+    /// Defaults to on when absent, so a caller that forgets the field gets the
+    /// guard rather than an overlapping print.
+    #[serde(default = "guard_on")]
     prevent_overlap: bool,
     #[serde(default)]
     grid_rows: u32,
@@ -104,6 +106,13 @@ struct Preview {
     colours: usize,
     achieved_density: f32,
     dpi: f32,
+    /// Below 1 when a grid shrank its motifs to stop them intersecting.
+    /// Surfaced so a size control that has stopped moving has a visible reason.
+    size_limited_to: f32,
+}
+
+fn guard_on() -> bool {
+    true
 }
 
 type Reply<T> = Result<T, String>;
@@ -166,7 +175,10 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
             .as_ref()
             .map(|g| preset_name(g.row_offset))
             .unwrap_or_else(|| "tossed".into()),
-        prevent_overlap: scatter.map(|s| s.prevent_overlap).unwrap_or(true),
+        prevent_overlap: scatter
+            .map(|s| s.prevent_overlap)
+            .or_else(|| document.grid.as_ref().map(|g| g.prevent_overlap))
+            .unwrap_or(true),
         grid_rows: document.grid.as_ref().map(|g| g.rows).unwrap_or(3),
         grid_cols: document.grid.as_ref().map(|g| g.cols).unwrap_or(3),
     }
@@ -316,6 +328,7 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
     }
 
     if let Some(spec) = session.document.grid.as_mut() {
+        spec.prevent_overlap = params.prevent_overlap;
         spec.rows = params.grid_rows.clamp(1, 24);
         spec.cols = params.grid_cols.clamp(1, 24);
         spec.rotation_jitter_deg = params.rotation_jitter_deg;
@@ -372,6 +385,7 @@ fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
         session.document.grid = Some(pattern_doc::GridSpec {
             rows: params.grid_rows.clamp(1, 24),
             cols: params.grid_cols.clamp(1, 24),
+            prevent_overlap: params.prevent_overlap,
             row_offset,
             rotation_jitter_deg: params.rotation_jitter_deg,
             scale_range: (params.scale_range[0], params.scale_range[1]),
@@ -428,6 +442,7 @@ fn render(session: &Session, params: &Params) -> anyhow::Result<Preview> {
         colours: pattern_core::resolved_color_count(pattern, &motifs),
         achieved_density: pattern.placements.len() as f32 * mean_area / tile_area,
         dpi,
+        size_limited_to: session.document.grid_scale_applied,
     })
 }
 

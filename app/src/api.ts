@@ -72,6 +72,8 @@ export interface Preview {
   colours: number;
   achieved_density: number;
   dpi: number;
+  /** Below 1 when a grid shrank its motifs to stop them intersecting. */
+  size_limited_to: number;
 }
 
 export const openDocument = (path: string) =>

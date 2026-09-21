@@ -15,7 +15,7 @@ mod scatter;
 mod torus;
 
 pub use error::PatternError;
-pub use grid::{grid, GridParams};
+pub use grid::{grid, grid_with_outcome, GridOutcome, GridParams};
 pub use lattice::{Lattice, NEIGHBOUR_COUNT};
 pub use motif::{IndexedMotif, Motif};
 pub use palette::{Color, Palette, GROUND_SLOT};

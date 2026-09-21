@@ -50,6 +50,11 @@ pub struct Document {
     /// there is no sensible merge and silently picking one would discard work.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grid: Option<GridSpec>,
+    /// How far a grid had to shrink its motifs to stop them intersecting, as a
+    /// fraction of the size asked for. Not part of the document; recomputed on
+    /// every layout so a front end can say why a size control stopped moving.
+    #[serde(skip, default = "one")]
+    pub grid_scale_applied: f32,
 }
 
 /// A scatter as a document describes it.
@@ -82,11 +87,18 @@ fn prevent_overlap_default() -> bool {
     true
 }
 
+fn one() -> f32 {
+    1.0
+}
+
 /// A grid layout as a document describes it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GridSpec {
     pub rows: u32,
     pub cols: u32,
+    /// Shrink motifs to fit their cell rather than letting them intersect.
+    #[serde(default = "prevent_overlap_default")]
+    pub prevent_overlap: bool,
     #[serde(default)]
     pub row_offset: f32,
     #[serde(default)]
@@ -285,7 +297,7 @@ impl Document {
         }
 
         self.pattern.seed = spec.seed;
-        self.pattern.placements = pattern_core::grid(
+        let (placements, outcome) = pattern_core::grid_with_outcome(
             &pattern_core::GridParams {
                 rows: spec.rows,
                 cols: spec.cols,
@@ -293,10 +305,14 @@ impl Document {
                 rotation_jitter_deg: spec.rotation_jitter_deg,
                 scale_range: spec.scale_range,
                 motif_mix: mix,
+                prevent_overlap: spec.prevent_overlap,
                 seed: spec.seed,
             },
             self.pattern.tile_size_mm,
+            &self.pattern.lattice,
         );
+        self.pattern.placements = placements;
+        self.grid_scale_applied = outcome.scale_applied;
         if self.pattern.placements.is_empty() {
             return Err(anyhow!(
                 "that grid places no motifs; check rows and columns"
@@ -611,6 +627,7 @@ pub fn new_from_images(
             seed: 1,
         },
         grid: None,
+        grid_scale_applied: 1.0,
         scatter: Some(ScatterSpec {
             density: 0.3,
             prevent_overlap: true,
