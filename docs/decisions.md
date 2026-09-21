@@ -604,3 +604,35 @@ size. **When a property is about repetition, compare two constructions of the
 same thing rather than sampling near a boundary.**
 
 Governs [the app shell](./features.md#the-app-shell).
+
+---
+
+## Rounding the tile to a size its lattice divides
+
+**Decided.** A tile's pixel dimensions are rounded to a multiple the lattice
+steps by: even height for a half-drop, a multiple of four for a quarter-drop,
+even width for a brick, nothing for a block.
+
+**Why.** Found by measuring an exported sheet rather than by reasoning. A
+240 × 180 mm repeat at 150 DPI is 1417 × 1063 px — and 1063 is odd, so a
+half-drop's step of half the tile height rounds to 532. Four columns then
+accumulate 2128 against two tiles' 2126, and the sheet comes back two pixels
+adrift. Butting two copies together gave a seam of 2.79 mean channel difference
+against an interior step of 0.73; afterwards, 0.84.
+
+**What was not broken.** A single tile, at any resolution. Its own neighbour
+offsets are consistent with each other, which is what the seamlessness tests
+check and why they passed throughout. What breaks is anything that
+*accumulates* the lattice — a pre-repeated sheet, and a printer stepping the
+tile themselves.
+
+**Cost.** The repeat moves by at most a pixel: 0.17 mm on 180 mm. That is the
+same trade M1 made when it decided the rounded tile is the repeat, applied one
+step further, and a test pins it so it cannot grow unnoticed.
+
+**A note on how it was found.** The unit tests, the seamlessness tests and the
+golden images were all green. The defect appeared only when a written file was
+opened and measured — which is an argument for testing the artefact a project
+exists to produce, not only the code that produces it.
+
+Governs [export](./features.md#export).

@@ -27,19 +27,17 @@ separations have moved out of this milestone to the list below, because they
 only mean anything for screen printing and building them now would be a partial
 implementation of a route nobody has chosen.
 
-**No longer blocked.** The [output spec](./commercialisation.md#output-spec--decided)
-is settled, so M5 is a build rather than a question. What it comes to:
+**The export half is built** — see [Features](./features.md#export). TIFF and
+PNG at any resolution, tile or pre-repeated sheet, physical size and roll-width
+verdict before the file dialog, and filenames that say what the file is.
 
-- **Export at any resolution**, with 150 and 300 DPI to hand. The engine
-  already renders at arbitrary DPI; this is a choice in the export dialog.
-- **TIFF**, minimal compression, flattened. PNG stays as the quick option.
-  Adds the `tiff` crate.
-- **Two export shapes**: one large pre-repeated image, or one tileable tile,
-  chosen at export.
+What remains:
+
 - **Colour management in the tool**, so nobody needs Photoshop to make a CMYK
   file. `moxcms` does ICC transforms between RGB and CMYK through an XYZ or Lab
   connection space, in pure Rust — which removes the C binding this milestone
-  was expected to need.
+  was expected to need. Best done once a bureau has said what they want, since
+  the bundled profiles are offset litho ones and a textile press is not.
 - **Openly licensed profiles only**: `sRGB2014` for RGB, and PSO Coated or
   GRACoL for CMYK, all redistributable without restriction. Loading a bureau's
   own profile must be easy, because those defaults are offset litho profiles

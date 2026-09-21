@@ -1,6 +1,7 @@
 # Features
 
-What exists today, at M4. Everything else is in [Roadmap](./roadmap.md).
+What exists today: M1 to M4, and the export half of M5. Everything else is in
+[Roadmap](./roadmap.md).
 
 ## Seamless tiling
 
@@ -229,18 +230,41 @@ motif fits and warns when it does not.
   when a requested field would not tile.
 - Any resolution. 72–96 DPI for preview, 150–300 for print.
 
-## PNG export with physical size
+## Export
 
-Exports carry their resolution in a `pHYs` chunk, so the file states the size it
-is meant to be printed at rather than leaving it to be re-established by
-whoever opens it.
+**TIFF** for a print bureau and **PNG** for a quick look, at any resolution.
 
-One inaccuracy worth knowing: PNG records pixels per *metre* as an integer, so
-150 DPI is stored as 5906 ppm and reads back as 150.0124 DPI. The error is
-0.008%, about 0.02 mm across a 240 mm repeat. It is below the tolerance of every
-printing process in scope, but it is not zero.
+TIFF is written flat, single-layer, RGB — a print has no transparency, since the
+ground is a colour that gets printed like any other and the renderer has already
+composited onto it. Compression is off by default, which is the most compatible
+thing a bureau can receive; LZW is available, lossless, and about a third the
+size.
 
-CMYK, TIFF, ICC profiles and per-colour separations are M5.
+**Two shapes**, and they are not interchangeable:
+
+- **One tile**, for a printer that steps and repeats it themselves.
+- **A pre-repeated sheet**, for one that does not. The tile count is a minimum:
+  it is grown to a window that is itself a repeating unit, because a sheet that
+  does not tile shows a seam the moment the printer repeats it.
+
+**Physical size is reported before the file dialog**, along with the pixel
+count, an estimate of the file size, and how the width compares with a fabric
+roll — within a standard 1.6 m roll, past it but inside grand format, or past
+3.2 m and unlikely to be printable as one piece. The roll width is a setting,
+because the real limit belongs to a specific printer.
+
+**Filenames say what the file is**: `cherries-halfdrop-240x180mm-150dpi.tif`.
+The spec calls this out as removing an entire category of mistake, and it is
+right — a print file's repeat size and resolution are invisible once it is on
+somebody else's machine.
+
+Two accuracies worth knowing. PNG records pixels per *metre* as an integer, so
+150 DPI reads back as 150.0124; TIFF records a rational and keeps it exactly.
+And the physical size reported is the one implied by the file's pixels rather
+than the design's nominal size, because quantising the tile moves it by a
+fraction of a millimetre — see below.
+
+CMYK, ICC profiles and palette editing are the rest of M5.
 
 ## Validation
 

@@ -17,7 +17,8 @@ See [Decisions](./decisions.md) for why each boundary sits where it does, and
 | `pattern-cli` | Command line over `pattern-doc` | the above, `clap` | Built |
 | `pattern-app` | Tauri 2 shell: session state and commands | the above, `tauri`, `tauri-plugin-dialog` | Built |
 | `motif-ingest` | Matting, trim, quantise, vectorise, library | `pattern-core`, `visioncortex` | Built |
-| `pattern-io` | CMYK, ICC profiles, file naming | `moxcms`, `tiff` | M5 |
+| `pattern-io` | Export, print size, file naming | `tiff`, `png` | Built |
+| `pattern-io` (colour) | CMYK and ICC profiles | `moxcms` | M5 |
 | `app/src` | React and TypeScript front end | `react`, `vite` | Built |
 
 `pattern-cli` and `pattern-doc` are not in the spec's crate table. The spec
