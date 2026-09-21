@@ -767,3 +767,45 @@ chosen print platform-dependent.
 passed every unit test written against hand-made masks. Only calibrating
 against output from the real pipeline showed the distributions overlapping —
 the same lesson as the export defect, arrived at from the other end.
+
+---
+
+## Deciding the matting method from the image, in one place
+
+**Decided.** `motif_ingest::method_for` chooses between trusting an image's
+alpha and measuring its paper. Every route that mattes calls it.
+
+**Why.** The choice was being made in two places. Creating a pattern from images
+chose correctly; deriving a palette from the same images always measured the
+paper. Given artwork with a transparent background — which has no paper, so the
+brightest thing in frame is the subject — the second removed the whole image and
+returned a palette containing only its ground.
+
+Both call sites were written weeks apart and neither referenced the other. **A
+decision made twice is a decision that will eventually disagree with itself**,
+and the disagreement surfaces at whichever call site is exercised less.
+
+**Found by artwork rather than by a test.** Both paths had tests and both
+passed, because each was tested with input of the kind it happened to handle.
+
+---
+
+## The background is a palette slot, not a setting
+
+**Decided.** The app's background control edits slot 0 of the palette. There is
+no separate background colour anywhere in the model.
+
+**Why it is worth recording as a decision at all.** Asked whether the background
+could be set in the app, the true answer was that it already could and nobody
+would have guessed — the ground sat in an undifferentiated row of swatches with
+a hover tooltip.
+
+The fix was a label and a heading, and that is the point. Because the ground was
+made slot 0 back at M1 rather than a field of its own, it recolours with a
+colourway, swaps with a motif colour, exports correctly, and resolves through
+the same code as everything else — for free. A separate `background: Color`
+would have needed all of that written again, and would have drifted.
+
+**The lesson is about the gap between the two**, not the model: a thing that
+works and cannot be found is, to the person using it, a thing that does not
+work.

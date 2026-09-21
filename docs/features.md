@@ -134,8 +134,13 @@ channel and a palette.
 
 **Matting** cuts the subject from its background. Three methods: trust the
 file's own alpha, which is right for exported artwork; a fixed luminance
-threshold, which only works on a digitally clean background; and the default,
-which **measures the paper** rather than assuming a brightness.
+threshold, which only works on a digitally clean background; and the one that
+**measures the paper** rather than assuming a brightness.
+
+Which to use is decided from the image rather than configured. Artwork carrying
+alpha has been cut out already, and measuring paper that is not there removes
+the subject — a transparent PNG has no paper, so the brightest thing in frame is
+the motif.
 
 The default estimates how bright the paper is across the image — fitting a
 plane, so a sheet lit from one side works — and keeps whatever is darker than
@@ -212,9 +217,11 @@ indices; rendering resolves slot to colour. Swapping the palette recolours every
 motif consistently, in one operation, with no re-ingestion and no change to any
 placement.
 
-**Editable in the app.** Every slot, including the ground — inverting a print to
-a dark background is an ordinary edit rather than a special case, which is why
-the ground was made slot 0 in the first place.
+**Editable in the app.** The background has its own control and the motif
+colours sit beside it, but they are the same mechanism: the ground is slot 0 of
+the palette and nothing more. That is why inverting a print to a dark background
+costs nothing, and why the background recolours with a colourway like everything
+else.
 
 **Three derivations**, the ones the spec names: rotate the hue, shift the
 lightness, swap figure for ground. Candidates to pick from rather than answers.
