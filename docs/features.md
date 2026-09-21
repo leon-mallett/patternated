@@ -15,8 +15,9 @@ disagree for every oblique one, which is exactly why the mistake is worth
 guarding against explicitly — see
 [Test strategy](./test-strategy.md#the-test-that-earns-its-keep).
 
-Brick, quarter-drop and mirror repeats are a constructor each and are not built,
-because M1 does not call for them.
+Brick and quarter-drop joined them once the app needed the classic repeats by
+name. Mirror is still unbuilt: unlike the others it is more than a constructor,
+needing a reflected 2 × 2 super-tile.
 
 ## Physical units throughout
 
@@ -30,6 +31,28 @@ has no representation in which they could be confused.
 Motifs placed by hand at chosen positions, with rotation and scale. Positions
 outside the tile are wrapped into it rather than rejected, so a document can
 describe a motif as sitting at the edge without arithmetic.
+
+## Classic layouts
+
+Motifs on a regular grid, as an alternative to strewing them — the other half of
+the spec's placement model, and what a designer means by a square grid, brick or
+a diagonal.
+
+One parameter covers the family. Each row is shifted sideways relative to the
+one above, as a fraction of the column spacing: **0** is a square grid, **0.5**
+alternates like brickwork, and **a third or a quarter** walks the motifs
+steadily across into a diagonal. The shift wraps at the tile edge, which is not
+an inconvenience but the reason the diagonal tiles at all.
+
+Five named presets pair a row offset with a repeat: square, brick, half-drop,
+diagonal, gentle diagonal. The names are how anybody asks for them.
+
+A grid ignores the seed for position — rerolling changes which motif sits where,
+not where the cells are. That is what "classic" means here.
+
+Circular and wave arrangements are deliberately absent. They belong to the ogee
+and damask family the spec places in v2, and they are neither a lattice nor a
+grid, so building them ad hoc would be the wrong shape.
 
 ## Scatter placement
 
@@ -45,6 +68,21 @@ own formula gets wrong: wrapping each axis by width and height is right for a
 block repeat and wrong for every oblique one. On a 240 × 180 mm half-drop,
 motifs at (10, 10) and (230, 95) are 87 mm apart by that formula and 21 mm apart
 in the pattern that reaches fabric.
+
+**Overlap prevention, on by default.** Poisson-disc sampling guarantees a
+minimum distance between motif *centres*, solved from the coverage target, which
+says nothing about where their edges are — so past a certain density motifs
+begin to intersect. With the guard on, the distance two motifs need is the
+greater of the density's radius and the sum of their own radii: coverage still
+controls spacing while it can, and overlap becomes a floor once it cannot.
+
+A pattern asked for more coverage than fits without intersecting therefore lands
+short of its target, which the achieved figure reports rather than hides. Turn
+the guard off to let motifs layer deliberately.
+
+The radius is measured from the artwork, not its bounding box — a round motif
+fills a square box to about 0.71 of the diagonal, and spacing by the box would
+hold every pattern 40% further apart than it needs.
 
 Four controls, none of them a separation radius:
 

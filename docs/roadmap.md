@@ -99,9 +99,13 @@ Not milestones, but not forgotten.
 - **Cross-platform determinism is unverified.** See
   [Test strategy](./test-strategy.md#what-is-deliberately-not-tested). Needs
   deciding before anyone relies on reproducing a print from a seed months later.
-- **The remaining three lattices** — brick, quarter-drop, mirror — are a
-  constructor each, unbuilt because neither M1 nor M2 calls for them. Mirror is
-  more than a constructor: it needs a reflected 2 × 2 super-tile.
+- **Mirror repeat is unbuilt.** Brick and quarter-drop landed with the classic
+  layouts; mirror is more than a constructor, needing a reflected 2 × 2
+  super-tile, and nothing has asked for it yet.
+- **Circular, wave, ogee and damask arrangements.** Asked for once and
+  deliberately deferred: they are the family the spec places in v2, and they are
+  neither a lattice nor a grid, so they need a motif frame rather than another
+  preset.
 - **Real Peel Club files have not been through the pipeline.** Downgraded from
   the largest debt on 2026-09-20, when the artwork was confirmed to be
   **digital rather than scanned**: that is the easy route through ingest and is

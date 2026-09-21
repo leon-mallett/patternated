@@ -514,3 +514,41 @@ is not obvious on screen.
 
 **Would reopen if.** Ingesting into a library becomes the normal route, at
 which point this is a shortcut for trying things rather than the main door.
+
+---
+
+## Preventing overlap by summing motif radii
+
+**Decided.** The distance two motifs must keep is the greater of the density's
+separation radius and the sum of their own radii. On by default, and
+switchable off.
+
+**Why.** Reported from the app: at a plausible coverage the motifs visibly
+intersected. The sampler was doing exactly what it promised — a minimum distance
+between *centres*, solved from a coverage target — and that promise says nothing
+about edges. This was half-noticed at M2, where a test fixture was observed
+overlapping and filed as a stress case rather than as a defect.
+
+Taking the greater of the two keeps both properties: coverage still controls
+spacing at densities where it can, and overlap becomes a floor once it cannot.
+The cost is that a pattern asked for more coverage than fits lands short, which
+is the honest outcome and is already reported.
+
+**The consequence for the sampler**, which is the part worth knowing: motif,
+rotation and scale are now drawn for each *candidate* rather than assigned after
+sampling, because the distance a candidate needs depends on which motif it
+turned out to be. Deciding that afterwards would mean testing one motif's
+spacing and then placing another.
+
+**Rejected.** Spacing by the bounding box, which is simpler and wrong by a lot:
+a round motif fills a square box to about 0.71 of the diagonal, so every pattern
+would sit 40% looser than it needs. The radius is measured from the artwork's
+own alpha instead, and is rotation-invariant by construction — a bound that
+changed as a motif turned would let overlaps back in at some angles.
+
+**Known limit.** A circle is still a crude model of a cloud. Two wide, flat
+motifs stacked vertically are held apart by their width. True shape-aware
+packing would need the alpha masks compared at every candidate position, which
+is a different order of cost; the guard can be turned off in the meantime.
+
+Governs [scatter placement](./features.md#scatter-placement).
