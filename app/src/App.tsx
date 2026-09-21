@@ -234,7 +234,10 @@ export default function App() {
         <header>
           <div>
             <strong>{doc.name}</strong>
-            <span className="muted"> · {FIELD}×{FIELD} repeat</span>
+            <span className="muted">
+              {" "}
+              · {preview ? `${preview.cols}×${preview.rows}` : `${FIELD}×${FIELD}`} repeat
+            </span>
           </div>
           <div className="actions">
             <button onClick={onNew}>New…</button>
@@ -250,7 +253,7 @@ export default function App() {
           {preview ? (
             <img
               src={`data:image/png;base64,${preview.png_base64}`}
-              alt={`${FIELD} by ${FIELD} repeat of ${doc.name}`}
+              alt={`${preview.cols} by ${preview.rows} repeat of ${doc.name}`}
             />
           ) : (
             <p className="muted">Rendering…</p>
@@ -258,6 +261,14 @@ export default function App() {
         </div>
 
         {error && <p className="error">{error}</p>}
+
+        {preview && !preview.window_repeats && (
+          <p className="hint">
+            This lattice has no small whole-tile window that repeats, so the
+            preview's opposite edges will not meet. The exported tile is still
+            seamless.
+          </p>
+        )}
 
         {preview && (
           <dl className="readout">

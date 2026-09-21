@@ -89,6 +89,55 @@ impl Lattice {
         offsets
     }
 
+    /// The smallest window, in whole tiles, that is itself a repeating unit.
+    ///
+    /// A preview is a rectangular window onto an infinite pattern, and a
+    /// rectangle of tiles is not generally a repeating unit even when every
+    /// tile in it is perfect. A half-drop gains half a tile of drop per column,
+    /// so three columns end half a tile out and the window's left and right
+    /// edges do not meet — which looks exactly like a broken repeat to anyone
+    /// checking the obvious way, by holding the opposite edges together.
+    ///
+    /// The window repeats when translating across it lands on a lattice point:
+    /// `(cols * W, 0)` and `(0, rows * H)` must both be integer combinations of
+    /// `u` and `v`. For a half-drop that needs an even column count, for a
+    /// quarter-drop a multiple of four, and for a brick an even row count.
+    /// Rather than special-case each, the condition is solved directly, so a
+    /// lattice nobody anticipated still gets a window that holds together.
+    ///
+    /// Returns the requested size unchanged if no larger window within reach
+    /// works, which can happen for a hand-edited lattice with an irrational
+    /// relationship to its tile. The caller can compare and say so.
+    #[must_use]
+    pub fn repeating_window(&self, tile_size_mm: Vec2, min_cols: u32, min_rows: u32) -> (u32, u32) {
+        /// How far past the requested size to look before giving up. Eight is
+        /// already a window nobody wants to squint at.
+        const REACH: u32 = 8;
+
+        let det = self.u.x * self.v.y - self.u.y * self.v.x;
+        if det.abs() <= f32::EPSILON || tile_size_mm.x <= 0.0 || tile_size_mm.y <= 0.0 {
+            return (min_cols.max(1), min_rows.max(1));
+        }
+
+        let whole = |value: f32| (value - value.round()).abs() < 1e-3;
+
+        let cols = (min_cols.max(1)..=min_cols.max(1) + REACH)
+            .find(|k| {
+                let x = *k as f32 * tile_size_mm.x;
+                whole(x * self.v.y / det) && whole(-self.u.y * x / det)
+            })
+            .unwrap_or(min_cols.max(1));
+
+        let rows = (min_rows.max(1)..=min_rows.max(1) + REACH)
+            .find(|m| {
+                let y = *m as f32 * tile_size_mm.y;
+                whole(-y * self.v.x / det) && whole(self.u.x * y / det)
+            })
+            .unwrap_or(min_rows.max(1));
+
+        (cols, rows)
+    }
+
     /// Area of one lattice cell, in square millimetres.
     ///
     /// Equals the tile area for a valid repeat. A degenerate lattice — parallel
@@ -206,6 +255,52 @@ mod tests {
                 "{lattice:?} does not cover exactly one tile"
             );
         }
+    }
+
+    #[test]
+    fn a_block_window_repeats_at_any_size() {
+        for (c, r) in [(1, 1), (2, 3), (3, 3), (5, 4)] {
+            assert_eq!(Lattice::block(TILE).repeating_window(TILE, c, r), (c, r));
+        }
+    }
+
+    #[test]
+    fn a_half_drop_window_needs_an_even_number_of_columns() {
+        // Reported from the app: a 3x3 preview of a half-drop did not meet at
+        // its left and right edges, which is the obvious way to check a repeat
+        // and the way a designer will check it.
+        let l = Lattice::half_drop(TILE);
+        assert_eq!(l.repeating_window(TILE, 3, 3), (4, 3));
+        assert_eq!(l.repeating_window(TILE, 2, 3), (2, 3));
+        assert_eq!(l.repeating_window(TILE, 1, 1), (2, 1));
+    }
+
+    #[test]
+    fn a_quarter_drop_window_needs_four_columns() {
+        let l = Lattice::quarter_drop(TILE);
+        assert_eq!(l.repeating_window(TILE, 3, 3), (4, 3));
+        assert_eq!(l.repeating_window(TILE, 5, 1), (8, 1));
+    }
+
+    #[test]
+    fn a_brick_window_needs_an_even_number_of_rows_instead() {
+        // The mirror image of the half-drop case: a brick staggers sideways, so
+        // it is the vertical edges that fail to meet on an odd count.
+        let l = Lattice::brick(TILE);
+        assert_eq!(l.repeating_window(TILE, 3, 3), (3, 4));
+        assert_eq!(l.repeating_window(TILE, 3, 2), (3, 2));
+    }
+
+    #[test]
+    fn an_unreachable_lattice_gives_back_what_was_asked_for() {
+        // A hand-edited lattice with no small whole-number relationship to its
+        // tile has no window worth showing. Saying so is the caller's job; the
+        // honest answer here is the request.
+        let odd = Lattice {
+            u: Vec2::new(240.0, 71.3),
+            v: Vec2::new(0.0, 180.0),
+        };
+        assert_eq!(odd.repeating_window(TILE, 3, 3), (3, 3));
     }
 
     #[test]

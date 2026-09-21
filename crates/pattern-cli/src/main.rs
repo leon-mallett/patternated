@@ -164,6 +164,26 @@ fn render(
     let pixmap = match cols {
         Some(c) => {
             let r = rows.unwrap_or(c);
+            // A rectangle of tiles is not generally a repeating unit: a
+            // half-drop gains half a tile of drop per column, so an odd count
+            // ends half a tile out and the image will not tile even though
+            // every tile in it is perfect. Said rather than silently corrected,
+            // because a command line asked for three columns should give three.
+            let fits =
+                doc.pattern
+                    .lattice
+                    .repeating_window(doc.pattern.tile_size_mm, c.max(1), r.max(1));
+            if fits != (c.max(1), r.max(1)) {
+                eprintln!(
+                    "note: a {}x{} window of this repeat does not tile — its opposite edges \
+                     will not meet. {}x{} is the nearest that does. The single tile is \
+                     seamless either way.",
+                    c.max(1),
+                    r.max(1),
+                    fits.0,
+                    fits.1
+                );
+            }
             pattern_render::render_field(&doc.pattern, &bank, dpi, c.max(1), r.max(1))
                 .context("rendering field")?
         }

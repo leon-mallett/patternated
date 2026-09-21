@@ -145,3 +145,75 @@ fn a_scattered_pattern_tiles_with_no_seam() {
         }
     }
 }
+
+/// Whether a rendered window is itself a repeating unit.
+///
+/// Tiling the window twice across and twice down must give exactly what
+/// rendering a field of twice the size gives. That is the same argument the
+/// tile tests use, one level up — and unlike comparing the outermost rows of
+/// pixels it is exact, because opposite *edges* of an image are adjacent
+/// columns in the pattern rather than the same column, so they differ by
+/// however much the artwork changes in one pixel.
+fn window_repeats(
+    pattern: &pattern_core::Pattern,
+    bank: &pattern_render::MotifBank,
+    dpi: f32,
+    cols: u32,
+    rows: u32,
+) -> (usize, u8) {
+    let window = render_field(pattern, bank, dpi, cols, rows).expect("window should render");
+    let doubled =
+        render_field(pattern, bank, dpi, cols * 2, rows * 2).expect("field should render");
+
+    let mut assembled =
+        tiny_skia::Pixmap::new(doubled.width(), doubled.height()).expect("allocation");
+    for y in 0..2 {
+        for x in 0..2 {
+            assembled.draw_pixmap(
+                (x * window.width()) as i32,
+                (y * window.height()) as i32,
+                window.as_ref(),
+                &tiny_skia::PixmapPaint::default(),
+                tiny_skia::Transform::identity(),
+                None,
+            );
+        }
+    }
+    differences(&assembled, &doubled)
+}
+
+#[test]
+fn a_window_sized_to_repeat_is_a_repeating_unit() {
+    // Reported from the app: a 3x3 preview of a half-drop did not meet at its
+    // left and right edges. The tile was seamless — the window was not a
+    // repeating unit, which is a different thing and looks identical to a
+    // broken repeat when you hold the edges together.
+    let bank = bank();
+    for lattice in [
+        Lattice::block(TILE),
+        Lattice::half_drop(TILE),
+        Lattice::brick(TILE),
+        Lattice::quarter_drop(TILE),
+    ] {
+        let pattern = scattered_pattern(lattice, 7, 0.3);
+        let (cols, rows) = lattice.repeating_window(TILE, 3, 3);
+        let (count, worst) = window_repeats(&pattern, &bank, 48.0, cols, rows);
+        assert_eq!(
+            count, 0,
+            "{cols}x{rows} window of {lattice:?} is not a repeating unit: \
+             {count} pixels differ, worst {worst}"
+        );
+    }
+}
+
+#[test]
+fn an_unsuitable_window_is_what_the_complaint_looked_like() {
+    // Kept so the test above is known to be measuring something that can fail.
+    // Three columns of a half-drop end half a tile out.
+    let pattern = scattered_pattern(Lattice::half_drop(TILE), 7, 0.3);
+    let (count, _) = window_repeats(&pattern, &bank(), 48.0, 3, 3);
+    assert!(
+        count > 1000,
+        "expected an odd half-drop window not to repeat, but only {count} pixels differed"
+    );
+}

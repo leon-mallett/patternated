@@ -106,6 +106,12 @@ struct Preview {
     colours: usize,
     achieved_density: f32,
     dpi: f32,
+    /// Tiles actually shown, which may exceed what was asked for.
+    cols: u32,
+    rows: u32,
+    /// Whether the window shown is itself a repeating unit — that is, whether
+    /// holding its opposite edges together is a fair test of the pattern.
+    window_repeats: bool,
     /// Below 1 when a grid shrank its motifs to stop them intersecting.
     /// Surfaced so a size control that has stopped moving has a visible reason.
     size_limited_to: f32,
@@ -409,8 +415,16 @@ fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
 
 fn render(session: &Session, params: &Params) -> anyhow::Result<Preview> {
     let pattern = &session.document.pattern;
-    let cols = params.cols.max(1);
-    let rows = params.rows.max(1);
+    // Grow the window to one that is itself a repeating unit. A rectangle of
+    // tiles is not generally one: a half-drop gains half a tile of drop per
+    // column, so three columns end half a tile out and the preview's left and
+    // right edges do not meet — which looks exactly like a broken repeat to
+    // anyone checking it the obvious way.
+    let (cols, rows) = pattern.lattice.repeating_window(
+        pattern.tile_size_mm,
+        params.cols.max(1),
+        params.rows.max(1),
+    );
 
     // The UI asks in screen pixels; physical units stay authoritative and the
     // resolution is derived, never the other way round.
@@ -442,6 +456,14 @@ fn render(session: &Session, params: &Params) -> anyhow::Result<Preview> {
         colours: pattern_core::resolved_color_count(pattern, &motifs),
         achieved_density: pattern.placements.len() as f32 * mean_area / tile_area,
         dpi,
+        cols,
+        rows,
+        // False only for a hand-edited lattice with no small whole-number
+        // relationship to its tile, where no window within reach repeats.
+        window_repeats: pattern
+            .lattice
+            .repeating_window(pattern.tile_size_mm, cols, rows)
+            == (cols, rows),
         size_limited_to: session.document.grid_scale_applied,
     })
 }
@@ -830,6 +852,36 @@ mod tests {
         let mut p = params(0.3, 1);
         p.weights = vec![("cherry".into(), 0.0)];
         assert!(write_params(&mut s, &p).is_err());
+    }
+
+    #[test]
+    fn the_preview_grows_to_a_window_that_repeats() {
+        // Reported from the app: a 3x3 preview of a half-drop did not meet at
+        // its left and right edges. The tile was fine; the window was not a
+        // repeating unit, so the obvious way to check a repeat gave the wrong
+        // answer.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+
+        p.lattice = "half-drop".into();
+        write_params(&mut s, &p).expect("apply");
+        let half_drop = render(&s, &p).expect("render");
+        assert_eq!((half_drop.cols, half_drop.rows), (4, 3));
+        assert!(half_drop.window_repeats);
+
+        p.lattice = "block".into();
+        write_params(&mut s, &p).expect("apply");
+        let block = render(&s, &p).expect("render");
+        assert_eq!((block.cols, block.rows), (3, 3), "a block needs no growing");
+
+        p.lattice = "brick".into();
+        write_params(&mut s, &p).expect("apply");
+        let brick = render(&s, &p).expect("render");
+        assert_eq!(
+            (brick.cols, brick.rows),
+            (3, 4),
+            "a brick staggers the other way"
+        );
     }
 
     #[test]

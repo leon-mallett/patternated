@@ -74,6 +74,12 @@ export interface Preview {
   dpi: number;
   /** Below 1 when a grid shrank its motifs to stop them intersecting. */
   size_limited_to: number;
+  /** Tiles actually shown, which may exceed what was asked for. */
+  cols: number;
+  rows: number;
+  /** Whether the window shown is itself a repeating unit, so that holding its
+   *  opposite edges together is a fair test of the pattern. */
+  window_repeats: boolean;
 }
 
 export const openDocument = (path: string) =>
