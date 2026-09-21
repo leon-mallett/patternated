@@ -507,6 +507,30 @@ struct ExportRequest {
     /// Width of the fabric roll this is destined for, in millimetres.
     #[serde(default = "standard_roll")]
     roll_width_mm: f32,
+    /// Path to a CMYK ICC profile. Absent means write RGB.
+    ///
+    /// Supplied rather than bundled: every freely redistributable CMYK profile
+    /// describes an offset litho press, and a digital textile press is not one.
+    /// A default would produce a file that looks converted and is wrong.
+    #[serde(default)]
+    cmyk_profile: Option<String>,
+    /// Path to the RGB profile the artwork is in. Defaults to the system sRGB
+    /// profile, which is what a screen-authored palette actually is.
+    #[serde(default)]
+    rgb_profile: Option<String>,
+}
+
+/// Where sRGB lives on this machine, for the common case where nobody has
+/// thought about it. Artwork authored on screen is sRGB whether or not anyone
+/// said so.
+const SYSTEM_SRGB: &str = "/System/Library/ColorSync/Profiles/sRGB Profile.icc";
+
+fn rgb_profile_path(request: &ExportRequest) -> PathBuf {
+    request
+        .rgb_profile
+        .as_deref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(SYSTEM_SRGB))
 }
 
 fn three() -> u32 {
@@ -606,10 +630,74 @@ fn export(app: State<'_, App>, path: String, request: ExportRequest) -> Reply<St
     let export = to_export(&request);
     let path = PathBuf::from(path);
 
-    let (pixmap, _) = pattern_doc::render_for_export(&session.document, &session.bank, export)
-        .map_err(|e| fail("could not render for export", e))?;
-    pattern_io::write(&path, &pixmap, export).map_err(|e| fail("could not write the file", e))?;
+    match (&request.cmyk_profile, export.format) {
+        (Some(profile), pattern_io::Format::Tiff) => {
+            let (pixmap, _, samples, embedded) = pattern_doc::render_cmyk(
+                &session.document,
+                &session.bank,
+                export,
+                &rgb_profile_path(&request),
+                Path::new(profile),
+            )
+            .map_err(|e| fail("could not convert to CMYK", e))?;
+            pattern_io::write_written(
+                &path,
+                &pixmap,
+                pattern_io::Written {
+                    export,
+                    cmyk: Some((&samples, &embedded)),
+                },
+            )
+            .map_err(|e| fail("could not write the file", e))?;
+        }
+        (Some(_), pattern_io::Format::Png) => {
+            return Err("PNG cannot carry CMYK — choose TIFF, or export in RGB".into());
+        }
+        (None, _) => {
+            let (pixmap, _) =
+                pattern_doc::render_for_export(&session.document, &session.bank, export)
+                    .map_err(|e| fail("could not render for export", e))?;
+            pattern_io::write(&path, &pixmap, export)
+                .map_err(|e| fail("could not write the file", e))?;
+        }
+    }
     Ok(path.display().to_string())
+}
+
+/// Preview a pattern in the colours a press can reach.
+///
+/// Converts to the press's colours and straight back, so anything it cannot
+/// reach comes back changed. Seeing a red go flat before the fabric is bought
+/// is the entire purpose — "it looked different on screen" is the commonest
+/// complaint in fabric printing and is almost always a conversion nobody
+/// looked at.
+#[tauri::command]
+fn proof(app: State<'_, App>, params: Params, cmyk_profile: String) -> Reply<Preview> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_mut().ok_or("no document is open")?;
+
+    write_params(session, &params).map_err(|e| fail("could not apply those settings", e))?;
+    let mut preview = render(session, &params).map_err(|e| fail("could not render", e))?;
+
+    let pattern = &session.document.pattern;
+    let (cols, rows) = pattern.lattice.repeating_window(
+        pattern.tile_size_mm,
+        params.cols.max(1),
+        params.rows.max(1),
+    );
+    let field_mm = pattern.tile_size_mm.x * cols as f32;
+    let dpi = (params.preview_width_px.max(200) as f32 / field_mm) * pattern_core::MM_PER_INCH;
+    let pixmap = pattern_render::render_field(pattern, &session.bank, dpi, cols, rows)
+        .map_err(|e| fail("could not render", e))?;
+
+    let proofed =
+        pattern_doc::soft_proof(&pixmap, Path::new(SYSTEM_SRGB), Path::new(&cmyk_profile))
+            .map_err(|e| fail("could not soft proof", e))?;
+    let png = proofed
+        .encode_png()
+        .map_err(|e| fail("could not encode the proof", e))?;
+    preview.png_base64 = base64::encode(&png);
+    Ok(preview)
 }
 
 /// Whether Save can write without asking, and where it would suggest.
@@ -783,6 +871,7 @@ pub fn run() {
             save_target,
             export_plan,
             export,
+            proof,
             save_document,
             set_slot_colour,
             derive_colourway,

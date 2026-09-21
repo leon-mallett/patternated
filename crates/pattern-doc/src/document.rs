@@ -837,3 +837,46 @@ pub fn sheet_tiles(document: &Document, min_cols: u32, min_rows: u32) -> (u32, u
         min_rows.max(1),
     )
 }
+
+/// Render an export and convert it to the colours a press will lay down.
+///
+/// Returns the samples and the profile to embed beside them. A CMYK file
+/// without its profile is a set of numbers nobody can interpret.
+pub fn render_cmyk(
+    document: &Document,
+    bank: &MotifBank,
+    export: pattern_io::Export,
+    rgb_profile: &Path,
+    cmyk_profile: &Path,
+) -> Result<(tiny_skia::Pixmap, pattern_io::PrintSize, Vec<u8>, Vec<u8>)> {
+    let (pixmap, size) = render_for_export(document, bank, export)?;
+
+    let source = pattern_io::Profiles::load(rgb_profile, pattern_io::Expect::Rgb)
+        .context("loading the RGB profile")?;
+    let destination = pattern_io::Profiles::load(cmyk_profile, pattern_io::Expect::Cmyk)
+        .context("loading the CMYK profile")?;
+    let conversion = pattern_io::Conversion::to_cmyk(&source, &destination, false)
+        .context("building the colour transform")?;
+
+    let samples = conversion
+        .pixmap_to_cmyk(&pixmap)
+        .context("converting to CMYK")?;
+    let profile = std::fs::read(cmyk_profile)
+        .with_context(|| format!("reading {}", cmyk_profile.display()))?;
+    Ok((pixmap, size, samples, profile))
+}
+
+/// Show on screen what a press will do to a pattern.
+pub fn soft_proof(
+    pixmap: &tiny_skia::Pixmap,
+    rgb_profile: &Path,
+    cmyk_profile: &Path,
+) -> Result<tiny_skia::Pixmap> {
+    let source = pattern_io::Profiles::load(rgb_profile, pattern_io::Expect::Rgb)
+        .context("loading the RGB profile")?;
+    let destination = pattern_io::Profiles::load(cmyk_profile, pattern_io::Expect::Cmyk)
+        .context("loading the CMYK profile")?;
+    let conversion = pattern_io::Conversion::to_cmyk(&source, &destination, true)
+        .context("building the colour transform")?;
+    conversion.soft_proof(pixmap).context("soft proofing")
+}

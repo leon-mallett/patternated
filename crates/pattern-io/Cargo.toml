@@ -13,7 +13,9 @@ thiserror.workspace = true
 tiny-skia.workspace = true
 png.workspace = true
 tiff = { version = "0.11.3", default-features = false, features = ["lzw"] }
+moxcms = "0.8.1"
 
 [dev-dependencies]
+moxcms = "0.8.1"
 png.workspace = true
 tiff = { version = "0.11.3", default-features = false, features = ["lzw"] }

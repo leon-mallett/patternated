@@ -140,6 +140,9 @@ export interface ExportRequest {
   min_rows: number;
   compress: boolean;
   roll_width_mm: number;
+  /** A CMYK ICC profile from the print bureau. Absent means write RGB. */
+  cmyk_profile: string | null;
+  rgb_profile: string | null;
 }
 
 export const exportPlan = (request: ExportRequest) =>
@@ -147,6 +150,10 @@ export const exportPlan = (request: ExportRequest) =>
 
 export const exportFile = (path: string, request: ExportRequest) =>
   invoke<string>("export", { path, request });
+
+/** The preview, in the colours a press can actually reach. */
+export const proof = (params: Params, cmykProfile: string) =>
+  invoke<Preview>("proof", { params, cmykProfile });
 
 export const saveDocument = (path?: string) =>
   invoke<string>("save_document", { path: path ?? null });

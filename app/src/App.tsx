@@ -7,6 +7,7 @@ import {
   exportPlan,
   newFromImages,
   openDocument,
+  proof,
   rememberColourway,
   saveDocument,
   saveTarget,
@@ -64,7 +65,10 @@ export default function App() {
     min_rows: 3,
     compress: false,
     roll_width_mm: 1600,
+    cmyk_profile: null,
+    rgb_profile: null,
   });
+  const [proofing, setProofing] = useState(false);
 
   // Keep the plan in step with the settings, so the size and the verdict are
   // in front of a designer while they still have a choice.
@@ -107,7 +111,10 @@ export default function App() {
       rows: FIELD,
     };
     try {
-      const next = await apply(params);
+      const next =
+        proofing && exp.cmyk_profile
+          ? await proof(params, exp.cmyk_profile)
+          : await apply(params);
       if (mine === generation.current) {
         setPreview(next);
         setError(null);
@@ -131,6 +138,8 @@ export default function App() {
     preventOverlap,
     gridRows,
     gridCols,
+    proofing,
+    exp.cmyk_profile,
   ]);
 
   // Coalesce a drag into one render rather than one per pixel.
@@ -209,6 +218,15 @@ export default function App() {
     } catch (e) {
       setError(String(e));
     }
+  }
+
+  async function onPickProfile() {
+    const chosen = await openDialog({
+      title: "Choose the bureau's CMYK profile",
+      filters: [{ name: "ICC profile", extensions: ["icc", "icm"] }],
+    });
+    if (typeof chosen !== "string") return;
+    setExp({ ...exp, cmyk_profile: chosen });
   }
 
   async function onExport() {
@@ -296,6 +314,15 @@ export default function App() {
             </span>
           </div>
           <div className="actions">
+            {exp.cmyk_profile && (
+              <button
+                className={proofing ? "primary" : ""}
+                onClick={() => setProofing(!proofing)}
+                title="Show the colours the press can actually reach"
+              >
+                {proofing ? "Proofing" : "Soft proof"}
+              </button>
+            )}
             <button onClick={onNew}>New…</button>
             <button onClick={onOpen}>Open…</button>
             <button onClick={onSave}>Save</button>
@@ -325,6 +352,7 @@ export default function App() {
             onChange={setExp}
             onCancel={() => setExporting(false)}
             onExport={onExport}
+            onPickProfile={onPickProfile}
           />
         )}
 
@@ -762,12 +790,14 @@ function ExportPanel({
   onChange,
   onCancel,
   onExport,
+  onPickProfile,
 }: {
   request: ExportRequest;
   plan: ExportPlan | null;
   onChange: (r: ExportRequest) => void;
   onCancel: () => void;
   onExport: () => void;
+  onPickProfile: () => void;
 }) {
   const set = <K extends keyof ExportRequest>(key: K, value: ExportRequest[K]) =>
     onChange({ ...request, [key]: value });
@@ -830,6 +860,38 @@ function ExportPanel({
           </>
         )}
       </div>
+
+      <div className="export-row">
+        <label>
+          Colour
+          <select
+            value={request.cmyk_profile ? "cmyk" : "rgb"}
+            onChange={(e) =>
+              e.target.value === "rgb"
+                ? set("cmyk_profile", null)
+                : onPickProfile()
+            }
+          >
+            <option value="rgb">RGB — the bureau separates</option>
+            <option value="cmyk">CMYK — converted here</option>
+          </select>
+        </label>
+        {request.cmyk_profile && (
+          <p className="hint profile">
+            Using <code>{request.cmyk_profile.split("/").pop()}</code>{" "}
+            <button className="link" onClick={onPickProfile}>
+              change
+            </button>
+          </p>
+        )}
+      </div>
+
+      {request.cmyk_profile === null && (
+        <p className="hint">
+          Many digital textile bureaux prefer RGB and separate it themselves,
+          because they know their press. Ask before converting.
+        </p>
+      )}
 
       {request.format === "tiff" && (
         <label className="check">

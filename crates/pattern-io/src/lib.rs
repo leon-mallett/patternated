@@ -4,6 +4,7 @@
 //! finally chosen and pixels exist, which makes it also the place that knows
 //! whether the thing being written can actually be printed — see [`PrintSize`].
 
+mod colour;
 mod naming;
 mod png_out;
 mod size;
@@ -15,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tiny_skia::Pixmap;
 
+pub use colour::{ColourError, ColourSpace, Conversion, Expect, Profiles};
 pub use naming::suggested_name;
 pub use size::{PrintSize, WidthVerdict, GRAND_FORMAT_MM, STANDARD_ROLL_MM};
 
@@ -88,10 +90,39 @@ pub struct Export {
     pub shape: Shape,
 }
 
-/// Write a rendered pattern to disk.
+/// What to write, in what colours.
+///
+/// Separate from [`Export`] because a colour conversion needs loaded profiles,
+/// which are files rather than settings.
+pub struct Written<'a> {
+    pub export: Export,
+    /// Present for a CMYK export: the converted samples and the profile to
+    /// embed alongside them.
+    pub cmyk: Option<(&'a [u8], &'a [u8])>,
+}
+
+/// Write a rendered pattern to disk, in RGB.
 pub fn write(path: &Path, pixmap: &Pixmap, export: Export) -> Result<(), ExportError> {
-    match export.format {
-        Format::Png => png_out::write_png(path, pixmap, export.dpi),
-        Format::Tiff => tiff_out::write_tiff(path, pixmap, export.dpi, export.compression),
+    write_written(path, pixmap, Written { export, cmyk: None })
+}
+
+/// Write a rendered pattern, in whatever colours it was prepared in.
+pub fn write_written(
+    path: &Path,
+    pixmap: &Pixmap,
+    written: Written<'_>,
+) -> Result<(), ExportError> {
+    let export = written.export;
+    match (export.format, written.cmyk) {
+        (Format::Png, _) => png_out::write_png(path, pixmap, export.dpi),
+        (Format::Tiff, None) => tiff_out::write_tiff(path, pixmap, export.dpi, export.compression),
+        (Format::Tiff, Some((samples, profile))) => tiff_out::write_tiff_cmyk(
+            path,
+            pixmap,
+            export.dpi,
+            export.compression,
+            samples,
+            profile,
+        ),
     }
 }
