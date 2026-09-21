@@ -636,3 +636,33 @@ opened and measured — which is an argument for testing the artefact a project
 exists to produce, not only the code that produces it.
 
 Governs [export](./features.md#export).
+
+---
+
+## Telling a saved print apart from a hand-edited one
+
+**Decided.** A document records whether its placements were generated. The
+loader keeps generated ones and refuses hand-placed ones sitting beside a
+generator.
+
+**Why.** Saving a scattered pattern produced a file that could not be reopened,
+and it had been that way since save was written.
+
+Two rules were each right and together wrong. Saving writes the placements the
+scatter produced, so that a print reopens exactly as approved even if the
+sampler changes — **a seed is a recipe, and a recipe is not a record**. And the
+loader refuses a document carrying both placements and a generator, because a
+hand-edited one is genuinely ambiguous and silently discarding either half would
+be worse than failing.
+
+The cases were indistinguishable in the file, so one flag now distinguishes
+them. Touching any control regenerates, because somebody who moves a slider
+plainly wants a new print.
+
+**How it was found.** Writing colourway tests, which needed to save and reopen a
+document. Not by the feature's own tests, which only ever saved. The saving path
+and the loading path each had tests; the round trip had none.
+
+**Would reopen if.** Never — but the shape is worth remembering: two components
+that are individually correct can still be incompatible at their join, and only
+a test that crosses the join will say so.

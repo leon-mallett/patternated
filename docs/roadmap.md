@@ -27,11 +27,8 @@ separations have moved out of this milestone to the list below, because they
 only mean anything for screen printing and building them now would be a partial
 implementation of a route nobody has chosen.
 
-**The export half is built** — see [Features](./features.md#export). TIFF and
-PNG at any resolution, tile or pre-repeated sheet, physical size and roll-width
-verdict before the file dialog, and filenames that say what the file is.
-
-What remains:
+**Export and colour are built** — see [Export](./features.md#export) and
+[Colourways](./features.md#colourways). What remains is the conversion itself:
 
 - **Colour management in the tool**, so nobody needs Photoshop to make a CMYK
   file. `moxcms` does ICC transforms between RGB and CMYK through an XYZ or Lab
@@ -44,8 +41,9 @@ What remains:
   and a textile press is not one.
 - **Physical size shown in the interface**, with a gentle warning past a
   standard 1.6 m roll and a firm one past 3.2 m. Both adjustable.
-- **Palette management**: named house palettes, and editing a colourway without
-  hand-writing JSON.
+- **House palettes** shared across documents, so a brand's colours are stored
+  once rather than per pattern. Colourways are per-document today, which covers
+  a range; it does not yet cover several ranges agreeing with each other.
 
 ## Screen printing, if a range goes that way
 
@@ -131,7 +129,6 @@ Not milestones, but not forgotten.
   are not granted to the terminal. `~/Projects/AI_UI_TEST_AUTOMATION.md` and
   `DESKTOP_APP_CONTROL.md` describe the house approach when that becomes worth
   doing.
-- **No palette editing in the app.** Deliberate: that is M5.
 - **Whether a scatter tracks is still judged by eye.** M2 removes clumps and
   bald patches, both of which are measurable and tested. Corridors are neither,
   until [M6](./roadmap.md#m6--mockups-and-tracking-detection) builds the Radon

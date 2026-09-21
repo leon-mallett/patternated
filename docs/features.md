@@ -205,15 +205,35 @@ Stored as readable metadata in `motif.json` beside the indexed channels in
 `indexed.bin`, two bytes per pixel. The split is not cosmetic — see
 [Decisions](./decisions.md#storing-the-indexed-raster-outside-its-metadata).
 
-## Colourways by palette slot
+## Colourways
 
-A colourway is the same pattern in a different palette, and since M3 it works.
-Motifs store slot indices; rendering resolves slot to colour. Swapping the
-palette recolours every motif in a pattern consistently, in one operation, with
-no re-ingestion and no change to any placement.
+A colourway is the same pattern in a different palette. Motifs store slot
+indices; rendering resolves slot to colour. Swapping the palette recolours every
+motif consistently, in one operation, with no re-ingestion and no change to any
+placement.
 
-`examples/peel-club-scatter/` carries the same print in two colourways. The two
-documents differ by three colours and nothing else.
+**Editable in the app.** Every slot, including the ground — inverting a print to
+a dark background is an ordinary edit rather than a special case, which is why
+the ground was made slot 0 in the first place.
+
+**Three derivations**, the ones the spec names: rotate the hue, shift the
+lightness, swap figure for ground. Candidates to pick from rather than answers.
+Everything moves together, so a palette that was harmonious stays harmonious.
+
+All of it is arithmetic — converting through HSL needs only comparison,
+subtraction and division — so a colourway derived today comes back identical on
+another machine, and a test greps the module for trigonometry to keep it that
+way.
+
+**Named, and stored in the document.** A range sells in several colourways, so
+they live in one file rather than in copies of it. That is also what stops them
+drifting: a placement edited in one copy and not the others is a range that no
+longer coordinates.
+
+Every colourway must have the same number of slots as the palette the motifs
+were quantised against, since slot 3 has to mean the same part of the artwork in
+all of them. The design palette is pinned as soon as colourways exist, so
+switching one can never re-quantise the artwork against it.
 
 One caveat, reported rather than hidden: forcing every motif onto one shared
 palette is what makes a colourway a single swap, and it is also what quietly
@@ -333,8 +353,8 @@ is a design decision rather than a property of the file — the same drawing at
 40 mm and 90 mm is two different prints — and changing it does not re-ingest the
 artwork. Aspect ratio always comes from the artwork and is never adjusted.
 
-Palette editing is deliberately absent — that is M5, and a half-built colour
-editor is the kind of partial implementation that gets trusted.
+Colour and colourways are edited here too — see
+[Colourways](#colourways).
 
 ## Command line
 
