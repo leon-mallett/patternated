@@ -22,6 +22,17 @@ print-ready seamless patterns out.
 - [Commercialisation](./commercialisation.md) — two consumer brands over one
   engine.
 
+## Checking it
+
+```bash
+python3 scripts/check-docs.py
+```
+
+Every relative link and anchor must resolve; it exits non-zero when one does
+not. The set is held together by its links, so a broken one is a real defect
+rather than a typo — and it is the thing most likely to break silently when a
+heading is renamed.
+
 ## Reference
 
 - [Technical spec](./pattern-engine-spec.md) — the full design, M1 to M7. The

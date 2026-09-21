@@ -265,7 +265,7 @@ wrong. So ingest measures the fit and reports it, and
 single palette without unacceptable loss — in which case the likely answer is
 more slots rather than more palettes.
 
-Governs [colourways](./features.md#colourways-by-palette-slot).
+Governs [colourways](./features.md#colourways).
 
 ---
 
