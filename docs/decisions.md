@@ -564,3 +564,43 @@ packing would need the alpha masks compared at every candidate position, which
 is a different order of cost; the guard can be turned off in the meantime.
 
 Governs [scatter placement](./features.md#scatter-placement).
+
+---
+
+## Growing the preview to a window that repeats
+
+**Decided.** The preview asks for at least 3×3 and is enlarged to the nearest
+window that is itself a repeating unit.
+
+**Why.** Reported from the app: the preview's opposite edges did not line up.
+The check was the right one — holding two edges of a swatch together is how
+anybody tests a repeat — and the diagnosis was nearly right. The *tile* was
+seamless, which is what the export sends and what the tiling tests prove. The
+*window* was not.
+
+A rectangle of tiles is not generally a repeating unit even when every tile in
+it is perfect. A half-drop gains half a tile of drop per column, so three
+columns end half a tile out. Measured: 50.6 mean channel difference across the
+left and right edges of a 3-wide window, against 1.7 for a 2-wide one.
+
+**Solved from the lattice rather than special-cased.** The condition is that
+translating across the window lands on a lattice point, which falls out of the
+same inverse the toroidal distance uses. A half-drop needs an even column
+count, a quarter-drop a multiple of four, a brick an even row count — and a
+lattice nobody anticipated still gets a window that holds together, or is told
+that none is within reach.
+
+**Rejected.** Leaving it and explaining in the interface. The preview is the
+thing a designer judges the tool by, and one that fails the obvious test
+teaches them not to trust it.
+
+**A note on the test**, because the first version was wrong in an instructive
+way. It compared the outermost columns of pixels — which are *adjacent*
+columns in the pattern, not the same column, so it measured how fast the
+artwork changes in one pixel and reported a perfectly good block repeat as
+broken. The working version reuses the argument the tile tests already make,
+one level up: tiling the window twice must equal rendering a field of twice the
+size. **When a property is about repetition, compare two constructions of the
+same thing rather than sampling near a boundary.**
+
+Governs [the app shell](./features.md#the-app-shell).

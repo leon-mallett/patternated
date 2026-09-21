@@ -224,7 +224,9 @@ motif fits and warns when it does not.
 - A single tile — the artwork a print bureau receives.
 - A field of any size, assembled the way a printer lays tiles out. Three by
   three is the minimum at which tracking corridors become visible, and the
-  default worth looking at.
+  default worth looking at. Note that a field is not necessarily a repeating
+  unit — see `Lattice::repeating_window`, and the note the command line prints
+  when a requested field would not tile.
 - Any resolution. 72–96 DPI for preview, 150–300 for print.
 
 ## PNG export with physical size
@@ -277,9 +279,18 @@ is saved, so a project folder can be moved or shared without breaking.
 
 Three further decisions are worth knowing:
 
-**The preview is fixed at 3×3.** A single tile says nothing about whether a
-pattern tracks, and the spec is explicit that this is the view a designer will
-judge the tool by. It is not a setting that can be turned down.
+**The preview is at least 3×3, grown to a window that repeats.** A single tile
+says nothing about whether a pattern tracks, and the spec is explicit that this
+is the view a designer will judge the tool by — so it is not a setting that can
+be turned down.
+
+It is grown because a rectangle of tiles is not generally a repeating unit even
+when every tile in it is perfect. A half-drop gains half a tile of drop per
+column, so three columns end half a tile out and the window's left and right
+edges cannot meet — which looks exactly like a broken repeat to anyone checking
+it the obvious way, by holding opposite edges together. A half-drop therefore
+shows 4×3, a quarter-drop 4×3, and a brick — which staggers the other way —
+3×4. The header says which.
 
 **The UI asks in screen pixels; the engine derives the resolution.** That
 direction keeps physical units authoritative — resizing the window changes the
