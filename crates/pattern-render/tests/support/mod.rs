@@ -164,6 +164,7 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
         // straddle and overlap edges, which is exactly what the guard removes.
         prevent_overlap: false,
         mirror: Mirror::None,
+        on_axis_share: 0.0,
         seed,
     };
     Pattern {
@@ -183,6 +184,16 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
 /// reflection, and that is precisely what the guard has to stop — turning it
 /// off would make the interesting case untestable.
 pub fn mirrored_pattern(mirror: Mirror, seed: u64, density: f32) -> Pattern {
+    mirrored_pattern_with(mirror, seed, density, 0.0)
+}
+
+/// The same, with a share of motifs mounted on the mirror lines.
+pub fn mirrored_pattern_with(
+    mirror: Mirror,
+    seed: u64,
+    density: f32,
+    on_axis_share: f32,
+) -> Pattern {
     let params = ScatterParams {
         density,
         rotation_jitter_deg: 30.0,
@@ -204,6 +215,7 @@ pub fn mirrored_pattern(mirror: Mirror, seed: u64, density: f32) -> Pattern {
         }],
         prevent_overlap: true,
         mirror,
+        on_axis_share,
         seed,
     };
     let lattice = Lattice::block(TILE);

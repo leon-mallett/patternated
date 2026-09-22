@@ -178,6 +178,60 @@ pub fn mirror_distance_sq(a: Vec2, b: Vec2, lattice: &Lattice, mirror: Mirror) -
     best
 }
 
+/// How close a point has to be to an axis to count as sitting *on* it.
+///
+/// Well under a pixel at any resolution this engine renders — 0.085 mm is one
+/// pixel at 300 DPI — so a position within this of an axis and one exactly on
+/// it produce the same picture. Positions are snapped exactly by
+/// [`snap_to_axis`]; the tolerance exists so that the comparison survives the
+/// arithmetic rather than to admit near misses.
+const COINCIDENT_MM: f32 = 1e-3;
+
+/// Move a point onto the nearest mirror axis.
+///
+/// A motif sitting exactly on an axis is reflected onto itself. Half of it is
+/// drawn and the reflection supplies the other half, so it comes out
+/// bilaterally symmetrical — the damask move, and the only way to put anything
+/// on a mirror line without the lopsided doubling that comes of straddling one
+/// by an arbitrary amount.
+///
+/// Only one coordinate moves, the one already nearer to an axis. Snapping both
+/// would put every such motif on a corner, where four reflections meet, and
+/// that is a much stronger and rarer ornament than a designer asking for
+/// motifs on the mirror lines has in mind.
+///
+/// The axes bounding the cell are at 0 and at the cell's own width or height,
+/// which is half the tile. Both are real axes of the pattern and both need
+/// ornaments: leaving one bare would put the corridor back on every second
+/// mirror line.
+#[must_use]
+pub fn snap_to_axis(point_mm: Vec2, cell_size_mm: Vec2, mirror: Mirror) -> Vec2 {
+    let nearer = |value: f32, extent: f32| if value * 2.0 <= extent { 0.0 } else { extent };
+
+    let x = mirror
+        .reflects_x()
+        .then(|| nearer(point_mm.x, cell_size_mm.x));
+    let y = mirror
+        .reflects_y()
+        .then(|| nearer(point_mm.y, cell_size_mm.y));
+
+    match (x, y) {
+        (Some(x), Some(y)) => {
+            // Both axes available: take whichever the point is already closer
+            // to, so the motif moves as little as possible and the sampler's
+            // locality is not thrown away.
+            if (point_mm.x - x).abs() <= (point_mm.y - y).abs() {
+                Vec2::new(x, point_mm.y)
+            } else {
+                Vec2::new(point_mm.x, y)
+            }
+        }
+        (Some(x), None) => Vec2::new(x, point_mm.y),
+        (None, Some(y)) => Vec2::new(point_mm.x, y),
+        (None, None) => point_mm,
+    }
+}
+
 /// Squared distance from a point to its own nearest reflection.
 ///
 /// A motif close to a mirror axis is close to *itself*, and nothing in a
@@ -186,9 +240,17 @@ pub fn mirror_distance_sq(a: Vec2, b: Vec2, lattice: &Lattice, mirror: Mirror) -
 /// and come back doubled — the butterfly a mirror repeat is famous for when it
 /// is not wanted.
 ///
+/// A reflection that leaves the motif exactly where it is does not count. That
+/// is a motif *on* an axis, which the reflection symmetrises rather than
+/// collides with, and it is the whole of what [`snap_to_axis`] is for. A motif
+/// that merely comes close to an axis is a different thing and is still
+/// refused: it gets cut at the axis and doubled lopsidedly, which is the
+/// butterfly nobody asked for.
+///
 /// Infinite when there is no mirror, so callers need no branch.
 #[must_use]
 pub fn self_image_distance_sq(point: Vec2, lattice: &Lattice, mirror: Mirror) -> f32 {
+    let coincident_sq = COINCIDENT_MM * COINCIDENT_MM;
     let mut best = f32::INFINITY;
     for &(flip_x, flip_y) in mirror.quadrants() {
         if !flip_x && !flip_y {
@@ -198,7 +260,11 @@ pub fn self_image_distance_sq(point: Vec2, lattice: &Lattice, mirror: Mirror) ->
             if flip_x { -point.x } else { point.x },
             if flip_y { -point.y } else { point.y },
         );
-        best = best.min(lattice_distance_sq(point, image, lattice));
+        let distance_sq = lattice_distance_sq(point, image, lattice);
+        if distance_sq <= coincident_sq {
+            continue;
+        }
+        best = best.min(distance_sq);
     }
     best
 }
@@ -406,6 +472,83 @@ mod tests {
         // sqrt(2) times the others, so the answer must not be it.
         let d = self_image_distance_sq(Vec2::new(115.0, 85.0), &l, Mirror::FourWay).sqrt();
         assert!((d - 10.0).abs() < 1e-3, "got {d}");
+    }
+
+    #[test]
+    fn snapping_moves_a_point_onto_the_nearer_axis() {
+        // A side-to-side mirror over a 240 mm tile has its axes at 0 and 120,
+        // which are the two edges of the 120 mm cell. Both are real axes of
+        // the pattern and both need ornaments.
+        let cell = Mirror::SideToSide.cell_size_mm(TILE);
+        let snap = |x: f32| snap_to_axis(Vec2::new(x, 40.0), cell, Mirror::SideToSide);
+
+        assert_eq!(snap(20.0), Vec2::new(0.0, 40.0));
+        assert_eq!(snap(100.0), Vec2::new(120.0, 40.0));
+        // Dead centre goes to the nearer edge, which is the lower one.
+        assert_eq!(snap(60.0), Vec2::new(0.0, 40.0));
+        // The other coordinate is never touched by a single mirror.
+        assert_eq!(snap(20.0).y, 40.0);
+    }
+
+    #[test]
+    fn a_four_way_snap_moves_one_coordinate_not_both() {
+        // Snapping both would put every mounted motif on a corner, where four
+        // reflections meet — a much stronger ornament than "on the lines".
+        let cell = Mirror::FourWay.cell_size_mm(TILE);
+        assert_eq!(cell, Vec2::new(120.0, 90.0));
+
+        // 8 mm from the vertical axis at 0, 40 from the horizontal one: the
+        // vertical is nearer, so x moves and y stays.
+        assert_eq!(
+            snap_to_axis(Vec2::new(8.0, 40.0), cell, Mirror::FourWay),
+            Vec2::new(0.0, 40.0)
+        );
+        // Turn it around and the other coordinate moves instead.
+        assert_eq!(
+            snap_to_axis(Vec2::new(50.0, 4.0), cell, Mirror::FourWay),
+            Vec2::new(50.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn snapping_without_a_mirror_changes_nothing() {
+        let p = Vec2::new(37.0, 121.0);
+        assert_eq!(snap_to_axis(p, TILE, Mirror::None), p);
+    }
+
+    #[test]
+    fn a_motif_on_an_axis_is_allowed_to_meet_its_own_reflection() {
+        // The rule the damask move rests on. A reflection that leaves the
+        // motif exactly where it is symmetrises it; one that moves it must
+        // clear it. Without the distinction, nothing could ever sit on a line.
+        let l = Lattice::block(TILE);
+        let cell = Mirror::SideToSide.cell_size_mm(TILE);
+
+        for x in [0.0, 120.0] {
+            let on_axis = snap_to_axis(Vec2::new(x, 50.0), cell, Mirror::SideToSide);
+            assert!(
+                self_image_distance_sq(on_axis, &l, Mirror::SideToSide).is_infinite(),
+                "a motif at {on_axis:?} should be free of its own reflection"
+            );
+        }
+
+        // A motif merely *near* a line is still refused: it gets cut at the
+        // line and doubled lopsidedly, which is the butterfly nobody asked
+        // for.
+        let near = Vec2::new(4.0, 50.0);
+        let d = self_image_distance_sq(near, &l, Mirror::SideToSide).sqrt();
+        assert!((d - 8.0).abs() < 1e-3, "got {d}");
+    }
+
+    #[test]
+    fn a_four_way_mount_still_has_to_clear_the_axis_it_is_not_on() {
+        // Mounted on the vertical line, this motif coincides with its
+        // side-to-side reflection — but its top-to-bottom reflection is a
+        // genuinely different copy 20 mm away, and that one still counts.
+        let l = Lattice::block(TILE);
+        let on_vertical = Vec2::new(0.0, 80.0);
+        let d = self_image_distance_sq(on_vertical, &l, Mirror::FourWay).sqrt();
+        assert!((d - 20.0).abs() < 1e-3, "got {d}");
     }
 
     #[test]

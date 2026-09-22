@@ -910,7 +910,79 @@ control. It would fill the corridors by default, but "prevent overlapping" then
 means two different things depending on which layout is selected, and a motif
 intersecting its own reflection is still a motif intersecting something.
 
-**Would reopen if.** Somebody asks for deliberate butterflies — motifs snapped
-*onto* an axis so they symmetrise cleanly rather than partially overlapping.
-That is the classic damask move and is a third option this control has no word
-for.
+**Reopened the same week**, by exactly that request. See
+[Motifs on a mirror line](#motifs-on-a-mirror-line-are-symmetrised-not-collided).
+The control gained a word for the third option: a share of motifs mounted *on*
+the lines, where the reflection meets the motif exactly. The corridor is now a
+choice rather than a consequence.
+
+---
+
+## Motifs on a mirror line are symmetrised, not collided
+
+**Decided.** Under a mirror, a reflection that leaves a motif exactly where it
+is imposes no separation at all; a reflection that moves it must still clear
+it. `ScatterParams::on_axis_share` is the proportion of candidates offered a
+position snapped onto the nearer mirror line.
+
+**Why this rule and not a flag.** "Allow motifs on the axes" as a boolean would
+have had to mean "allow them *near* the axes" too, and near is the case worth
+refusing: a motif straddling a line by an arbitrary amount is cut and doubled
+lopsidedly, which is the butterfly nobody asked for. Exactly on the line is a
+different thing — the motif is halved and its own reflection completes it,
+symmetrically. Distinguishing the two by whether the reflection *moves* the
+motif costs one comparison and gets the four-way case right for free: a motif
+mounted on the vertical line still has to clear its top-to-bottom reflection,
+because that reflection does move it.
+
+**Only one coordinate snaps**, the one already nearer a line. Snapping both
+would put every mounted motif on a corner where four reflections meet — a much
+stronger and rarer ornament than a designer asking for motifs on the lines has
+in mind.
+
+**Both lines get ornaments**, the one through the middle of the tile and the
+one along its edge. Mounting only on the interior line would have been simpler
+— the edge one involves a coordinate of exactly `W`, which wraps to zero if
+anything wraps it — but it would have left the corridor on every second line,
+which is the defect this exists to remove.
+
+**Cost.** The realised share is below the one asked for, because an axis
+position is more constrained than a free one. Mounting still places more motifs
+overall, since the corridor stops being wasted, and a test asserts that.
+
+Described in [Features](./features.md#motifs-on-the-mirror-lines).
+
+---
+
+## Each copy of a mirrored motif draws only on its own side of the line
+
+**Decided.** A reflected placement is clipped to its half of the tile, and an
+unreflected one to the other half. Axes that are not reflected are not clipped
+at all.
+
+**Why.** Drawing a motif and its whole reflection over each other is not a
+mirror. Source-over compositing is not commutative, so wherever the two overlap
+the result takes its colour from whichever was painted last — and reflection
+reverses that order, so the picture is not symmetrical. It cost nothing while
+every motif was kept clear of the axes, because nothing overlapped; it became
+the whole problem the moment a motif was allowed to sit on one.
+
+Clipping is what a designer does by hand: draw half, mirror it. It makes every
+case exact rather than only the easy one, including a motif that straddles a
+line rather than sitting on it.
+
+**The trap inside it.** An unreflected axis must be left *unbounded*, not
+clipped to the tile. A repeat is periodic, so a motif near one edge legitimately
+draws past the opposite one — that overhang is how a tile's edges join at all.
+Clipping every copy to its own tile removed it and broke all three golden
+images at once.
+
+**Consequence.** A mirrored tile is rounded to an even number of pixels in the
+reflected axis, so the line falls between two pixels rather than through one.
+Odd, and a motif mounted on the line sits a pixel off its own reflection. It
+costs at most one pixel of repeat, which is the trade the lattice divisor
+already makes.
+
+**Verified to fail.** Removing the clip leaves six of the seven mirror tests
+green and breaks exactly the one that renders a mounted motif — which is the
+right shape, and the reason that test is worth more than it looks.

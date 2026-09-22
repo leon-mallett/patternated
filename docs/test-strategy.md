@@ -65,6 +65,14 @@ catches a bug by accident will stop catching it by accident.
 `an_ordinary_scatter_is_not_symmetric` is kept alongside, so a measurement that
 returned zero for any input could not leave the whole file passing.
 
+Mounting motifs *on* the mirror lines added a third failure to verify: with the
+per-copy clip removed, six of the seven tests stay green and only
+`motifs_on_the_mirror_lines_keep_the_tile_exactly_symmetric` fails. One test
+carrying a defect on its own is a reason to trust it more, not less — but only
+because it has been watched fail. `asking_for_motifs_on_the_lines_actually_puts_some_there`
+sits beside it because every symmetry assertion in the file would also pass if
+nothing were ever mounted.
+
 The residual asymmetry was measured rather than tolerated. Before positions
 were quantised against the tile it ran between 0.28% and 1.6% of pixels with
 channel differences over 200; that measurement is what made the quantisation

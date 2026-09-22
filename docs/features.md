@@ -104,10 +104,54 @@ The practical consequence for a designer: a mirror asks more of the
 motif-to-repeat ratio than a scatter does. The cell is smaller, and nothing may
 come within its own radius of an axis, so a motif that filled a tossed print
 comfortably leaves a bare corridor down each mirror line. Shrink the motif,
-enlarge the repeat, or turn overlap prevention off and let motifs cross the
-axes — which is what a designer reaching for a mirror often wants anyway.
+enlarge the repeat, or put motifs on the lines deliberately — see below.
 `examples/generated-motifs/bananas-mirror.json` is the same artwork as
 `bananas.json` at 45% of the size, which is what it took to fill.
+
+## Motifs on the mirror lines
+
+The damask move, and the corridor's proper remedy rather than a workaround for
+it. **On the lines** is a share: that proportion of motifs is placed *on* a
+mirror axis instead of clear of one.
+
+A motif exactly on an axis is reflected onto itself. It is cut at the line and
+its own reflection supplies the other half, so it comes out bilaterally
+symmetrical — a formal ornament sitting among the strewn motifs, which is the
+whole visual language of a damask.
+
+Three things had to be true for that to work, and each is a rule rather than a
+special case:
+
+- **A reflection that leaves a motif where it is symmetrises it; one that moves
+  it must clear it.** That single distinction is what lets a motif sit on a
+  line while a motif *near* a line is still refused. Near is the bad case: it
+  gets cut at the line and doubled lopsidedly, which is the butterfly nobody
+  asked for. On a four-way mirror the rule works per reflection, so a motif
+  mounted on the vertical line still has to clear its top-to-bottom reflection.
+- **Each copy draws only on its own side of the line.** Drawing a motif and its
+  whole reflection over each other is not a mirror: compositing is not
+  commutative, so the overlap takes its colour from whichever was painted last
+  and the result is not symmetrical at all. Clipping each copy to its own half
+  is what a designer does by hand — draw half, mirror it — and it makes every
+  case exact, including a motif that straddles a line rather than sitting on
+  one.
+- **A mirrored tile is an even number of pixels across.** The mirror line then
+  falls between two pixels rather than through one, so a motif mounted on it
+  lands exactly on its own reflection. It costs at most a pixel of repeat.
+
+Both mirror lines get ornaments — the one through the middle of the tile and
+the one along its edge. Leaving either bare would put the corridor back on every
+second line.
+
+Only one coordinate is ever snapped, the one already nearer to a line. Snapping
+both would put every mounted motif on a corner where four reflections meet,
+which is a far stronger and rarer ornament than "motifs on the lines" implies.
+
+The realised share runs below the one asked for, because an axis position is
+more constrained than a free one and more candidates are refused. Mounting
+still places *more* motifs overall, since the corridor stops being wasted.
+`examples/generated-motifs/bananas-damask.json` is `bananas.json` at full size
+with the share at 45%, which is the other way out of the corridor.
 
 ## Scatter placement
 

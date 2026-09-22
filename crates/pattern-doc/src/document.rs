@@ -109,6 +109,11 @@ pub struct ScatterSpec {
     /// rendered, because the reflected copies would not line up across it.
     #[serde(default)]
     pub mirror: Mirror,
+    /// Share of motifs mounted on a mirror line, where the reflection
+    /// symmetrises them instead of colliding with them. See
+    /// [`ScatterParams::on_axis_share`](pattern_core::ScatterParams).
+    #[serde(default)]
+    pub on_axis_share: f32,
     #[serde(default)]
     pub rotation_jitter_deg: f32,
     #[serde(default = "unit_range")]
@@ -380,6 +385,7 @@ impl Document {
             motif_mix: mix,
             prevent_overlap: spec.prevent_overlap,
             mirror: spec.mirror,
+            on_axis_share: spec.on_axis_share,
             seed: spec.seed,
         };
         self.pattern.seed = spec.seed;
@@ -758,6 +764,7 @@ pub fn new_from_images(
             density: 0.3,
             prevent_overlap: true,
             mirror: Mirror::None,
+            on_axis_share: 0.0,
             rotation_jitter_deg: 20.0,
             scale_range: (0.85, 1.15),
             mix,

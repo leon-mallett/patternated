@@ -4,7 +4,9 @@ use rand_chacha::ChaCha8Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::lattice::Lattice;
-use crate::mirror::{fold_into_cell, mirror_distance_sq, reflect, self_image_distance_sq, Mirror};
+use crate::mirror::{
+    fold_into_cell, mirror_distance_sq, reflect, self_image_distance_sq, snap_to_axis, Mirror,
+};
 use crate::placement::Placement;
 
 /// Candidate attempts around an active sample before it is retired.
@@ -98,6 +100,22 @@ pub struct ScatterParams {
     /// *distinct* motifs. See [`Mirror`].
     #[serde(default)]
     pub mirror: Mirror,
+    /// Share of motifs mounted on a mirror axis rather than kept clear of one.
+    ///
+    /// Zero — the default — is the plain mirror: every motif sits clear of the
+    /// mirror lines, which is what stops it being cut and doubled, and which
+    /// leaves a bare corridor along each line when motifs are large.
+    ///
+    /// Above zero, that share of candidates is offered a position *on* an
+    /// axis, where the reflection meets the motif exactly and symmetrises it
+    /// instead of colliding with it. Filling the corridors that way is the
+    /// damask move. Realised share runs lower than asked: an axis position is
+    /// more constrained than a free one, so more candidates are refused.
+    ///
+    /// Means nothing without a [`Mirror`], and costs no random draw when it is
+    /// zero, so a document written before it existed samples identically.
+    #[serde(default)]
+    pub on_axis_share: f32,
     pub seed: u64,
 }
 
@@ -179,6 +197,22 @@ fn poisson_disc(
     let radius_sq = radius * radius;
     let mirror = params.mirror;
 
+    // Offer a candidate a place on a mirror axis, or leave it where it fell.
+    //
+    // Consumes a draw only when there is a share to honour, so every document
+    // that predates this — and every mirror asking for none — walks the same
+    // random sequence it always did.
+    let mount = |rng: &mut ChaCha8Rng, position: Vec2| -> Vec2 {
+        if mirror == Mirror::None || params.on_axis_share <= 0.0 {
+            return position;
+        }
+        if unit(rng) < params.on_axis_share {
+            snap_to_axis(position, cell_size_mm, mirror)
+        } else {
+            position
+        }
+    };
+
     let draw = |rng: &mut ChaCha8Rng, position_mm: Vec2| -> Sample {
         let motif = choose_motif_index(&params.motif_mix, rng);
         let rotation_deg = symmetric_value(rng, params.rotation_jitter_deg);
@@ -203,6 +237,7 @@ fn poisson_disc(
     let mut first = None;
     for _ in 0..CANDIDATES_PER_SAMPLE {
         let start = Vec2::new(unit(rng) * cell_size_mm.x, unit(rng) * cell_size_mm.y);
+        let start = mount(rng, start);
         let candidate = draw(rng, start);
         let touching = 2.0 * candidate.radius_mm;
         let required_sq = if params.prevent_overlap {
@@ -232,6 +267,7 @@ fn poisson_disc(
         for _ in 0..CANDIDATES_PER_SAMPLE {
             let position =
                 fold_into_cell(origin + annulus_offset(rng, radius), cell_size_mm, mirror);
+            let position = mount(rng, position);
             let candidate = draw(rng, position);
 
             let required = |other: f32| {
@@ -416,6 +452,7 @@ mod tests {
             // larger floor that would mask it.
             prevent_overlap: false,
             mirror: Mirror::None,
+            on_axis_share: 0.0,
             seed,
         }
     }
@@ -567,6 +604,113 @@ mod tests {
         // impossible one — so the emptiness above is the mirror's doing.
         p.mirror = Mirror::None;
         assert!(!scatter(&p, TILE, &Lattice::block(TILE)).is_empty());
+    }
+
+    #[test]
+    fn asking_for_motifs_on_the_mirror_lines_puts_them_there() {
+        for mirror in MIRRORS {
+            let mut p = mirrored(mirror, 0.35, 4, true);
+            p.on_axis_share = 0.5;
+            let out = scatter(&p, TILE, &Lattice::block(TILE));
+
+            let on_axis = out
+                .iter()
+                .filter(|q| {
+                    let axes_x = [0.0, TILE.x / 2.0, TILE.x];
+                    let axes_y = [0.0, TILE.y / 2.0, TILE.y];
+                    (mirror.reflects_x()
+                        && axes_x.iter().any(|a| (q.position_mm.x - a).abs() < 1e-3))
+                        || (mirror.reflects_y()
+                            && axes_y.iter().any(|a| (q.position_mm.y - a).abs() < 1e-3))
+                })
+                .count();
+            assert!(
+                on_axis >= 2,
+                "{mirror:?}: only {on_axis} of {} placements sit on a line",
+                out.len()
+            );
+        }
+    }
+
+    #[test]
+    fn mounting_motifs_on_the_lines_fits_more_of_them_in() {
+        // The point of the feature: the band either side of each axis is
+        // unusable to a free motif, and mounting reclaims it.
+        for mirror in MIRRORS {
+            let plain = scatter(
+                &mirrored(mirror, 0.5, 11, true),
+                TILE,
+                &Lattice::block(TILE),
+            );
+            let mut params = mirrored(mirror, 0.5, 11, true);
+            params.on_axis_share = 0.5;
+            let damask = scatter(&params, TILE, &Lattice::block(TILE));
+            assert!(
+                damask.len() > plain.len(),
+                "{mirror:?}: mounting gave {} placements against the plain mirror's {}",
+                damask.len(),
+                plain.len()
+            );
+        }
+    }
+
+    #[test]
+    fn a_mounted_motif_still_clears_every_other_motif() {
+        // Being allowed to meet its own reflection is not a licence to meet
+        // anything else.
+        let mut p = mirrored(Mirror::SideToSide, 0.5, 4, true);
+        p.on_axis_share = 0.6;
+        let lattice = Lattice::block(TILE);
+        let out = scatter(&p, TILE, &lattice);
+        let radius = separation_radius(&p, TILE);
+
+        for (i, a) in out.iter().enumerate() {
+            for b in out.iter().skip(i + 1) {
+                // Two copies of one mounted motif coincide by design — that is
+                // what mounting means — so only distinct positions are judged.
+                let d = lattice_distance_sq(a.position_mm, b.position_mm, &lattice).sqrt();
+                if d < 1e-3 {
+                    continue;
+                }
+                assert!(
+                    d >= radius - 1e-2,
+                    "two motifs {d:.2} mm apart, under the {radius:.2} mm separation asked for"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_share_means_nothing_without_a_mirror_and_something_with_one() {
+        // Two claims in one place because they are the same claim: the share
+        // is consulted exactly when there are axes to mount motifs on.
+        //
+        // The compatibility half — that a share of zero walks the same random
+        // sequence as a build that never heard of the option — is pinned by
+        // the golden image in `pattern-render`, which renders a scatter and so
+        // would change the moment an unconditional draw were added here.
+        let plain = mirrored(Mirror::None, 0.35, 12, true);
+        let mut plain_with_share = plain.clone();
+        plain_with_share.on_axis_share = 0.4;
+        assert_eq!(
+            scatter(&plain, TILE, &Lattice::block(TILE)),
+            scatter(&plain_with_share, TILE, &Lattice::block(TILE)),
+            "with no mirror there are no axes, so a share must change nothing"
+        );
+
+        for mirror in MIRRORS {
+            let params = mirrored(mirror, 0.35, 12, true);
+            let mut with_a_share = params.clone();
+            with_a_share.on_axis_share = 0.4;
+
+            let a = scatter(&params, TILE, &Lattice::block(TILE));
+            assert!(!a.is_empty());
+            assert_ne!(
+                a,
+                scatter(&with_a_share, TILE, &Lattice::block(TILE)),
+                "{mirror:?}: a share above zero should change the scatter"
+            );
+        }
     }
 
     #[test]
@@ -1006,6 +1150,7 @@ mod tests {
             scale_range: (1.0, 1.0),
             prevent_overlap: false,
             mirror: Mirror::None,
+            on_axis_share: 0.0,
             motif_mix: vec![
                 MotifWeight {
                     motif_id: "cherry".into(),

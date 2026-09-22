@@ -52,6 +52,7 @@ export default function App() {
   const [tile, setTile] = useState<[number, number]>([240, 180]);
   const [lattice, setLattice] = useState("half-drop");
   const [density, setDensity] = useState(0.3);
+  const [onAxisShare, setOnAxisShare] = useState(0);
   const [jitter, setJitter] = useState(20);
   const [scale, setScale] = useState<[number, number]>([0.85, 1.15]);
   const [seed, setSeed] = useState(1);
@@ -109,6 +110,7 @@ export default function App() {
       tile_mm: tile,
       lattice,
       density,
+      on_axis_share: onAxisShare,
       rotation_jitter_deg: jitter,
       scale_range: scale,
       seed,
@@ -126,6 +128,7 @@ export default function App() {
       tile,
       lattice,
       density,
+      onAxisShare,
       jitter,
       scale,
       seed,
@@ -189,6 +192,7 @@ export default function App() {
     setTile(opened.tile_mm);
     setLattice(opened.lattice === "block" ? "block" : "half-drop");
     setDensity(opened.density);
+    setOnAxisShare(opened.on_axis_share);
     setJitter(opened.rotation_jitter_deg);
     setScale(opened.scale_range);
     setSeed(opened.seed);
@@ -570,6 +574,27 @@ export default function App() {
                 format={(v) => `±${Math.round(v)}°`}
                 onChange={setJitter}
               />
+              {isMirrorLayout(layout) && (
+                <>
+                  <Slider
+                    label="On the lines"
+                    value={onAxisShare}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    format={(v) => `${Math.round(v * 100)}%`}
+                    onChange={setOnAxisShare}
+                  />
+                  <p className="hint">
+                    How often a motif is placed <em>on</em> a mirror line
+                    rather than clear of one. A motif there is cut at the line
+                    and completed by its own reflection, so it comes out
+                    symmetrical — which is how a damask fills the corridor a
+                    plain mirror leaves. At zero every motif stays clear of the
+                    lines.
+                  </p>
+                </>
+              )}
               <Slider
                 label="Smallest"
                 value={scale[0]}

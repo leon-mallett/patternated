@@ -16,6 +16,8 @@ export interface Opened {
   active_colourway: string | null;
   scattered: boolean;
   layout: string;
+  /** Share of motifs mounted on a mirror line. Zero without a mirror. */
+  on_axis_share: number;
   prevent_overlap: boolean;
   grid_rows: number;
   grid_cols: number;
@@ -73,6 +75,7 @@ export interface Params {
   seed: number;
   layout: string;
   prevent_overlap: boolean;
+  on_axis_share: number;
   grid_rows: number;
   grid_cols: number;
   weights: [string, number][];

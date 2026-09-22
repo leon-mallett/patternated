@@ -33,6 +33,28 @@ impl PixelLattice {
     /// Quantise a lattice and tile size to whole pixels at a given resolution.
     #[must_use]
     pub fn new(lattice: &Lattice, tile_size_mm: Vec2, dpi: f32) -> Self {
+        Self::for_mirror(lattice, tile_size_mm, dpi, false, false)
+    }
+
+    /// The same, for a tile built as a mirror repeat.
+    ///
+    /// A reflected axis forces its dimension to an even number of pixels, so
+    /// that the mirror line falls *between* two pixels rather than through
+    /// one. Reflecting a tile `T` pixels wide sends pixel `j` to `T-1-j`; with
+    /// `T` even the two halves map exactly onto each other, and with `T` odd
+    /// there is a middle pixel belonging to neither, which puts a motif
+    /// mounted on the axis one pixel off its own reflection.
+    ///
+    /// It costs at most one pixel of repeat — the same trade the lattice
+    /// divisor above already makes.
+    #[must_use]
+    pub fn for_mirror(
+        lattice: &Lattice,
+        tile_size_mm: Vec2,
+        dpi: f32,
+        reflects_x: bool,
+        reflects_y: bool,
+    ) -> Self {
         let k = px_per_mm(dpi);
         let wanted = IVec2::new(
             ((tile_size_mm.x * k).round() as i32).max(1),
@@ -60,9 +82,11 @@ impl PixelLattice {
                 .unwrap_or(1)
         };
         let height_divisor = divisor(lattice.u.y / tile_size_mm.y.max(1e-6))
-            .max(divisor(lattice.v.y / tile_size_mm.y.max(1e-6)));
+            .max(divisor(lattice.v.y / tile_size_mm.y.max(1e-6)))
+            .max(if reflects_y { 2 } else { 1 });
         let width_divisor = divisor(lattice.u.x / tile_size_mm.x.max(1e-6))
-            .max(divisor(lattice.v.x / tile_size_mm.x.max(1e-6)));
+            .max(divisor(lattice.v.x / tile_size_mm.x.max(1e-6)))
+            .max(if reflects_x { 2 } else { 1 });
 
         let round_to = |value: i32, divisor: i32| -> i32 {
             if divisor <= 1 {
@@ -264,5 +288,24 @@ mod tests {
         let offsets = pl.offsets_covering(pl.tile_px.x * 3, pl.tile_px.y * 3);
         let max_i_span = offsets.iter().map(|o| o.x / pl.u_px.x).max().unwrap_or(0);
         assert!(max_i_span >= 3, "window three tiles wide needs i up to 3");
+    }
+
+    #[test]
+    fn a_mirrored_tile_is_rounded_to_an_even_number_of_pixels() {
+        // 240 x 180 mm at 150 DPI wants 1417 x 1063 px, both odd. A mirror
+        // line has to fall between two pixels or a motif mounted on it lands
+        // one pixel off its own reflection.
+        let plain = PixelLattice::new(&Lattice::block(TILE), TILE, 150.0);
+        assert_eq!(plain.tile_px, IVec2::new(1417, 1063));
+
+        let across = PixelLattice::for_mirror(&Lattice::block(TILE), TILE, 150.0, true, false);
+        assert_eq!(across.tile_px, IVec2::new(1418, 1063));
+
+        let both = PixelLattice::for_mirror(&Lattice::block(TILE), TILE, 150.0, true, true);
+        assert_eq!(both.tile_px, IVec2::new(1418, 1064));
+
+        // And the lattice still divides the tile it was given.
+        assert_eq!(both.u_px, IVec2::new(1418, 0));
+        assert_eq!(both.v_px, IVec2::new(0, 1064));
     }
 }

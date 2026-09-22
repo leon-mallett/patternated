@@ -50,6 +50,7 @@ struct Opened {
     active_colourway: Option<String>,
     scattered: bool,
     layout: String,
+    on_axis_share: f32,
     prevent_overlap: bool,
     grid_rows: u32,
     grid_cols: u32,
@@ -81,6 +82,9 @@ struct Params {
     /// guard rather than an overlapping print.
     #[serde(default = "guard_on")]
     prevent_overlap: bool,
+    /// Share of motifs mounted on a mirror line. Meaningless without a mirror.
+    #[serde(default)]
+    on_axis_share: f32,
     #[serde(default)]
     grid_rows: u32,
     #[serde(default)]
@@ -186,6 +190,7 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
             .map(|g| preset_name(g.row_offset))
             .or_else(|| scatter.map(|s| scatter_layout_name(s.mirror)))
             .unwrap_or_else(|| "tossed".into()),
+        on_axis_share: scatter.map(|s| s.on_axis_share).unwrap_or(0.0),
         prevent_overlap: scatter
             .map(|s| s.prevent_overlap)
             .or_else(|| document.grid.as_ref().map(|g| g.prevent_overlap))
@@ -350,6 +355,7 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
     if let Some(spec) = session.document.scatter.as_mut() {
         spec.density = params.density.clamp(0.0, 2.0);
         spec.prevent_overlap = params.prevent_overlap;
+        spec.on_axis_share = params.on_axis_share.clamp(0.0, 1.0);
         spec.rotation_jitter_deg = params.rotation_jitter_deg;
         spec.scale_range = (params.scale_range[0], params.scale_range[1]);
         spec.seed = params.seed;
@@ -441,6 +447,7 @@ fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
                 density: params.density.clamp(0.0, 2.0),
                 prevent_overlap: params.prevent_overlap,
                 mirror,
+                on_axis_share: params.on_axis_share.clamp(0.0, 1.0),
                 rotation_jitter_deg: params.rotation_jitter_deg,
                 scale_range: (params.scale_range[0], params.scale_range[1]),
                 mix,
@@ -1040,6 +1047,7 @@ mod tests {
             sizes: vec![],
             layout: "tossed".into(),
             prevent_overlap: true,
+            on_axis_share: 0.0,
             grid_rows: 3,
             grid_cols: 3,
             preview_width_px: 600,
@@ -1230,6 +1238,41 @@ mod tests {
                 "{layout} reflected the wrong share of its motifs"
             );
         }
+    }
+
+    #[test]
+    fn motifs_can_be_mounted_on_the_mirror_lines() {
+        let mut s = session();
+        let mut p = params(0.4, 1);
+        p.layout = "mirror".into();
+        write_params(&mut s, &p).expect("apply");
+        let plain = s.document.pattern.placements.len();
+
+        p.on_axis_share = 0.5;
+        write_params(&mut s, &p).expect("apply");
+        let mounted = s.document.pattern.placements.len();
+
+        assert_eq!(
+            s.document.scatter.as_ref().expect("scatter").on_axis_share,
+            0.5
+        );
+        assert!(
+            mounted > plain,
+            "mounting motifs on the lines gave {mounted} against the plain mirror's {plain}"
+        );
+    }
+
+    #[test]
+    fn the_mirror_line_share_is_kept_within_bounds() {
+        let mut s = session();
+        let mut p = params(0.4, 1);
+        p.layout = "mirror".into();
+        p.on_axis_share = 4.0;
+        write_params(&mut s, &p).expect("apply");
+        assert_eq!(
+            s.document.scatter.as_ref().expect("scatter").on_axis_share,
+            1.0
+        );
     }
 
     #[test]

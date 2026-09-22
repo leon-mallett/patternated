@@ -47,9 +47,9 @@ pub fn render_tile(pattern: &Pattern, bank: &MotifBank, dpi: f32) -> Result<Pixm
     let mut target = new_pixmap(pl.tile_px)?;
     fill_ground(&mut target, pattern)?;
 
-    for (sprite, top_left) in sprites(pattern, bank, dpi, &pl)? {
+    for stamp in sprites(pattern, bank, dpi, &pl)? {
         for offset in pl.neighbour_offsets() {
-            blit(&mut target, &sprite, top_left + offset);
+            stamp.draw(&mut target, offset);
         }
     }
     Ok(target)
@@ -73,7 +73,7 @@ pub fn render_field(
     let mut target = new_pixmap(size)?;
 
     for offset in pl.offsets_covering(size.x, size.y) {
-        blit(&mut target, &tile, offset);
+        blit(&mut target, &tile, offset, IVec2::ZERO, size);
     }
     Ok(target)
 }
@@ -99,9 +99,9 @@ pub fn render_field_direct(
     fill_ground(&mut target, pattern)?;
 
     let offsets = pl.offsets_covering(size.x, size.y);
-    for (sprite, top_left) in sprites(pattern, bank, dpi, &pl)? {
+    for stamp in sprites(pattern, bank, dpi, &pl)? {
         for offset in &offsets {
-            blit(&mut target, &sprite, top_left + *offset);
+            stamp.draw(&mut target, *offset);
         }
     }
     Ok(target)
@@ -112,10 +112,13 @@ pub fn pixel_lattice_for(pattern: &Pattern, dpi: f32) -> Result<PixelLattice, Re
     if dpi <= 0.0 {
         return Err(RenderError::NonPositiveDpi(dpi));
     }
-    Ok(PixelLattice::new(
+    let reflects = reflected_axes(pattern);
+    Ok(PixelLattice::for_mirror(
         &pattern.lattice,
         pattern.tile_size_mm,
         dpi,
+        reflects.x,
+        reflects.y,
     ))
 }
 
@@ -140,7 +143,7 @@ fn sprites(
     bank: &MotifBank,
     dpi: f32,
     pl: &PixelLattice,
-) -> Result<Vec<(Pixmap, IVec2)>, RenderError> {
+) -> Result<Vec<Stamp>, RenderError> {
     let k = pattern_core::px_per_mm(dpi);
 
     // Positions are quantised against the tile's own pixel size, not against
@@ -155,6 +158,7 @@ fn sprites(
         pl.tile_px.x as f32 / pattern.tile_size_mm.x,
         pl.tile_px.y as f32 / pattern.tile_size_mm.y,
     );
+    let reflects = reflected_axes(pattern);
 
     // Resolve each distinct motif once. A pattern is usually many placements of
     // a few motifs, so resolving per placement would redo the same slot lookup
@@ -188,7 +192,23 @@ fn sprites(
             sprite = flipped_y(&sprite);
         }
 
-        let center_mm = wrap_into_tile(placement.position_mm, pattern.tile_size_mm);
+        // Not wrapped on a reflected axis. A motif designed at the very edge
+        // of the cell reflects to the far edge of the tile — coordinate
+        // exactly `W` — and wrapping that to zero would file the copy in the
+        // wrong half and clip it away entirely.
+        let wrapped = wrap_into_tile(placement.position_mm, pattern.tile_size_mm);
+        let center_mm = Vec2::new(
+            if reflects.x {
+                placement.position_mm.x
+            } else {
+                wrapped.x
+            },
+            if reflects.y {
+                placement.position_mm.y
+            } else {
+                wrapped.y
+            },
+        );
         let center = IVec2::new(
             (center_mm.x * scale_mm_to_px.x).round() as i32,
             (center_mm.y * scale_mm_to_px.y).round() as i32,
@@ -197,9 +217,92 @@ fn sprites(
             anchor(center.x, sprite.width() as i32, placement.flip_x),
             anchor(center.y, sprite.height() as i32, placement.flip_y),
         );
-        out.push((sprite, top_left));
+        out.push(Stamp {
+            sprite,
+            top_left,
+            band_min: IVec2::new(
+                band_min(pl.tile_px.x, reflects.x, placement.flip_x),
+                band_min(pl.tile_px.y, reflects.y, placement.flip_y),
+            ),
+            band_max: IVec2::new(
+                band_max(pl.tile_px.x, reflects.x, placement.flip_x),
+                band_max(pl.tile_px.y, reflects.y, placement.flip_y),
+            ),
+        });
     }
     Ok(out)
+}
+
+/// A rasterised placement, where it goes, and how much of the tile it may
+/// cover.
+struct Stamp {
+    sprite: Pixmap,
+    /// Where the sprite's top-left corner goes, in tile-local pixels.
+    top_left: IVec2,
+    /// The half of the tile this copy owns, in tile-local pixels. The whole
+    /// tile when the axis is not reflected.
+    band_min: IVec2,
+    band_max: IVec2,
+}
+
+impl Stamp {
+    /// Draw this copy into `target`, offset by one lattice translate.
+    ///
+    /// The band travels with the sprite. A copy owns the same half of every
+    /// tile it appears in, so clipping it in tile-local pixels and shifting
+    /// both by the offset is the whole of it — which is also why the two
+    /// render routes stay in agreement.
+    fn draw(&self, target: &mut Pixmap, offset: IVec2) {
+        blit(
+            target,
+            &self.sprite,
+            self.top_left + offset,
+            self.band_min + offset,
+            self.band_max + offset,
+        );
+    }
+}
+
+/// Which axes this pattern is reflected in, read from the placements rather
+/// than stored.
+///
+/// The pattern *is* its placements: a tile with a reflected copy in it is a
+/// mirror repeat, and there is nowhere else for the fact to live without
+/// giving `Pattern` a mode flag that could disagree with them.
+fn reflected_axes(pattern: &Pattern) -> glam::BVec2 {
+    glam::BVec2::new(
+        pattern.placements.iter().any(|p| p.flip_x),
+        pattern.placements.iter().any(|p| p.flip_y),
+    )
+}
+
+/// Room enough to stand for "no limit" while surviving being offset by a few
+/// tiles. Not `i32::MAX`, which would overflow the moment a lattice offset is
+/// added to it.
+const UNBOUNDED: i32 = i32::MAX / 4;
+
+/// The near edge of the half-tile a copy owns.
+///
+/// Unbounded on an axis that is not reflected, and that is not the same as
+/// "the tile". A repeat is periodic, so a motif near one edge legitimately
+/// draws past the opposite one — that overhang is how a tile's edges join at
+/// all. Only a reflected axis bounds a copy, because there the far side
+/// belongs to the reflection and is drawn by it.
+fn band_min(extent: i32, reflected_axis: bool, flipped: bool) -> i32 {
+    match (reflected_axis, flipped) {
+        (true, true) => extent / 2,
+        (true, false) => 0,
+        (false, _) => -UNBOUNDED,
+    }
+}
+
+/// The far edge of the half-tile a copy owns.
+fn band_max(extent: i32, reflected_axis: bool, flipped: bool) -> i32 {
+    match (reflected_axis, flipped) {
+        (true, true) => extent,
+        (true, false) => extent / 2,
+        (false, _) => UNBOUNDED,
+    }
 }
 
 /// Find a motif, naming the placement that wanted it when it is missing.
@@ -344,14 +447,14 @@ fn flipped_y(sprite: &Pixmap) -> Pixmap {
 /// Written out rather than delegated to a transform so that it is exactly a
 /// copy: identical inputs at any offset give identical pixels, which is the
 /// property the seamlessness test rests on.
-fn blit(target: &mut Pixmap, src: &Pixmap, top_left: IVec2) {
+fn blit(target: &mut Pixmap, src: &Pixmap, top_left: IVec2, clip_min: IVec2, clip_max: IVec2) {
     let (tw, th) = (target.width() as i32, target.height() as i32);
     let (sw, sh) = (src.width() as i32, src.height() as i32);
 
-    let x0 = top_left.x.max(0);
-    let y0 = top_left.y.max(0);
-    let x1 = (top_left.x + sw).min(tw);
-    let y1 = (top_left.y + sh).min(th);
+    let x0 = top_left.x.max(0).max(clip_min.x);
+    let y0 = top_left.y.max(0).max(clip_min.y);
+    let x1 = (top_left.x + sw).min(tw).min(clip_max.x);
+    let y1 = (top_left.y + sh).min(th).min(clip_max.y);
     if x0 >= x1 || y0 >= y1 {
         return;
     }
