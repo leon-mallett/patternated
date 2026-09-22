@@ -1192,9 +1192,20 @@ rather than against every sample placed so far.
 
 **Why now.** It was brute-force by an explicit decision, recorded as a debt
 with the condition "worth doing only if the live preview turns out to need it".
-A 1.2 m canvas of small motifs made it a hang: seventeen thousand placements
-took thirty-eight seconds to sample, and the app runs an unoptimised build, so
-what a designer actually met was minutes. The condition was met.
+A 1.2 m canvas of small motifs made it a hang. The condition was met.
+
+Measured in the unoptimised build a designer actually runs, per interaction —
+and the preview re-renders on every slider movement:
+
+| motifs | before | after |
+| --- | --- | --- |
+| 1,081 | 4.0 s | 0.03 s |
+| 4,342 | 66.6 s | 0.12 s |
+| 17,375 | 1,194.7 s | — |
+
+Twenty minutes for one drag of a slider. The release figures below are the
+same work with the optimiser on; both changes landed together, and the
+unoptimised column is the one that describes what was reported.
 
 **Why it was not done sooner, and why that was right.** The objection in the
 debt was real rather than neglect: the grid this algorithm is usually written
