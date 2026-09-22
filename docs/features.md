@@ -215,6 +215,63 @@ This is placement only. **Rendering still rotates through `sin_cos`**, so the
 cross-platform claim stops at the pixels — see
 [Test strategy](./test-strategy.md#what-is-deliberately-not-tested).
 
+## Drawing artwork smaller than it was drawn
+
+Almost every render minifies. Artwork arrives at illustration resolution — a
+thousand pixels or more — and a 100 mm motif is under two hundred pixels at
+preview scale and about six hundred at print.
+
+Each motif carries a chain of successively halved copies, built by integer box
+average so that every source pixel contributes to the level below. Rendering
+picks the smallest level that is still at least as large as the target, leaving
+the final resample a reduction of under a factor of two.
+
+**Why it needs saying at all.** Bilinear sampling reads a 2 × 2 neighbourhood,
+so reducing by eight in one step looks at four source pixels in every
+sixty-four and discards the rest. A dark keyline a few pixels wide falls
+between samples and vanishes in places — reported from the app as "the preview
+is far worse than the source", which was the right description: it was not
+merely smaller, it was wrong. Measured against a correct reduction at preview
+scale, mean channel error fell from 5.9 to 3.8 and the worst pixel from 166 to
+102.
+
+The chain is integer arithmetic throughout, because it sits upstream of
+everything a seed is supposed to reproduce.
+
+## Palette size
+
+How many colours the artwork is reduced to, the ground included, from
+**monotone** at one end to **photographic** at the other. Twelve by default.
+
+This is a commercial decision as much as a visual one, which is why it is a
+control rather than a constant: screen printing charges by the colour and
+digital printing does not, so Peel Club and Dreamwoven will not want the same
+answer. Changing it re-reads the artwork and quantises every motif again, so it
+is a heavier operation than a palette edit — changing a slot's *colour* leaves
+the slots alone.
+
+Colourways cannot survive a change of slot count: a colourway names a colour
+per slot, and there is a different number of slots afterwards. They are
+discarded and named rather than left to fail on the next open, which would be a
+document that no longer loads. The ground is carried across rather than
+re-derived, because a designer who has set a navy ground should not have it
+revert because they asked for more colours.
+
+### When a motif dissolves into the ground
+
+Each motif reports the share of its ink that resolves to the ground slot, and
+the app says so above 8%. Ink the colour of the fabric it is printed on is
+invisible on a plain preview and turns into a hole the shape of whatever
+dissolved the moment the ground changes.
+
+It is not a fault in itself — a white star on a navy ground is exactly this,
+correctly — but it is almost always a palette with no colour for that part of
+the artwork, so the nearest available is the ground. A peeled banana's pale
+interior against the old six-colour default put 18% of the motif there and
+nothing warned, because the quantiser's own threshold looks for a motif that
+has vanished entirely rather than one with a hole in it. Widening the palette
+to ten dropped it to 2%.
+
 ## Motif ingest
 
 One pipeline, whatever the artwork's origin: matte, trim, normalise, quantise,

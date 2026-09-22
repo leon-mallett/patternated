@@ -986,3 +986,98 @@ already makes.
 **Verified to fail.** Removing the clip leaves six of the seven mirror tests
 green and breaks exactly the one that renders a mounted motif — which is the
 right shape, and the reason that test is worth more than it looks.
+
+---
+
+## Pre-filtering before minification
+
+**Decided.** Each motif carries a chain of successively halved copies, built by
+integer box average; rendering picks the smallest level still at least as large
+as the target and lets bilinear cover the remainder.
+
+**Why.** Almost every render minifies, and bilinear sampling reads a 2 × 2
+neighbourhood. Reducing by eight in one step therefore looks at four source
+pixels in every sixty-four. A dark keyline a few pixels wide falls between
+samples and disappears in places, which is why a preview looked coarser than
+the artwork rather than merely smaller.
+
+**Rejected.** Bicubic, which tiny-skia also offers. A 4 × 4 kernel is better
+than 2 × 2 and still nowhere near enough at eight times; it would have made the
+symptom subtler without fixing it, which is worse.
+
+**Rejected.** Box-filtering straight to the exact target size per placement. It
+is the better filter, and it costs the full source area for every placement on
+every preview — a dozen megapixels per slider movement. The chain is built once
+per motif and shared.
+
+**Cost.** About a third of each motif's memory again, and the final step is
+still bilinear rather than something better. Measured against a Lanczos
+reference at preview scale: mean channel error 5.94 to 3.75, worst 166 to 102.
+
+**Would reopen if.** Vector export lands, where there is no raster to filter,
+or if the residual difference from a proper windowed filter ever shows on
+fabric.
+
+Described in [Features](./features.md#drawing-artwork-smaller-than-it-was-drawn).
+
+---
+
+## Palette size is a control, not a constant
+
+**Decided.** How many colours a design is quantised onto is a slider, monotone
+at one end and photographic at the other, twelve by default. It re-derives the
+palette and re-quantises every motif.
+
+**Why.** Six was hardcoded when the app first needed a number, and it is too
+few for artwork with any shading: a pale interior finds no colour of its own
+and lands on the ground slot, which is invisible until the ground changes and
+then becomes a hole. But the answer is not simply "more" — screen printing
+charges by the colour and digital printing does not, so the right count is a
+commercial decision that differs between the two brands this engine serves.
+A constant cannot express that and a default cannot either.
+
+**Rejected.** Raising the default and leaving it fixed. It would have fixed the
+reported defect and left the decision in the wrong place.
+
+**Rejected.** A linear slider from 2 to 64. Three quarters of its travel would
+sit between counts nobody chooses. The control steps through a list — 2, 3, 4,
+5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64 — so the useful range gets the
+travel it deserves.
+
+**Consequence accepted.** Colourways are discarded when the slot count changes,
+and named in the result. A colourway is a colour per slot; after a resize it
+describes slots that no longer exist. Leaving it in place would produce a
+document that fails to open, which is worse than losing it knowingly.
+
+**Ground carried across, not re-derived.** Slot 0 is a design decision rather
+than a property of the artwork, so a navy ground survives asking for more
+colours.
+
+Described in [Features](./features.md#palette-size).
+
+---
+
+## A motif's ground share is worth reporting on its own
+
+**Decided.** `IndexedMotif::ground_share` — the share of a motif's ink that
+resolves to the ground slot — is computed in the core and reported per motif in
+the app above 8%.
+
+**Why the existing check was not enough.** `QuantisationReport` already tracked
+this and warned above a third, which catches a motif that has vanished — the
+lemon that came out as cream in the shape of a lemon. It does not catch a motif
+with a *hole* in it. A peeled banana put 18% of its ink on the ground, scored a
+mean error of 0.05, and passed every check while its interior was the
+background colour.
+
+**The lesson is about which number describes the failure.** A mean is a poor
+detector of a contiguous, focal region being wrong, and the share crossing a
+"mostly gone" threshold is a different question from "is any of this
+invisible". Reporting the number beats tuning the threshold, because 20% of a
+motif being ground-coloured is a defect in one design and the entire point of
+another — a white star on a navy ground is exactly this.
+
+**One definition, two callers.** `quantise` asks the motif rather than counting
+again, because the same number is wanted in the app where there is no report to
+hand, and a share computed in two places is a share that will eventually
+disagree with itself.

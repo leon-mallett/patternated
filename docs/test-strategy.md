@@ -79,6 +79,32 @@ channel differences over 200; that measurement is what made the quantisation
 change worth [deciding](./decisions.md#quantising-positions-against-the-tile-not-against-the-dpi)
 rather than a tolerance worth widening.
 
+## Asserting a principle instead of a tolerance
+
+`crates/pattern-render/tests/minification.rs` is the clearest example of a
+shape worth copying. The property under test is that artwork survives being
+drawn smaller than it was drawn, and the obvious assertion — "the error is
+below X" — would have to pick an X, which is a number nobody can defend.
+
+What it asserts instead is the direction: **reducing correctly means every
+source pixel contributes, so more detailed artwork can only render better.**
+Sampling a fixed neighbourhood means more detailed artwork renders worse,
+because the share of it that is read shrinks. Worst-pixel error against a
+box-filtered reference, at 256, 512 and 1024 px sources: 92, 78, 77 with
+pre-filtering; 92, 122, 145 without. No tolerance covers both, and the
+assertion needs no constant.
+
+The reference is a box filter worked out in the test rather than asked of the
+renderer, on the rule from the tracking work above: a test that calls the
+function under test to decide what the answer should be is not evidence.
+
+**The shared fixture could not have caught this**, which is the other half of
+the lesson. Its cherry is drawn at 128 px, so nothing is ever reduced by more
+than about two and the defect never appears. That is the synthetic-fixture trap
+the log already records, arriving from the opposite direction: not a fixture
+that contains the signal too cleanly, but one that cannot contain it at all.
+These tests draw the same cherry at illustration resolution instead.
+
 ## The supporting levels
 
 **Unit tests in `pattern-core`** cover the lattice, wrapping, palette resolution

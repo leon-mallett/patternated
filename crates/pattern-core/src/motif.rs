@@ -79,6 +79,41 @@ impl IndexedMotif {
         used
     }
 
+    /// Share of this motif's ink that resolves to the ground slot, 0..1.
+    ///
+    /// Ink the same colour as the fabric it is printed on, which on a plain
+    /// preview is invisible and on a changed ground turns into a hole the
+    /// shape of whatever dissolved. It is not a fault in itself — a white star
+    /// on a navy ground is exactly this, and correctly so — but it is the
+    /// number to look at when a motif comes back with its middle missing.
+    ///
+    /// The cause is almost always a palette with no colour for that part of
+    /// the artwork, so the nearest available is the ground. A peeled banana's
+    /// pale interior against a six-colour palette put 18% of the motif here;
+    /// widening the palette to ten dropped it to 2%.
+    ///
+    /// Counts only pixels with coverage, like [`Self::slots_used`]: a
+    /// transparent pixel's slot is not printed and should not be counted
+    /// against it.
+    #[must_use]
+    pub fn ground_share(&self) -> f32 {
+        let mut covered = 0usize;
+        let mut on_ground = 0usize;
+        for (slot, alpha) in self.slots.iter().zip(&self.alpha) {
+            if *alpha == 0 {
+                continue;
+            }
+            covered += 1;
+            if *slot == crate::palette::GROUND_SLOT {
+                on_ground += 1;
+            }
+        }
+        if covered == 0 {
+            return 0.0;
+        }
+        on_ground as f32 / covered as f32
+    }
+
     /// The highest slot this motif needs a palette to define.
     #[must_use]
     pub fn max_slot(&self) -> Option<u8> {
@@ -180,6 +215,26 @@ pub struct Motif {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn ground_share_counts_ink_the_colour_of_the_fabric() {
+        // Four covered pixels, one of them on the ground slot, and two
+        // transparent ones carrying a ground slot that is never printed and
+        // must not count against the motif.
+        let m = IndexedMotif::new(3, 2, vec![0, 1, 2, 1, 0, 0], vec![255, 255, 255, 255, 0, 0])
+            .expect("well formed");
+        assert!(
+            (m.ground_share() - 0.25).abs() < 1e-6,
+            "{}",
+            m.ground_share()
+        );
+    }
+
+    #[test]
+    fn a_motif_with_no_ink_has_no_ground_share() {
+        let m = IndexedMotif::new(2, 1, vec![0, 0], vec![0, 0]).expect("well formed");
+        assert_eq!(m.ground_share(), 0.0);
+    }
     use super::*;
 
     fn palette() -> Palette {

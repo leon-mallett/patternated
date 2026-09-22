@@ -135,6 +135,15 @@ fn one() -> f32 {
     1.0
 }
 
+/// What changing the palette size did.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PaletteResize {
+    /// Colours the design is now quantised onto, ground included.
+    pub colours: usize,
+    /// Colourways discarded because they described the old slot count.
+    pub colourways_dropped: Vec<String>,
+}
+
 /// One named alternative palette.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Colourway {
@@ -312,6 +321,82 @@ impl Document {
             }),
         }
         self.active_colourway = Some(name.to_string());
+    }
+
+    /// Re-derive the design palette at a different number of colours.
+    ///
+    /// The count is a commercial decision as much as an aesthetic one — screen
+    /// printing charges by the colour, and digital printing does not — so it
+    /// belongs to the designer rather than being fixed at six because that was
+    /// a reasonable guess when the app first needed a number.
+    ///
+    /// Every motif is re-quantised against the new palette, which is why this
+    /// is a document operation rather than a palette edit: changing a slot's
+    /// *colour* leaves the slots alone, and changing how many there are does
+    /// not.
+    ///
+    /// Colourways describing the old palette cannot survive a change of slot
+    /// count — they would be a list of colours for slots that no longer exist —
+    /// so they are dropped and named in the result rather than left to fail
+    /// later, which would be a document that no longer opens.
+    pub fn set_palette_size(
+        &mut self,
+        colours: usize,
+        document_path: &Path,
+    ) -> Result<PaletteResize> {
+        let base = document_path.parent().unwrap_or(Path::new("."));
+        let sources: Vec<PathBuf> = self
+            .motifs
+            .iter()
+            .filter_map(|m| m.file.as_ref().map(|f| base.join(f)))
+            .collect();
+        if sources.len() != self.motifs.len() {
+            return Err(anyhow!(
+                "this document takes motifs from a library, which holds one palette for the \
+                 whole range; change the colour count where the library is built"
+            ));
+        }
+
+        // The ground is a design decision, not a property of the artwork, so it
+        // is carried across rather than re-derived. A designer who has set a
+        // navy ground should not have it revert to off-white because they
+        // asked for more colours.
+        let ground = self
+            .design_palette
+            .as_ref()
+            .unwrap_or(&self.pattern.palette)
+            .ground()
+            .ok_or_else(|| anyhow!("the palette has no ground to keep"))?;
+
+        let colours = colours.clamp(2, 256);
+        let palette = derive_palette_from(&sources, ground, colours)?;
+
+        let dropped: Vec<String> = self
+            .colourways
+            .iter()
+            .filter(|c| c.palette.len() != palette.len())
+            .map(|c| c.name.clone())
+            .collect();
+        self.colourways.retain(|c| c.palette.len() == palette.len());
+        if self
+            .active_colourway
+            .as_ref()
+            .is_some_and(|name| !self.colourways.iter().any(|c| &c.name == name))
+        {
+            self.active_colourway = None;
+        }
+
+        self.pattern.palette = palette.clone();
+        self.design_palette = if self.colourways.is_empty() {
+            None
+        } else {
+            Some(palette.clone())
+        };
+
+        Ok(PaletteResize {
+            colours: palette.len(),
+            colourways_dropped: dropped,
+        })
     }
 
     /// Physical size of a motif as this document and its library see it.

@@ -107,7 +107,6 @@ pub fn quantise(
     let mut total_error = 0.0f32;
     let mut max_error = 0.0f32;
     let mut covered = 0usize;
-    let mut on_ground = 0usize;
     let scale = max_distance_sq();
 
     for i in 0..image.pixel_count() {
@@ -127,9 +126,6 @@ pub fn quantise(
             total_error += error;
             max_error = max_error.max(error);
             covered += 1;
-            if slot == crate::GROUND_SLOT {
-                on_ground += 1;
-            }
         }
     }
 
@@ -142,11 +138,11 @@ pub fn quantise(
         },
         max_error,
         slots_used: motif.slots_used(),
-        ground_share: if covered > 0 {
-            on_ground as f32 / covered as f32
-        } else {
-            0.0
-        },
+        // Asked of the motif rather than counted again here. The same number
+        // is wanted in the app, where there is no report to hand, and a share
+        // computed in two places is a share that will eventually disagree with
+        // itself.
+        ground_share: motif.ground_share(),
     };
     Ok((motif, report))
 }

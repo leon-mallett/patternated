@@ -3,6 +3,7 @@
 :root {
   --ink: #1d1c1a;
   --muted: #6d6a64;
+  --warn: #8a4f04;
   --line: #ddd8cf;
   --panel: #f7f5f0;
   --ground: #fffdf9;
@@ -115,6 +116,8 @@ body {
 
 label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
 .slider .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.slider .ends { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.hint.warn { color: var(--warn, #9a5b00); }
 output { font-variant-numeric: tabular-nums; color: var(--muted); }
 
 .number { flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }

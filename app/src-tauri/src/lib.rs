@@ -46,6 +46,8 @@ struct Opened {
     scale_range: [f32; 2],
     motifs: Vec<MotifEntry>,
     palette: Vec<String>,
+    /// Colours the design is quantised onto, ground included.
+    palette_colours: usize,
     colourways: Vec<String>,
     active_colourway: Option<String>,
     scattered: bool,
@@ -56,6 +58,24 @@ struct Opened {
     grid_cols: u32,
 }
 
+/// What the UI shows for each motif, including how much of it has dissolved
+/// into the ground.
+fn motif_entries(bank: &MotifBank, scatter: Option<&pattern_doc::ScatterSpec>) -> Vec<MotifEntry> {
+    bank.motifs()
+        .into_iter()
+        .map(|m| MotifEntry {
+            id: m.id.clone(),
+            natural_size_mm: [m.natural_size_mm.x, m.natural_size_mm.y],
+            longest_edge_mm: m.natural_size_mm.x.max(m.natural_size_mm.y),
+            weight: scatter
+                .and_then(|s| s.mix.iter().find(|e| e.motif_id == m.id))
+                .map(|e| e.weight)
+                .unwrap_or(1.0),
+            ground_share: m.indexed.ground_share(),
+        })
+        .collect()
+}
+
 #[derive(Serialize)]
 struct MotifEntry {
     id: String,
@@ -64,6 +84,12 @@ struct MotifEntry {
     /// wants: aspect ratio comes from the artwork and is never adjusted.
     longest_edge_mm: f32,
     weight: f32,
+    /// Share of this motif's ink that resolves to the ground colour, 0..1.
+    ///
+    /// Invisible on a plain preview and a hole the shape of the missing part
+    /// the moment the ground changes. Almost always a palette with no colour
+    /// for that part of the artwork.
+    ground_share: f32,
 }
 
 /// What the UI sends back when anything is dragged.
@@ -167,20 +193,9 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
         scale_range: scatter
             .map(|s| [s.scale_range.0, s.scale_range.1])
             .unwrap_or([1.0, 1.0]),
-        motifs: bank
-            .motifs()
-            .into_iter()
-            .map(|m| MotifEntry {
-                id: m.id.clone(),
-                natural_size_mm: [m.natural_size_mm.x, m.natural_size_mm.y],
-                longest_edge_mm: m.natural_size_mm.x.max(m.natural_size_mm.y),
-                weight: scatter
-                    .and_then(|s| s.mix.iter().find(|e| e.motif_id == m.id))
-                    .map(|e| e.weight)
-                    .unwrap_or(1.0),
-            })
-            .collect(),
+        motifs: motif_entries(bank, scatter),
         palette: p.palette.colors.iter().map(hex).collect(),
+        palette_colours: p.palette.len(),
         colourways: document.colourways.iter().map(|c| c.name.clone()).collect(),
         active_colourway: document.active_colourway.clone(),
         scattered: scatter.is_some() || document.grid.is_some(),
@@ -199,6 +214,15 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
         grid_cols: document.grid.as_ref().map(|g| g.cols).unwrap_or(3),
     }
 }
+
+/// Colours a new document is quantised onto, the ground included.
+///
+/// Twelve rather than the six this started with. Six was a guess, and it is
+/// too few for artwork with any shading in it: a pale interior finds no colour
+/// of its own and lands on the ground slot, which reads as a hole the moment
+/// the ground is changed. The count is a control now, and this is only where
+/// it starts.
+const DEFAULT_COLOURS: usize = 12;
 
 /// The classic repeats, as a designer names them.
 ///
@@ -284,7 +308,7 @@ fn lattice_name(lattice: &Lattice, tile: Vec2) -> String {
 #[tauri::command]
 fn new_from_images(app: State<'_, App>, files: Vec<String>, longest_edge_mm: f32) -> Reply<Opened> {
     let paths: Vec<PathBuf> = files.into_iter().map(PathBuf::from).collect();
-    let document = pattern_doc::new_from_images(&paths, longest_edge_mm.max(2.0), 6)
+    let document = pattern_doc::new_from_images(&paths, longest_edge_mm.max(2.0), DEFAULT_COLOURS)
         .map_err(|e| fail("could not start a pattern from those images", e))?;
 
     // An unsaved document has no path of its own yet; the first save asks.
@@ -967,6 +991,62 @@ fn use_colourway(app: State<'_, App>, name: Option<String>) -> Reply<PaletteStat
     Ok(palette_state(session))
 }
 
+/// What a change of palette size did.
+#[derive(Serialize)]
+struct PaletteSized {
+    palette: Vec<String>,
+    palette_colours: usize,
+    colourways: Vec<String>,
+    active_colourway: Option<String>,
+    /// Named rather than counted: a designer should be told which of their
+    /// work was discarded, not how much.
+    colourways_dropped: Vec<String>,
+    motifs: Vec<MotifEntry>,
+}
+
+/// Re-derive the design palette at a different number of colours.
+///
+/// A separate command rather than another field on `apply`, because it re-runs
+/// ingest: the motifs are quantised again against the new palette and the bank
+/// is rebuilt. Everything else in `apply` leaves the slots alone and moves
+/// motifs about.
+#[tauri::command]
+fn set_palette_size(app: State<'_, App>, colours: usize) -> Reply<PaletteSized> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_mut().ok_or("no document is open")?;
+
+    let resize = session
+        .document
+        .set_palette_size(colours, &session.path)
+        .map_err(|e| fail("could not change the colour count", e))?;
+    session.bank = session
+        .document
+        .load_motifs(&session.path)
+        .map_err(|e| fail("could not re-quantise the motifs", e))?;
+
+    let scatter = session.document.scatter.as_ref();
+    Ok(PaletteSized {
+        palette: session
+            .document
+            .pattern
+            .palette
+            .colors
+            .iter()
+            .map(hex)
+            .collect(),
+        palette_colours: resize.colours,
+        colourways: session
+            .document
+            .colourways
+            .iter()
+            .map(|c| c.name.clone())
+            .collect(),
+        active_colourway: session.document.active_colourway.clone(),
+        colourways_dropped: resize.colourways_dropped,
+        motifs: motif_entries(&session.bank, scatter),
+    })
+}
+
 /// The house palettes a document can be rendered in.
 ///
 /// Reads what the document already carries rather than offering an editor:
@@ -1006,6 +1086,7 @@ pub fn run() {
             derive_colourway,
             remember_colourway,
             use_colourway,
+            set_palette_size,
             palette
         ])
         .run(tauri::generate_context!())
@@ -1169,6 +1250,94 @@ mod tests {
             .map(|e| e.motif_id.clone())
             .collect();
         assert_eq!(grid_mix, vec!["cherry".to_string()]);
+    }
+
+    #[test]
+    fn the_colour_count_can_be_changed_and_the_motifs_follow_it() {
+        let mut s = session();
+        let before = s.document.pattern.palette.len();
+        let reply = s
+            .document
+            .set_palette_size(20, &s.path)
+            .expect("should re-derive");
+        s.bank = s.document.load_motifs(&s.path).expect("should re-quantise");
+
+        assert_eq!(reply.colours, 20);
+        assert_ne!(before, 20);
+        assert_eq!(s.document.pattern.palette.len(), 20);
+        // The motifs were quantised again, not merely recoloured: a slot above
+        // the old palette's range can only exist if they were.
+        let highest = s
+            .bank
+            .motifs()
+            .iter()
+            .filter_map(|m| m.indexed.max_slot())
+            .max()
+            .expect("motifs have slots");
+        assert!(
+            highest as usize >= before,
+            "highest slot {highest} is still within the old {before}-colour palette"
+        );
+    }
+
+    #[test]
+    fn a_wider_palette_pulls_a_motif_back_out_of_the_ground() {
+        // The defect this control exists for, measured rather than described.
+        // The cherry fixture's artwork is flat, so the interesting case is the
+        // narrow end: squeeze the palette and ink starts landing on the ground.
+        let mut s = session();
+        s.document
+            .set_palette_size(3, &s.path)
+            .expect("should re-derive");
+        s.bank = s.document.load_motifs(&s.path).expect("re-quantise");
+        let narrow = s.bank.motifs()[0].indexed.ground_share();
+
+        s.document
+            .set_palette_size(16, &s.path)
+            .expect("should re-derive");
+        s.bank = s.document.load_motifs(&s.path).expect("re-quantise");
+        let wide = s.bank.motifs()[0].indexed.ground_share();
+
+        assert!(
+            wide <= narrow,
+            "widening the palette put more of the motif on the ground, {wide:.3} against \
+             {narrow:.3}"
+        );
+    }
+
+    #[test]
+    fn changing_the_colour_count_drops_colourways_it_would_invalidate() {
+        // And says which. A colourway is a list of colours for a set of slots;
+        // change how many slots there are and it describes nothing. Left in
+        // place it would fail on the next open, which is a document that no
+        // longer loads.
+        let mut s = session();
+        s.document.remember_colourway("Night");
+        assert_eq!(s.document.colourways.len(), 1);
+
+        let reply = s
+            .document
+            .set_palette_size(s.document.pattern.palette.len() + 4, &s.path)
+            .expect("should re-derive");
+
+        assert_eq!(reply.colourways_dropped, vec!["Night".to_string()]);
+        assert!(s.document.colourways.is_empty());
+        assert!(s.document.active_colourway.is_none());
+    }
+
+    #[test]
+    fn the_ground_colour_survives_a_change_of_colour_count() {
+        // A designer who has set a navy ground should not have it revert to
+        // off-white because they asked for more colours.
+        let mut s = session();
+        let navy = pattern_core::Color::new(24, 28, 38);
+        s.document.pattern.palette =
+            pattern_core::with_colour(&s.document.pattern.palette, 0, navy);
+
+        s.document
+            .set_palette_size(10, &s.path)
+            .expect("should re-derive");
+        assert_eq!(s.document.pattern.palette.ground(), Some(navy));
     }
 
     #[test]

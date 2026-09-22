@@ -12,6 +12,8 @@ export interface Opened {
   scale_range: [number, number];
   motifs: MotifEntry[];
   palette: string[];
+  /** Colours the design is quantised onto, ground included. */
+  palette_colours: number;
   colourways: string[];
   active_colourway: string | null;
   scattered: boolean;
@@ -58,6 +60,9 @@ export const isMirrorLayout = (layout: string) => layout.startsWith("mirror");
 
 export interface MotifEntry {
   id: string;
+  /** Share of this motif's ink that resolves to the ground colour, 0..1.
+   *  Invisible on a plain preview and a hole the moment the ground changes. */
+  ground_share: number;
   natural_size_mm: [number, number];
   /** Longest edge in mm — the handle a designer wants. Aspect comes from the
    *  artwork and is never adjusted. */
@@ -130,6 +135,34 @@ export interface PaletteState {
   colourways: string[];
   active_colourway: string | null;
 }
+
+/** The colour counts the palette control offers.
+ *
+ *  A slider over these rather than over 2..64 directly: the useful range is
+ *  bunched at the bottom, and a linear control would spend three quarters of
+ *  its travel between counts nobody chooses. Monotone at one end,
+ *  photographic at the other. */
+export const COLOUR_COUNTS = [
+  2, 3, 4, 5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64,
+] as const;
+
+/** What changing the colour count did. */
+export interface PaletteSized {
+  palette: string[];
+  palette_colours: number;
+  colourways: string[];
+  active_colourway: string | null;
+  /** Named, not counted: a designer should know which work was discarded. */
+  colourways_dropped: string[];
+  motifs: MotifEntry[];
+}
+
+/** Re-derive the design palette at a different number of colours.
+ *
+ *  Re-runs ingest — every motif is quantised again — so it is its own command
+ *  rather than another parameter. */
+export const setPaletteSize = (colours: number) =>
+  invoke<PaletteSized>("set_palette_size", { colours });
 
 export const setSlotColour = (slot: number, colour: string) =>
   invoke<PaletteState>("set_slot_colour", { slot, colour });

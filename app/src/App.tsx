@@ -25,6 +25,8 @@ import {
   type GarmentOption,
   type MockupView,
   LAYOUTS,
+  COLOUR_COUNTS,
+  setPaletteSize,
   LAYOUT_GROUPS,
   isScatterLayout,
   isMirrorLayout,
@@ -53,6 +55,11 @@ export default function App() {
   const [lattice, setLattice] = useState("half-drop");
   const [density, setDensity] = useState(0.3);
   const [onAxisShare, setOnAxisShare] = useState(0);
+  const [colourIndex, setColourIndex] = useState(
+    COLOUR_COUNTS.indexOf(12 as never),
+  );
+  const [motifs, setMotifs] = useState<MotifEntry[] | null>(null);
+  const [dropped, setDropped] = useState<string[]>([]);
   const [jitter, setJitter] = useState(20);
   const [scale, setScale] = useState<[number, number]>([0.85, 1.15]);
   const [seed, setSeed] = useState(1);
@@ -193,6 +200,9 @@ export default function App() {
     setLattice(opened.lattice === "block" ? "block" : "half-drop");
     setDensity(opened.density);
     setOnAxisShare(opened.on_axis_share);
+    setMotifs(null);
+    setDropped([]);
+    setColourIndex(nearestColourIndex(opened.palette_colours));
     setJitter(opened.rotation_jitter_deg);
     setScale(opened.scale_range);
     setSeed(opened.seed);
@@ -236,6 +246,29 @@ export default function App() {
   async function changePalette(action: () => Promise<PaletteState>) {
     try {
       setPalette(await action());
+      setError(null);
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /// Re-derive the palette at a different colour count.
+  ///
+  /// Its own path rather than `changePalette`, because this one re-runs
+  /// ingest: the motifs are quantised again and come back with new ground
+  /// shares, and any colourway describing the old slot count is gone.
+  async function changeColourCount(index: number) {
+    setColourIndex(index);
+    try {
+      const sized = await setPaletteSize(COLOUR_COUNTS[index]);
+      setPalette({
+        palette: sized.palette,
+        colourways: sized.colourways,
+        active_colourway: sized.active_colourway,
+      });
+      setMotifs(sized.motifs);
+      setDropped(sized.colourways_dropped);
       setError(null);
       await refresh();
     } catch (e) {
@@ -654,7 +687,7 @@ export default function App() {
             </Group>
 
             <Group title="Motifs">
-              {doc.motifs.map((m) => (
+              {(motifs ?? doc.motifs).map((m) => (
                 <MotifRow
                   key={m.id}
                   motif={m}
@@ -678,6 +711,42 @@ export default function App() {
             </p>
           </Group>
         )}
+
+        <Group title="Colours">
+          <Slider
+            label="Palette"
+            value={colourIndex}
+            min={0}
+            max={COLOUR_COUNTS.length - 1}
+            step={1}
+            format={(v) => `${COLOUR_COUNTS[v]}`}
+            ends={["Monotone", "Photographic"]}
+            onChange={changeColourCount}
+          />
+          <p className="hint">
+            How many colours the artwork is reduced to, the background
+            included. A screen printer charges by the colour and a digital
+            printer does not, so this is a commercial decision as much as a
+            visual one. Changing it re-reads the artwork.
+          </p>
+          {dropped.length > 0 && (
+            <p className="hint warn">
+              Discarded {dropped.length === 1 ? "colourway" : "colourways"}{" "}
+              {dropped.join(", ")} — a colourway names a colour per slot, and
+              there is a different number of slots now.
+            </p>
+          )}
+          {(motifs ?? doc.motifs)
+            .filter((m) => m.ground_share > 0.08)
+            .map((m) => (
+              <p className="hint warn" key={m.id}>
+                {Math.round(m.ground_share * 100)}% of <strong>{m.id}</strong>{" "}
+                is the background colour. It will look solid on this ground and
+                turn into a hole on any other. Usually there is no colour in
+                the palette close to that part of the artwork — try more.
+              </p>
+            ))}
+        </Group>
 
         <Group title="Background">
           {(() => {
@@ -808,6 +877,20 @@ function Readout({ label, value, hint }: { label: string; value: string; hint?: 
   );
 }
 
+/// The nearest offered count to whatever a document actually carries.
+///
+/// A document may have been written by hand, or by an older build, with a
+/// count the slider does not offer. Snapping to the nearest keeps the control
+/// honest about roughly where it is rather than jumping the palette to a
+/// number nobody asked for.
+function nearestColourIndex(colours: number): number {
+  let best = 0;
+  COLOUR_COUNTS.forEach((c, i) => {
+    if (Math.abs(c - colours) < Math.abs(COLOUR_COUNTS[best] - colours)) best = i;
+  });
+  return best;
+}
+
 function Slider({
   label,
   value,
@@ -816,6 +899,7 @@ function Slider({
   step,
   format,
   onChange,
+  ends,
 }: {
   label: string;
   value: number;
@@ -824,6 +908,9 @@ function Slider({
   step: number;
   format: (v: number) => string;
   onChange: (v: number) => void;
+  /** Names for the two ends, where the scale is a register rather than a
+   *  quantity and the numbers alone do not say what it is for. */
+  ends?: [string, string];
 }) {
   return (
     <label className="slider">
@@ -839,6 +926,12 @@ function Slider({
         step={step}
         onChange={(e) => onChange(Number(e.target.value))}
       />
+      {ends && (
+        <span className="row ends">
+          <span>{ends[0]}</span>
+          <span>{ends[1]}</span>
+        </span>
+      )}
     </label>
   );
 }
