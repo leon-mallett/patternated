@@ -86,6 +86,15 @@ pub struct Document {
     /// every layout so a front end can say why a size control stopped moving.
     #[serde(skip, default = "one")]
     pub grid_scale_applied: f32,
+    /// Rows and columns a grid actually used, which may exceed what was asked
+    /// for when the offsets would not otherwise close over the tile. Derived
+    /// like the scale above, and surfaced for the same reason.
+    #[serde(skip, default = "no_cells")]
+    pub grid_cells_used: (u32, u32),
+}
+
+fn no_cells() -> (u32, u32) {
+    (0, 0)
 }
 
 /// A scatter as a document describes it.
@@ -161,6 +170,10 @@ pub struct GridSpec {
     pub prevent_overlap: bool,
     #[serde(default)]
     pub row_offset: f32,
+    /// How far each column is dropped relative to the one to its left, as a
+    /// fraction of the row spacing. What a half-drop is, on a grid.
+    #[serde(default)]
+    pub col_offset: f32,
     #[serde(default)]
     pub rotation_jitter_deg: f32,
     #[serde(default = "unit_range")]
@@ -523,6 +536,7 @@ impl Document {
                 rows: spec.rows,
                 cols: spec.cols,
                 row_offset: spec.row_offset,
+                col_offset: spec.col_offset,
                 rotation_jitter_deg: spec.rotation_jitter_deg,
                 scale_range: spec.scale_range,
                 motif_mix: mix,
@@ -535,6 +549,7 @@ impl Document {
         self.pattern.placements = placements;
         self.placements_are_generated = true;
         self.grid_scale_applied = outcome.scale_applied;
+        self.grid_cells_used = (outcome.rows, outcome.cols);
         if self.pattern.placements.is_empty() {
             return Err(anyhow!(
                 "that grid places no motifs; check rows and columns"
@@ -845,6 +860,7 @@ pub fn new_from_images(
         colourways: Vec::new(),
         active_colourway: None,
         grid_scale_applied: 1.0,
+        grid_cells_used: (0, 0),
         scatter: Some(ScatterSpec {
             density: 0.3,
             prevent_overlap: true,

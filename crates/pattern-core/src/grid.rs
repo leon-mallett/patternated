@@ -31,6 +31,15 @@ pub struct GridParams {
     /// make a diagonal.
     #[serde(default)]
     pub row_offset: f32,
+    /// The same downwards: how far each column is dropped relative to the one
+    /// to its left, as a fraction of the row spacing.
+    ///
+    /// This is what a half-drop *is* on a grid, and until it existed the
+    /// preset faked one by putting a brick on a half-drop lattice — which
+    /// produced a brick, and broke wherever the lattice's drop was not a whole
+    /// number of cells. A repeat's drop belongs to the cells, not to the tile.
+    #[serde(default)]
+    pub col_offset: f32,
     /// Maximum rotation either way, in degrees. Zero keeps a grid strict,
     /// which is usually the point of choosing one.
     #[serde(default)]
@@ -63,6 +72,52 @@ pub struct GridOutcome {
     /// Below 1 means motifs were shrunk to stop them intersecting. Worth
     /// surfacing: otherwise a size slider appears to stop working.
     pub scale_applied: f32,
+    /// Rows and columns actually used, which may exceed what was asked for.
+    ///
+    /// See [`cells_that_repeat`]. Surfaced for the same reason as the scale: a
+    /// count that silently differs from the one typed is a control that
+    /// appears not to work.
+    pub rows: u32,
+    pub cols: u32,
+}
+
+/// The smallest grid at least this large whose offsets close over the tile.
+///
+/// A row offset walks the motifs sideways and wraps at the tile edge. For the
+/// walk to continue into the next tile rather than jump, the accumulated shift
+/// over a whole tile — `rows * row_offset` — has to come out a whole number of
+/// columns. A third of a column over five rows does not, so the diagonal
+/// arrives at the join one and two thirds of a column out and the field breaks
+/// along every tile edge. Six rows does, and it runs clean.
+///
+/// The same downwards for the column offset.
+///
+/// Solved rather than special-cased, so an offset nobody anticipated still
+/// gets a grid that holds together, and returns the request unchanged when
+/// nothing within reach works — the caller can compare and say so.
+///
+/// This is [`Lattice::repeating_window`](crate::Lattice::repeating_window) one
+/// level down: there a rectangle of tiles has to be a repeating unit, here a
+/// rectangle of cells has to be.
+#[must_use]
+pub fn cells_that_repeat(rows: u32, cols: u32, row_offset: f32, col_offset: f32) -> (u32, u32) {
+    /// How far past the request to look. A grid nobody wants to count is not a
+    /// better answer than the one that was asked for.
+    const REACH: u32 = 15;
+
+    let closes = |count: u32, offset: f32| {
+        let total = count as f32 * offset;
+        (total - total.round()).abs() < 1e-3
+    };
+
+    let solve = |wanted: u32, offset: f32| {
+        let wanted = wanted.max(1);
+        (wanted..=wanted + REACH)
+            .find(|n| closes(*n, offset))
+            .unwrap_or(wanted)
+    };
+
+    (solve(rows, row_offset), solve(cols, col_offset))
 }
 
 fn unit_range() -> (f32, f32) {
@@ -93,24 +148,38 @@ pub fn grid_with_outcome(
         || tile_size_mm.x <= 0.0
         || tile_size_mm.y <= 0.0
     {
-        return (Vec::new(), GridOutcome { scale_applied: 1.0 });
+        return (
+            Vec::new(),
+            GridOutcome {
+                scale_applied: 1.0,
+                rows: params.rows,
+                cols: params.cols,
+            },
+        );
     }
 
-    let mut rng = ChaCha8Rng::seed_from_u64(params.seed);
-    let cell = Vec2::new(
-        tile_size_mm.x / params.cols as f32,
-        tile_size_mm.y / params.rows as f32,
+    // Grow to a grid whose offsets close over the tile, or the field breaks
+    // along every tile edge however well each tile is drawn.
+    let (rows, cols) = cells_that_repeat(
+        params.rows,
+        params.cols,
+        params.row_offset,
+        params.col_offset,
     );
 
-    let mut placements = Vec::with_capacity((params.rows * params.cols) as usize);
-    for row in 0..params.rows {
-        for col in 0..params.cols {
-            // The shift accumulates down the rows and wraps, so a row offset of
-            // a half alternates and a third walks across — both from the same
-            // number.
+    let mut rng = ChaCha8Rng::seed_from_u64(params.seed);
+    let cell = Vec2::new(tile_size_mm.x / cols as f32, tile_size_mm.y / rows as f32);
+
+    let mut placements = Vec::with_capacity((rows * cols) as usize);
+    for row in 0..rows {
+        for col in 0..cols {
+            // The shifts accumulate and wrap, so an offset of a half
+            // alternates and a third walks steadily across — both from the
+            // same number, and the same in both axes.
             let shift = params.row_offset * row as f32;
+            let drop = params.col_offset * col as f32;
             let x = ((col as f32 + 0.5 + shift) * cell.x).rem_euclid(tile_size_mm.x);
-            let y = (row as f32 + 0.5) * cell.y;
+            let y = ((row as f32 + 0.5 + drop) * cell.y).rem_euclid(tile_size_mm.y);
 
             let motif = crate::scatter::choose_motif_index(&params.motif_mix, &mut rng);
             placements.push(Placement {
@@ -133,7 +202,14 @@ pub fn grid_with_outcome(
     } else {
         1.0
     };
-    (placements, GridOutcome { scale_applied })
+    (
+        placements,
+        GridOutcome {
+            scale_applied,
+            rows,
+            cols,
+        },
+    )
 }
 
 /// Shrink motifs until none of them reaches its nearest neighbour.
@@ -235,6 +311,7 @@ mod tests {
             rows,
             cols,
             row_offset,
+            col_offset: 0.0,
             rotation_jitter_deg: 0.0,
             scale_range: (1.0, 1.0),
             motif_mix: mix(),
@@ -243,6 +320,177 @@ mod tests {
             prevent_overlap: false,
             seed: 1,
         }
+    }
+
+    /// Every motif's neighbourhood, to a fixed radius, over a field of tiles.
+    ///
+    /// If they are all the same the pattern is one regular field and no tile
+    /// join can be visible; if they differ, the difference is the break.
+    ///
+    /// A radius rather than a count of nearest neighbours: a grid is full of
+    /// ties — four diagonal neighbours at the same distance — and "the six
+    /// nearest" picks arbitrarily among them, which makes identical
+    /// neighbourhoods look different. That mistake reported a plain square
+    /// grid as broken while this was being written.
+    fn neighbourhoods(placements: &[Placement], tile: Vec2, cell: Vec2) -> usize {
+        const REACH: i32 = 2;
+        let mut field = Vec::new();
+        for i in -REACH..=REACH {
+            for j in -REACH..=REACH {
+                let offset = Vec2::new(tile.x * i as f32, tile.y * j as f32);
+                field.extend(placements.iter().map(|p| p.position_mm + offset));
+            }
+        }
+
+        // Relative to the cell, not the tile. A tile-sized radius reaches
+        // past the edge of the generated field, and the truncated
+        // neighbourhoods there look like differences that are not there.
+        let radius = 2.2 * cell.x.max(cell.y);
+        let mut signatures = std::collections::HashSet::new();
+        for p in placements {
+            let mut near: Vec<(i64, i64)> = field
+                .iter()
+                .map(|q| *q - p.position_mm)
+                .filter(|d| d.length_squared() <= radius * radius)
+                .map(|d| ((d.x * 100.0).round() as i64, (d.y * 100.0).round() as i64))
+                .collect();
+            near.sort_unstable();
+            signatures.insert(near);
+        }
+        signatures.len()
+    }
+
+    /// The grid a designer asked for, with cells small enough that the
+    /// neighbourhood radius above takes in more than the immediate ring.
+    fn field_of(rows: u32, cols: u32, row_offset: f32, col_offset: f32) -> (Vec<Placement>, Vec2) {
+        let p = GridParams {
+            col_offset,
+            ..params(rows, cols, row_offset)
+        };
+        let (placements, outcome) = grid_with_outcome(&p, TILE, &block());
+        let cell = Vec2::new(TILE.x / outcome.cols as f32, TILE.y / outcome.rows as f32);
+        (placements, cell)
+    }
+
+    #[test]
+    fn a_diagonal_grid_is_one_unbroken_field() {
+        // Reported from the app: a diagonal grid broke along a line down the
+        // middle of the preview. Every tile was drawn correctly and the tiling
+        // was exact — what did not line up was the diagonal's own rhythm,
+        // which arrived at the join part of a column out.
+        for rows in [3u32, 4, 5, 6, 7] {
+            let (field, cell) = field_of(rows, 4, 1.0 / 3.0, 0.0);
+            assert_eq!(
+                neighbourhoods(&field, TILE, cell),
+                1,
+                "a diagonal asked for with {rows} rows does not make one field"
+            );
+        }
+    }
+
+    #[test]
+    fn a_half_drop_grid_is_one_unbroken_field() {
+        for cols in [3u32, 4, 5] {
+            let (field, cell) = field_of(4, cols, 0.0, 0.5);
+            assert_eq!(
+                neighbourhoods(&field, TILE, cell),
+                1,
+                "a half-drop asked for with {cols} columns does not make one field"
+            );
+        }
+    }
+
+    #[test]
+    fn an_offset_that_does_not_close_is_what_the_complaint_looked_like() {
+        // Kept so the two tests above are known to be measuring something that
+        // can fail. Five rows of a one-third diagonal accumulate five thirds
+        // of a column over the tile, so the next tile down starts two thirds
+        // of a column adrift.
+        let p = GridParams {
+            rows: 5,
+            ..params(5, 4, 1.0 / 3.0)
+        };
+        let mut placements = Vec::new();
+        let cell = Vec2::new(TILE.x / 4.0, TILE.y / 5.0);
+        for row in 0..5u32 {
+            for col in 0..4u32 {
+                let shift = p.row_offset * row as f32;
+                placements.push(Placement::new(
+                    "cherry",
+                    Vec2::new(
+                        ((col as f32 + 0.5 + shift) * cell.x).rem_euclid(TILE.x),
+                        (row as f32 + 0.5) * cell.y,
+                    ),
+                ));
+            }
+        }
+        assert!(
+            neighbourhoods(&placements, TILE, cell) > 1,
+            "an unclosed diagonal came out regular, so the measurement is broken"
+        );
+    }
+
+    #[test]
+    fn a_grid_grows_to_the_smallest_size_its_offsets_close_at() {
+        // A third of a column needs a multiple of three rows, a half needs an
+        // even number, a quarter a multiple of four. Solved rather than
+        // tabulated, so an offset nobody anticipated is still handled.
+        assert_eq!(cells_that_repeat(5, 4, 1.0 / 3.0, 0.0), (6, 4));
+        assert_eq!(cells_that_repeat(6, 4, 1.0 / 3.0, 0.0), (6, 4));
+        assert_eq!(cells_that_repeat(3, 4, 0.5, 0.0), (4, 4));
+        assert_eq!(cells_that_repeat(5, 4, 0.25, 0.0), (8, 4));
+        // No offset, no constraint.
+        assert_eq!(cells_that_repeat(5, 7, 0.0, 0.0), (5, 7));
+        // And the columns are constrained by the column offset, not the row's.
+        assert_eq!(cells_that_repeat(5, 5, 0.0, 0.5), (5, 6));
+    }
+
+    #[test]
+    fn an_offset_with_no_whole_number_in_reach_gives_back_what_was_asked_for() {
+        // A hand-edited offset with no small whole-number relationship to its
+        // grid has no size worth growing to. Saying so is the caller's job;
+        // the honest answer here is the request.
+        assert_eq!(cells_that_repeat(4, 4, 0.137, 0.0), (4, 4));
+    }
+
+    #[test]
+    fn a_column_offset_drops_columns_rather_than_shifting_rows() {
+        // The difference between a half-drop and a brick, which the presets
+        // could not express until this existed: one drops alternate columns,
+        // the other shifts alternate rows.
+        let (dropped, _) = field_of(4, 2, 0.0, 0.5);
+        let (bricked, _) = field_of(4, 2, 0.5, 0.0);
+
+        let ys = |v: &[Placement]| {
+            let mut y: Vec<i64> = v.iter().map(|p| (p.position_mm.y * 10.0) as i64).collect();
+            y.sort_unstable();
+            y.dedup();
+            y
+        };
+        let xs = |v: &[Placement]| {
+            let mut x: Vec<i64> = v.iter().map(|p| (p.position_mm.x * 10.0) as i64).collect();
+            x.sort_unstable();
+            x.dedup();
+            x
+        };
+
+        // Dropping columns gives twice as many distinct heights and leaves the
+        // columns where they were; shifting rows does the opposite.
+        assert!(ys(&dropped).len() > ys(&bricked).len());
+        assert!(xs(&bricked).len() > xs(&dropped).len());
+    }
+
+    #[test]
+    fn the_grid_reports_the_size_it_actually_used() {
+        // A count that silently differs from the one typed is a control that
+        // appears not to work.
+        let p = GridParams {
+            col_offset: 0.0,
+            ..params(5, 4, 1.0 / 3.0)
+        };
+        let (placements, outcome) = grid_with_outcome(&p, TILE, &block());
+        assert_eq!((outcome.rows, outcome.cols), (6, 4));
+        assert_eq!(placements.len(), 24);
     }
 
     #[test]

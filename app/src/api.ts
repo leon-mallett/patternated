@@ -107,6 +107,9 @@ export interface Preview {
   dpi: number;
   /** Below 1 when a grid shrank its motifs to stop them intersecting. */
   size_limited_to: number;
+  /** Rows and columns a grid actually used, which may exceed what was asked
+   *  for when the offsets would not otherwise close over the tile. */
+  grid_cells: [number, number];
   /** Tiles actually shown, which may exceed what was asked for. */
   cols: number;
   rows: number;

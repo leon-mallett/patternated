@@ -170,6 +170,11 @@ struct Preview {
     /// Below 1 when a grid shrank its motifs to stop them intersecting.
     /// Surfaced so a size control that has stopped moving has a visible reason.
     size_limited_to: f32,
+    /// Rows and columns a grid actually used. Larger than asked for when the
+    /// offsets would not otherwise close over the tile, and surfaced for the
+    /// same reason as the window size above: a count that silently differs
+    /// from the one typed is a control that appears not to work.
+    grid_cells: [u32; 2],
 }
 
 fn guard_on() -> bool {
@@ -228,7 +233,7 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
         layout: document
             .grid
             .as_ref()
-            .map(|g| preset_name(g.row_offset))
+            .map(|g| preset_name(g.row_offset, g.col_offset))
             .or_else(|| scatter.map(|s| scatter_layout_name(s.mirror)))
             .unwrap_or_else(|| "tossed".into()),
         on_axis_share: scatter.map(|s| s.on_axis_share).unwrap_or(0.0),
@@ -252,17 +257,24 @@ const DEFAULT_COLOURS: usize = 12;
 
 /// The classic repeats, as a designer names them.
 ///
-/// Each is a row offset plus a lattice, both of which the engine already had —
-/// a square grid is a block lattice with no offset, brickwork is the same grid
-/// with alternate rows shifted half a cell, and a diagonal is rows that walk
-/// steadily across. Naming them is most of the work, because the names are how
-/// anybody asks for them.
-const PRESETS: &[(&str, f32, &str)] = &[
-    ("square", 0.0, "block"),
-    ("brick", 0.5, "brick"),
-    ("half-drop", 0.5, "half-drop"),
-    ("diagonal", 1.0 / 3.0, "half-drop"),
-    ("gentle-diagonal", 0.25, "quarter-drop"),
+/// Each is a row offset and a column offset, and nothing else.
+///
+/// They used to pair an offset with a *lattice* — a diagonal was a shifting
+/// grid on a half-drop lattice — and that was wrong twice over. The drop
+/// contributed nothing, because wherever it produced a regular field the
+/// result was point for point what a block lattice gives; and where it did
+/// not, it broke the pattern along every tile edge, which is how the defect
+/// was found. A repeat's drop belongs to the cells, not to the tile.
+///
+/// It also left brick and half-drop indistinguishable except by that lattice,
+/// since both were a row offset of a half. They are different patterns: a
+/// brick shifts alternate rows sideways, a half-drop drops alternate columns.
+const PRESETS: &[(&str, f32, f32)] = &[
+    ("square", 0.0, 0.0),
+    ("brick", 0.5, 0.0),
+    ("half-drop", 0.0, 0.5),
+    ("diagonal", 1.0 / 3.0, 0.0),
+    ("gentle-diagonal", 0.25, 0.0),
 ];
 
 /// The layouts that are a scatter rather than a grid, and the symmetry each
@@ -294,10 +306,10 @@ fn scatter_layout_name(mirror: Mirror) -> String {
     .into()
 }
 
-fn preset_name(row_offset: f32) -> String {
+fn preset_name(row_offset: f32, col_offset: f32) -> String {
     PRESETS
         .iter()
-        .find(|(_, offset, _)| (offset - row_offset).abs() < 1e-3)
+        .find(|(_, row, col)| (row - row_offset).abs() < 1e-3 && (col - col_offset).abs() < 1e-3)
         .map(|(name, _, _)| (*name).to_string())
         .unwrap_or_else(|| "square".into())
 }
@@ -510,25 +522,24 @@ fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
     }
 
     if wants_grid {
-        let (_, row_offset, lattice) = PRESETS
+        let (_, row_offset, col_offset) = PRESETS
             .iter()
             .find(|(name, _, _)| *name == params.layout)
             .copied()
-            .unwrap_or(("square", 0.0, "block"));
+            .unwrap_or(("square", 0.0, 0.0));
 
+        // Always block. The offsets make the pattern; an oblique lattice on
+        // top of them is redundant at best and a break along every tile edge
+        // at worst.
         let tile = session.document.pattern.tile_size_mm;
-        session.document.pattern.lattice = match lattice {
-            "block" => Lattice::block(tile),
-            "brick" => Lattice::brick(tile),
-            "quarter-drop" => Lattice::quarter_drop(tile),
-            _ => Lattice::half_drop(tile),
-        };
+        session.document.pattern.lattice = Lattice::block(tile);
         session.document.scatter = None;
         session.document.grid = Some(pattern_doc::GridSpec {
             rows: params.grid_rows.clamp(1, 24),
             cols: params.grid_cols.clamp(1, 24),
             prevent_overlap: params.prevent_overlap,
             row_offset,
+            col_offset,
             rotation_jitter_deg: params.rotation_jitter_deg,
             scale_range: (params.scale_range[0], params.scale_range[1]),
             mix,
@@ -616,6 +627,10 @@ fn render(session: &Session, params: &Params) -> anyhow::Result<Preview> {
             .repeating_window(pattern.tile_size_mm, cols, rows)
             == (cols, rows),
         size_limited_to: session.document.grid_scale_applied,
+        grid_cells: [
+            session.document.grid_cells_used.0,
+            session.document.grid_cells_used.1,
+        ],
     })
 }
 
@@ -1298,10 +1313,12 @@ mod tests {
         p.layout = "brick".into();
         write_params(&mut s, &p).expect("apply");
         assert!(s.document.grid.is_some() && s.document.scatter.is_none());
-        assert_eq!(
-            s.document.pattern.placements.len(),
-            (p.grid_rows * p.grid_cols) as usize
-        );
+        // The count is the grid the engine settled on, not the one typed: a
+        // brick's half-cell shift needs an even number of rows to close over
+        // the tile, and three was asked for.
+        let (rows, cols) = s.document.grid_cells_used;
+        assert_eq!(s.document.pattern.placements.len(), (rows * cols) as usize);
+        assert_eq!((rows, cols), (4, p.grid_cols));
 
         p.layout = "tossed".into();
         write_params(&mut s, &p).expect("apply");
@@ -1524,13 +1541,13 @@ mod tests {
     #[test]
     fn choosing_a_mirror_puts_the_repeat_back_on_a_block_lattice() {
         // Reflections repeat by the tile itself, which no oblique lattice
-        // does. A designer who tries a diagonal grid and then a mirror would
-        // otherwise be left with a combination the engine refuses to render,
-        // and the refusal would look like the mirror's fault.
+        // does. A document carrying one — from a hand-written file, or from
+        // the days when a grid preset chose one — would otherwise be left with
+        // a combination the engine refuses to render, and the refusal would
+        // look like the mirror's fault.
         let mut s = session();
         let mut p = params(0.3, 1);
-        p.layout = "diagonal".into();
-        write_params(&mut s, &p).expect("apply");
+        s.document.pattern.lattice = Lattice::half_drop(s.document.pattern.tile_size_mm);
         assert_eq!(
             lattice_name(&s.document.pattern.lattice, s.document.pattern.tile_size_mm),
             "half-drop"
@@ -1634,23 +1651,68 @@ mod tests {
     }
 
     #[test]
-    fn each_preset_picks_its_own_repeat() {
+    fn every_grid_preset_sits_on_a_block_lattice() {
+        // They used to pick an oblique one each, which contributed nothing
+        // where it worked and broke the field along every tile edge where it
+        // did not. The offsets make the pattern now.
         let mut s = session();
         let mut p = params(0.3, 1);
-        for (preset, expected) in [
-            ("square", "block"),
-            ("brick", "brick"),
-            ("gentle-diagonal", "quarter-drop"),
-            ("diagonal", "half-drop"),
+        for preset in [
+            "square",
+            "brick",
+            "half-drop",
+            "diagonal",
+            "gentle-diagonal",
         ] {
             p.layout = preset.into();
             write_params(&mut s, &p).expect("apply");
             assert_eq!(
                 lattice_name(&s.document.pattern.lattice, s.document.pattern.tile_size_mm),
-                expected,
+                "block",
                 "preset {preset}"
             );
         }
+    }
+
+    #[test]
+    fn brick_and_half_drop_are_no_longer_the_same_grid() {
+        // Both used to be a row offset of a half, told apart only by the
+        // lattice underneath. A brick shifts alternate rows sideways; a
+        // half-drop drops alternate columns.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+
+        p.layout = "brick".into();
+        write_params(&mut s, &p).expect("apply");
+        let brick = s.document.grid.clone().expect("grid");
+
+        p.layout = "half-drop".into();
+        write_params(&mut s, &p).expect("apply");
+        let half_drop = s.document.grid.clone().expect("grid");
+
+        assert_eq!((brick.row_offset, brick.col_offset), (0.5, 0.0));
+        assert_eq!((half_drop.row_offset, half_drop.col_offset), (0.0, 0.5));
+        assert_eq!(preset_name(0.5, 0.0), "brick");
+        assert_eq!(preset_name(0.0, 0.5), "half-drop");
+    }
+
+    #[test]
+    fn a_grid_grows_until_its_offsets_close_over_the_tile() {
+        // Reported from the app: a diagonal grid broke along a line down the
+        // middle. Five rows of a one-third shift accumulate five thirds of a
+        // column, so the next tile starts two thirds adrift.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        p.layout = "diagonal".into();
+        p.grid_rows = 5;
+        p.grid_cols = 4;
+        write_params(&mut s, &p).expect("apply");
+        assert_eq!(s.document.grid_cells_used, (6, 4));
+
+        // And a count that already closes is left exactly as asked.
+        p.grid_rows = 6;
+        write_params(&mut s, &p).expect("apply");
+        assert_eq!(s.document.grid_cells_used, (6, 4));
     }
 
     #[test]

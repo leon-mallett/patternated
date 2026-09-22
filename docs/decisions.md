@@ -1134,3 +1134,50 @@ and removes the question.
 `devUrl` names it: a moving port means a blank window with no obvious cause,
 which is the reason the original comment in `vite.config.ts` gives for fixing
 it in the first place. That reasoning is unchanged; only the number moved.
+
+---
+
+## A grid's drop belongs to its cells, not to its tile
+
+**Decided.** Grid presets are a row offset and a column offset on a **block**
+lattice. `GridParams` gained `col_offset`, the vertical counterpart of
+`row_offset`. No grid preset chooses an oblique lattice any more.
+
+**Why.** Each preset used to pair an offset with a lattice — a diagonal was a
+shifting grid on a half-drop. Measured over a field of tiles, that lattice was
+never doing anything useful: **wherever it produced a regular field, the point
+set was identical to the same grid on a block lattice**, and wherever it did
+not, it broke the field along every tile edge. It could only be redundant or
+harmful.
+
+**How it showed.** A diagonal grid with five rows had a visible break running
+down the middle of the preview. Every tile was drawn correctly and the tiling
+was exact — the seamlessness tests were right — but a half-drop moves the
+neighbouring column of tiles by half a tile, which is two and a half cells of a
+five-row grid, so the grid's own rhythm arrived at the join out of step.
+
+**The second thing it was hiding.** Brick and half-drop were both a row offset
+of a half, told apart only by the lattice underneath. That is not what they
+are: a brick shifts alternate rows sideways, a half-drop drops alternate
+columns. The preset could not express a half-drop grid at all, and was
+producing a brick when asked for one.
+
+**Consequence.** The constraints became friendly. With the drop in the cells, a
+grid closes when `rows × row_offset` and `cols × col_offset` are whole: a
+diagonal needs a multiple of three rows rather than six, a gentle diagonal four
+rather than sixteen. The grid grows to the nearest size that closes and the app
+says which it drew, exactly as the preview window already does.
+
+**Not applied to saved documents.** `apply_grid` uses whatever lattice the
+document carries, so a file written before this keeps its own. It heals the
+moment the app touches the layout, which happens on the first render after
+opening.
+
+**Measured, not derived.** The rule came from generating the point set over a
+field of tiles and asking whether every motif has the same neighbourhood. The
+first version of that check counted nearest neighbours and reported a plain
+square grid as broken, because a grid is full of ties and "the six nearest"
+picks among them arbitrarily. Comparing everything within a radius is
+tie-proof.
+
+Described in [Features](./features.md#classic-layouts).

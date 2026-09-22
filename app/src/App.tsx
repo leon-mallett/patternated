@@ -602,6 +602,17 @@ export default function App() {
                 step={1}
                 onChange={setGridCols}
               />
+              {preview &&
+                (preview.grid_cells[0] !== gridRows ||
+                  preview.grid_cells[1] !== gridCols) && (
+                  <p className="hint">
+                    Drawn as {preview.grid_cells[0]}×{preview.grid_cells[1]}.
+                    This arrangement shifts each row or column by a fraction of
+                    a cell, and the shift has to come out whole over the tile
+                    or the pattern steps at every join. The nearest size that
+                    works is used.
+                  </p>
+                )}
             </>
           )}
         </Group>

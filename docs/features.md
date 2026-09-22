@@ -39,14 +39,47 @@ Motifs on a regular grid, as an alternative to strewing them — the other half 
 the spec's placement model, and what a designer means by a square grid, brick or
 a diagonal.
 
-One parameter covers the family. Each row is shifted sideways relative to the
-one above, as a fraction of the column spacing: **0** is a square grid, **0.5**
-alternates like brickwork, and **a third or a quarter** walks the motifs
-steadily across into a diagonal. The shift wraps at the tile edge, which is not
-an inconvenience but the reason the diagonal tiles at all.
+Two parameters cover the family. Each row is shifted sideways relative to the
+one above, and each column is dropped relative to the one to its left, both as
+a fraction of a cell: **0** is a square grid, a row offset of **0.5**
+alternates like brickwork, a column offset of **0.5** is a half-drop, and **a
+third or a quarter** sideways walks the motifs steadily across into a diagonal.
+The shift wraps at the tile edge, which is not an inconvenience but the reason
+the diagonal tiles at all.
 
-Five named presets pair a row offset with a repeat: square, brick, half-drop,
-diagonal, gentle diagonal. The names are how anybody asks for them.
+Five named presets: square, brick, half-drop, diagonal, gentle diagonal. The
+names are how anybody asks for them.
+
+**Grids sit on a block lattice, always.** The offsets make the pattern; the
+lattice does not help. Each preset used to pair an offset with an oblique
+lattice — a diagonal was a shifting grid on a half-drop — and that was wrong
+twice over. Wherever the drop produced a regular field the result was point for
+point what a block lattice gives, so it added nothing; and where it did not, it
+broke the field along every tile edge. **A repeat's drop belongs to the cells,
+not to the tile.**
+
+It also left brick and half-drop indistinguishable except by that lattice,
+since both were a row offset of a half. They are different patterns, and now
+they are different parameters.
+
+### The grid has to close over the tile
+
+A row offset walks the motifs sideways and wraps at the tile edge. For the walk
+to continue into the next tile rather than jump, the accumulated shift over a
+whole tile — `rows × row_offset` — has to come out a whole number of columns. A
+third of a column over five rows does not, so the diagonal arrives at the join
+one and two thirds of a column out and the field breaks along every tile edge.
+Six rows does, and it runs clean.
+
+The grid therefore grows to the smallest size at least as large as the one
+asked for whose offsets close, and the app says which size it drew. That is
+[`Lattice::repeating_window`](#seamless-tiling) one level down: there a
+rectangle of tiles has to be a repeating unit, here a rectangle of cells has to
+be.
+
+Reported from the app as a diagonal that broke down the middle of the preview.
+Every tile was drawn correctly and the tiling was exact; what did not line up
+was the diagonal's own rhythm.
 
 A grid ignores the seed for position — rerolling changes which motif sits where,
 not where the cells are. That is what "classic" means here.
