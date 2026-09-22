@@ -37,3 +37,25 @@ visioncortex = "0.9.3"
 [profile.dev]
 # Portfolio-wide fix for target/ ballooning; see ~/Projects/TAURI_BUILD_ARTIFACTS.md
 debug = "line-tables-only"
+
+# The engine crates are optimised even in a development build.
+#
+# `npm run tauri dev` runs an unoptimised binary, and the preview re-renders on
+# every slider movement — so the difference between a build that feels
+# immediate and one that feels stuck is entirely down to this. Measured on a
+# 1.2 m repeat of four thousand motifs: 3.4 seconds an interaction unoptimised,
+# 0.2 optimised. A designer trying the tool in dev was hitting the first one.
+#
+# Only the engine and its dependencies. The app crate itself stays unoptimised,
+# because it is the one being edited and its compile time is what a rebuild
+# costs; it does no per-pixel work worth optimising.
+[profile.dev.package.pattern-core]
+opt-level = 2
+[profile.dev.package.pattern-render]
+opt-level = 2
+[profile.dev.package.motif-ingest]
+opt-level = 2
+[profile.dev.package.pattern-io]
+opt-level = 2
+[profile.dev.package."*"]
+opt-level = 2

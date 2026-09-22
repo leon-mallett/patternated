@@ -1181,3 +1181,75 @@ picks among them arbitrarily. Comparing everything within a radius is
 tie-proof.
 
 Described in [Features](./features.md#classic-layouts).
+
+---
+
+## Indexing the lattice, not the tile rectangle
+
+**Decided.** The scatter keeps accepted samples in a bucket grid built in
+lattice coordinates, and tests each candidate against the buckets near it
+rather than against every sample placed so far.
+
+**Why now.** It was brute-force by an explicit decision, recorded as a debt
+with the condition "worth doing only if the live preview turns out to need it".
+A 1.2 m canvas of small motifs made it a hang: seventeen thousand placements
+took thirty-eight seconds to sample, and the app runs an unoptimised build, so
+what a designer actually met was minutes. The condition was met.
+
+**Why it was not done sooner, and why that was right.** The objection in the
+debt was real rather than neglect: the grid this algorithm is usually written
+with indexes the *tile rectangle*, and on an oblique lattice the rectangle is
+the wrong neighbourhood — two motifs a whole tile apart may be adjacent in the
+pattern. A rectangle-indexed grid would have been fast and quietly wrong, which
+is worse than slow. Indexing the lattice is what the objection was asking for.
+
+**The property that makes it safe.** The index returns a superset and nothing
+more; everything it offers still goes through the exact distance test. So the
+accept and reject decisions are identical to the brute-force scan, the random
+draw is therefore identical, and the placements are unchanged. The golden
+image — itself a scatter — is what holds that to account, and
+`the_index_never_hides_a_neighbour` tests the superset property directly
+against the distance function rather than against a second copy of the index.
+
+**Mirrors needed one more thing.** A sample threatens a candidate when *its*
+reflection lands nearby, which is the same as the sample lying near a
+reflection of the candidate. So every image of the candidate is looked up, not
+only the candidate. An index that knew about the candidate alone would silently
+stop finding those, and the symptom would be motifs overlapping on fabric.
+
+**Bucket count is sized by expected occupancy**, not by a fixed cap. Both ends
+cost: a fine grid in a sparse cell spends more on allocating empty buckets than
+the scan saves, and a coarse one in a dense cell puts the quadratic back inside
+each bucket. A fixed cap of 4096 buckets, tried first, made the
+forty-eight-thousand-motif case six times slower.
+
+**Verified to fail.** Rounding the search span down instead of up breaks the
+superset test and five separation tests. A separate mutation — removing a
+bucket of slack — changed nothing, which showed the slack was redundant rather
+than that the test was weak.
+
+Described in [Features](./features.md#finding-neighbours-without-comparing-everything).
+
+---
+
+## The engine is optimised in development builds
+
+**Decided.** `[profile.dev.package]` sets `opt-level = 2` for the four engine
+crates and for all dependencies. The app crate itself stays unoptimised.
+
+**Why.** `npm run tauri dev` runs an unoptimised binary and the preview
+re-renders on every slider movement, so the difference between a tool that
+feels immediate and one that feels stuck is entirely this. On a 1.2 m repeat of
+four thousand motifs: 3.4 seconds an interaction unoptimised, 0.29 optimised —
+the same work a release build does in 0.22. A designer trying the tool in dev
+was meeting the first number and reasonably calling it a hang.
+
+**Why not the app crate too.** It is the one being edited, so its compile time
+is what a rebuild costs, and it does no per-pixel work worth optimising.
+Incremental rebuilds stay at 1.7 seconds for an app edit and 2.9 for an engine
+edit.
+
+**No effect on determinism.** Optimisation levels do not change `f32`
+semantics in Rust — there is no fast-math — so the same seed gives the same
+bytes at any `opt-level`. CI compiles at the default and would notice if that
+were ever untrue.

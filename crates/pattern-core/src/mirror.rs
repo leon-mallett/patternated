@@ -103,7 +103,13 @@ impl Mirror {
     ///
     /// Always begins with the unreflected quadrant, so that the designed cell
     /// is the first copy of every motif and the order is stable.
-    fn quadrants(self) -> &'static [(bool, bool)] {
+    ///
+    /// Public because a spatial index has to look for neighbours at every
+    /// image of a point, not only at the point: under a mirror a motif can be
+    /// reached through its reflection, and an index that only knows about the
+    /// point itself would quietly stop finding those.
+    #[must_use]
+    pub fn quadrants(self) -> &'static [(bool, bool)] {
         match self {
             Mirror::None => &[(false, false)],
             Mirror::SideToSide => &[(false, false), (true, false)],

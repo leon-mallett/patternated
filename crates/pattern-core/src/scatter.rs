@@ -180,13 +180,157 @@ struct Sample {
 /// is. Deciding that after the position is fixed would mean testing one motif's
 /// spacing and then placing another.
 ///
-/// Deliberately brute-force: each candidate is checked against every accepted
-/// sample. The spatial grid the algorithm is usually written with indexes the
-/// tile rectangle, and on an oblique lattice the rectangle is the wrong
-/// neighbourhood — a correct grid would have to be built in lattice
-/// coordinates, where the metric is sheared and the cell bounds stop being
-/// obvious. At the counts a textile repeat uses, tens to a few hundred motifs,
-/// the scan costs milliseconds and cannot be wrong in that particular way.
+/// Accepted samples bucketed in lattice coordinates, so that a candidate is
+/// compared with its neighbours rather than with everything placed so far.
+///
+/// The reason this is not the usual spatial grid: that one indexes the tile
+/// rectangle, and on an oblique lattice the rectangle is the wrong
+/// neighbourhood — two motifs a whole tile apart may be adjacent in the
+/// pattern. Indexing the *lattice* instead makes wrapping a modulo on the
+/// bucket number and keeps the neighbourhood honest for any repeat.
+///
+/// It returns a superset and nothing more: every candidate it yields is still
+/// put through the exact distance test. So the accept and reject decisions are
+/// identical to comparing against every sample, the random draw is therefore
+/// identical, and the placements are unchanged — which the golden image and
+/// the determinism tests are what actually hold to account.
+struct Neighbourhood {
+    buckets: Vec<Vec<usize>>,
+    across: usize,
+    down: usize,
+    u: Vec2,
+    v: Vec2,
+    det: f32,
+    /// Largest radius in the index, so a query can be widened enough to catch
+    /// a big motif whose own size, rather than the density, sets the spacing.
+    max_radius: f32,
+}
+
+impl Neighbourhood {
+    /// Bucket the lattice cell finely enough that a query spans about one
+    /// bucket each way.
+    ///
+    /// A displacement of `d` in millimetres moves the first lattice
+    /// coordinate by at most `d * |v| / |det|` and the second by at most
+    /// `d * |u| / |det|` — Cauchy-Schwarz on the rows of the inverse. Sizing
+    /// the buckets by that keeps the scanned neighbourhood small whatever the
+    /// shear.
+    fn new(lattice: &Lattice, cell_size_mm: Vec2, radius: f32) -> Self {
+        /// Per axis. The total is bounded separately, by how many samples are
+        /// actually going to arrive: a fine grid in a sparse cell spends more
+        /// on allocating empty buckets than the scan it saves, and a coarse
+        /// one in a dense cell puts the quadratic back inside each bucket.
+        /// Both were measured — a fixed cap of four thousand buckets made a
+        /// forty-eight-thousand-motif repeat six times slower.
+        const MOST: usize = 512;
+
+        // The packing relation the density solver already uses, read the
+        // other way round: how many samples a cell of this size holds at this
+        // separation.
+        let expected = (PACKING_EFFICIENCY * 1.154_700_5 * cell_size_mm.x * cell_size_mm.y
+            / (radius * radius).max(f32::MIN_POSITIVE))
+        .clamp(64.0, 65536.0) as usize;
+
+        let det = lattice.u.x * lattice.v.y - lattice.u.y * lattice.v.x;
+        let span = |edge: Vec2| {
+            let reach = radius * edge.length() / det.abs().max(f32::MIN_POSITIVE);
+            if reach <= 0.0 || !reach.is_finite() {
+                1
+            } else {
+                ((1.0 / reach).floor() as usize).clamp(1, MOST)
+            }
+        };
+        let (mut across, mut down) = (span(lattice.v), span(lattice.u));
+        while across * down > expected && (across > 1 || down > 1) {
+            if across >= down {
+                across = (across / 2).max(1);
+            } else {
+                down = (down / 2).max(1);
+            }
+        }
+
+        Self {
+            buckets: vec![Vec::new(); across * down],
+            across,
+            down,
+            u: lattice.u,
+            v: lattice.v,
+            det,
+            max_radius: 0.0,
+        }
+    }
+
+    /// Where a point sits in the lattice, as fractions of `u` and `v`.
+    fn coordinates(&self, point: Vec2) -> (f32, f32) {
+        if self.det.abs() <= f32::EPSILON {
+            return (0.0, 0.0);
+        }
+        (
+            (point.x * self.v.y - point.y * self.v.x) / self.det,
+            (self.u.x * point.y - self.u.y * point.x) / self.det,
+        )
+    }
+
+    fn bucket(&self, alpha: f32, beta: f32) -> usize {
+        let wrap = |value: f32, count: usize| {
+            let n = count as f32;
+            let i = (value.rem_euclid(1.0) * n).floor();
+            (i as usize).min(count - 1)
+        };
+        wrap(beta, self.down) * self.across + wrap(alpha, self.across)
+    }
+
+    fn insert(&mut self, index: usize, point: Vec2, radius: f32) {
+        let (alpha, beta) = self.coordinates(point);
+        let at = self.bucket(alpha, beta);
+        self.buckets[at].push(index);
+        self.max_radius = self.max_radius.max(radius);
+    }
+
+    /// Every sample that could lie within `reach` millimetres of `point`.
+    fn near(&self, point: Vec2, reach: f32, out: &mut Vec<usize>) {
+        out.clear();
+        let scale = self.det.abs().max(f32::MIN_POSITIVE);
+        let steps = |edge: Vec2, count: usize| -> usize {
+            let cells = reach * edge.length() / scale * count as f32;
+            // One bucket of slack, because a point sits somewhere inside its
+            // own bucket rather than at the corner of it.
+            ((cells.ceil() as usize) + 1).min(count / 2 + 1)
+        };
+        let (da, db) = (steps(self.v, self.across), steps(self.u, self.down));
+
+        let (alpha, beta) = self.coordinates(point);
+        let home = |value: f32, count: usize| {
+            ((value.rem_euclid(1.0) * count as f32).floor() as usize).min(count - 1) as isize
+        };
+        let (ha, hb) = (home(alpha, self.across), home(beta, self.down));
+
+        for j in -(db as isize)..=(db as isize) {
+            let row = (hb + j).rem_euclid(self.down as isize) as usize;
+            for i in -(da as isize)..=(da as isize) {
+                let col = (ha + i).rem_euclid(self.across as isize) as usize;
+                out.extend_from_slice(&self.buckets[row * self.across + col]);
+            }
+        }
+        // A small index can name the same bucket twice through the wrap.
+        out.sort_unstable();
+        out.dedup();
+    }
+}
+
+/// Each candidate is checked against its neighbours, found through a
+/// [`Neighbourhood`], rather than against every sample accepted so far.
+///
+/// It was brute-force until a 1.2 m repeat of small motifs made it a hang.
+/// Quadratic is fine at the tens to a few hundred motifs a textile repeat
+/// usually holds, and is not fine one order of magnitude up: seventeen
+/// thousand placements took thirty-eight seconds to sample.
+///
+/// The reason it stayed brute-force as long as it did was a real objection,
+/// not neglect — the spatial grid the algorithm is usually written with
+/// indexes the tile rectangle, and on an oblique lattice the rectangle is the
+/// wrong neighbourhood. [`Neighbourhood`] indexes the lattice instead, which
+/// is what that objection was asking for.
 fn poisson_disc(
     params: &ScatterParams,
     radius: f32,
@@ -256,6 +400,10 @@ fn poisson_disc(
     let Some(first) = first else {
         return Vec::new();
     };
+    let mut index = Neighbourhood::new(lattice, cell_size_mm, radius);
+    index.insert(0, first.position_mm, first.radius_mm);
+    let mut nearby: Vec<usize> = Vec::new();
+    let mut found: Vec<usize> = Vec::new();
     let mut samples = vec![first];
     let mut active = vec![0usize];
 
@@ -285,13 +433,44 @@ fn poisson_disc(
             let clear_of_itself = self_image_distance_sq(candidate.position_mm, lattice, mirror)
                 >= required(candidate.radius_mm);
 
+            // Wide enough to catch the largest motif placed so far, since a
+            // big one's own size rather than the density can set the spacing.
+            let reach = radius.max(candidate.radius_mm + index.max_radius);
+
+            // Looked up at every image of the candidate, not only at the
+            // candidate. Under a mirror a sample is a threat when *its*
+            // reflection lands nearby, which is the same thing as the sample
+            // lying near a reflection of the candidate — and an index that
+            // only knew about the candidate would silently stop finding them.
+            nearby.clear();
+            for &(flip_x, flip_y) in mirror.quadrants() {
+                let image = Vec2::new(
+                    if flip_x {
+                        -candidate.position_mm.x
+                    } else {
+                        candidate.position_mm.x
+                    },
+                    if flip_y {
+                        -candidate.position_mm.y
+                    } else {
+                        candidate.position_mm.y
+                    },
+                );
+                index.near(image, reach, &mut found);
+                nearby.extend_from_slice(&found);
+            }
+            nearby.sort_unstable();
+            nearby.dedup();
+
             let fits = clear_of_itself
-                && samples.iter().all(|s| {
+                && nearby.iter().all(|i| {
+                    let s = &samples[*i];
                     mirror_distance_sq(candidate.position_mm, s.position_mm, lattice, mirror)
                         >= required(s.radius_mm)
                 });
 
             if fits {
+                index.insert(samples.len(), candidate.position_mm, candidate.radius_mm);
                 samples.push(candidate);
                 active.push(samples.len() - 1);
                 accepted = true;
@@ -466,6 +645,98 @@ mod tests {
     }
 
     const MIRRORS: [Mirror; 3] = [Mirror::SideToSide, Mirror::TopToBottom, Mirror::FourWay];
+
+    #[test]
+    fn the_index_never_hides_a_neighbour() {
+        // The whole correctness argument. The index only has to return a
+        // *superset* — every candidate it yields is still put through the
+        // exact distance test — so if it never omits anything within reach,
+        // the accept and reject decisions are identical to comparing against
+        // every sample, and so is the random draw, and so are the placements.
+        //
+        // Checked against the distance function rather than against a second
+        // copy of the index, and over the oblique lattices as well as the
+        // block one, since a sheared cell is the case a rectangular grid gets
+        // wrong.
+        let mut rng = ChaCha8Rng::seed_from_u64(99);
+        for lattice in [
+            Lattice::block(TILE),
+            Lattice::half_drop(TILE),
+            Lattice::brick(TILE),
+            Lattice::quarter_drop(TILE),
+        ] {
+            for radius in [6.0f32, 18.0, 45.0] {
+                let mut index = Neighbourhood::new(&lattice, TILE, radius);
+                let points: Vec<Vec2> = (0..250)
+                    .map(|_| Vec2::new(unit(&mut rng) * TILE.x, unit(&mut rng) * TILE.y))
+                    .collect();
+                for (i, p) in points.iter().enumerate() {
+                    index.insert(i, *p, 0.0);
+                }
+
+                let mut found = Vec::new();
+                for _ in 0..60 {
+                    let query = Vec2::new(unit(&mut rng) * TILE.x, unit(&mut rng) * TILE.y);
+                    // Query wider than the index was sized for, which is what
+                    // a large motif does in anger.
+                    let reach = radius * 1.7;
+                    index.near(query, reach, &mut found);
+
+                    for (i, p) in points.iter().enumerate() {
+                        let d = lattice_distance_sq(query, *p, &lattice).sqrt();
+                        if d <= reach {
+                            assert!(
+                                found.contains(&i),
+                                "{lattice:?} r={radius}: point {i} is {d:.2} mm away, \
+                                 inside a {reach:.2} mm reach, and the index did not offer it"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn separation_still_holds_at_tens_of_thousands() {
+        // The index earns its place at counts the brute-force scan could not
+        // reach: a 1.2 m repeat of small motifs is seventeen thousand of them,
+        // which took thirty-eight seconds to sample and now takes half of one.
+        // If the index hid a neighbour anywhere in that, this is where it
+        // shows.
+        let tile = Vec2::new(1200.0, 900.0);
+        let mut p = params(0.45, 3);
+        p.motif_mix[0].natural_size_mm = Vec2::new(8.0, 8.0);
+        let lattice = Lattice::half_drop(tile);
+
+        let out = scatter(&p, tile, &lattice);
+        assert!(
+            out.len() > 4000,
+            "expected a dense field, got {} placements",
+            out.len()
+        );
+
+        // Every pair would be a hundred million comparisons in an unoptimised
+        // test build. Two hundred motifs against all of the others is three
+        // million, and a missed neighbour is a property of the index rather
+        // than of one unlucky pair, so a sample finds it.
+        let radius = separation_radius(&p, tile);
+        let mut rng = ChaCha8Rng::seed_from_u64(5);
+        for _ in 0..200 {
+            let i = bounded(&mut rng, out.len() as u32) as usize;
+            for (j, b) in out.iter().enumerate() {
+                if i == j {
+                    continue;
+                }
+                let d = lattice_distance_sq(out[i].position_mm, b.position_mm, &lattice).sqrt();
+                assert!(
+                    d >= radius - 1e-2,
+                    "two of {} motifs are {d:.3} mm apart, under the {radius:.3} mm separation",
+                    out.len()
+                );
+            }
+        }
+    }
 
     #[test]
     fn a_mirrored_scatter_reflects_every_motif_into_every_quadrant() {

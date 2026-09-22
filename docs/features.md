@@ -230,6 +230,40 @@ A document carrying both authored placements and a scatter is refused rather
 than resolved, since there is no sensible merge: a scatter's separation
 guarantee knows nothing about motifs it did not place.
 
+### Finding neighbours without comparing everything
+
+Each candidate is tested against the samples near it, found through a spatial
+index built in **lattice coordinates** rather than over the tile rectangle.
+
+That distinction is the whole reason the index took as long to arrive as it
+did. The grid this algorithm is usually written with indexes the rectangle, and
+on an oblique lattice the rectangle is the wrong neighbourhood — two motifs a
+whole tile apart may be adjacent in the pattern. Indexing the lattice makes
+wrapping a modulo on the bucket number and keeps the neighbourhood honest for
+any repeat, including a mirror, where a sample can threaten a candidate through
+its reflection and so every image of the candidate is looked up.
+
+The index returns a **superset** and nothing more: everything it offers still
+goes through the exact distance test. So the accept and reject decisions are
+identical to comparing against every sample, the random draw is therefore
+identical, and the placements are unchanged — which the golden image, itself a
+scatter, is what actually holds to account.
+
+Measured on a 1.2 m repeat, which is what prompted it:
+
+| motifs | before | after |
+| --- | --- | --- |
+| 1,081 | 0.30 s | 0.15 s |
+| 4,358 | 2.70 s | 0.22 s |
+| 17,306 | 38.5 s | 0.53 s |
+| 48,109 | minutes | 1.27 s |
+
+The bucket grid is sized by how many samples are going to arrive rather than by
+a fixed cap, because both ends cost: a fine grid in a sparse cell spends more on
+allocating empty buckets than the scan saves, and a coarse one in a dense cell
+puts the quadratic back inside each bucket. A fixed cap of four thousand buckets
+made the forty-eight-thousand-motif case six times slower.
+
 ## Reproducibility from a seed
 
 Placement generation contains no transcendental arithmetic — no sine, no cosine,

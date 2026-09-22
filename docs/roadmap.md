@@ -113,8 +113,3 @@ Not milestones, but not forgotten.
   [Decisions](./decisions.md#not-shipping-tracking-detection-having-built-it-twice).
   Until something works, "no visible corridors" is an opinion and should be
   described as one.
-- **Scatter is brute-force**, checking each candidate against every accepted
-  sample. Milliseconds at textile counts; the usual spatial grid indexes the
-  tile rectangle, which is the wrong neighbourhood on an oblique lattice, so a
-  correct one would have to be built in lattice coordinates. Worth doing only if
-  M4's live preview turns out to need it.
