@@ -1,0 +1,109 @@
+{
+  "motifs": [
+    {
+      "id": "peeled",
+      "file": "20-banana-peeled.png",
+      "natural_size_mm": [
+        46.8,
+        46.8
+      ],
+      "matte": "ExistingAlpha"
+    },
+    {
+      "id": "whole",
+      "file": "21-banana-whole.png",
+      "natural_size_mm": [
+        51.6,
+        51.6
+      ],
+      "matte": "ExistingAlpha"
+    },
+    {
+      "id": "bunch",
+      "file": "22-banana-bunch.png",
+      "natural_size_mm": [
+        57.0,
+        57.0
+      ],
+      "matte": "ExistingAlpha"
+    }
+  ],
+  "scatter": {
+    "density": 0.55,
+    "prevent_overlap": true,
+    "rotation_jitter_deg": 30.0,
+    "scale_range": [
+      0.85,
+      1.15
+    ],
+    "mix": [
+      {
+        "motif_id": "whole",
+        "weight": 3.0
+      },
+      {
+        "motif_id": "peeled",
+        "weight": 2.0
+      },
+      {
+        "motif_id": "bunch",
+        "weight": 1.5
+      }
+    ],
+    "seed": 3,
+    "mirror": "four-way",
+    "on_axis_share": 0.5
+  },
+  "pattern": {
+    "tile_size_mm": [
+      300.0,
+      225.0
+    ],
+    "lattice": {
+      "u": [
+        300.0,
+        0.0
+      ],
+      "v": [
+        0.0,
+        225.0
+      ]
+    },
+    "placements": [],
+    "palette": {
+      "colors": [
+        {
+          "r": 250,
+          "g": 246,
+          "b": 238
+        },
+        {
+          "r": 9,
+          "g": 9,
+          "b": 7
+        },
+        {
+          "r": 55,
+          "g": 45,
+          "b": 14
+        },
+        {
+          "r": 223,
+          "g": 165,
+          "b": 1
+        },
+        {
+          "r": 227,
+          "g": 170,
+          "b": 3
+        },
+        {
+          "r": 247,
+          "g": 205,
+          "b": 44
+        }
+      ]
+    },
+    "seed": 0
+  }
+}

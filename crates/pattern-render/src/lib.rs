@@ -163,7 +163,8 @@ fn sprites(
     // Resolve each distinct motif once. A pattern is usually many placements of
     // a few motifs, so resolving per placement would redo the same slot lookup
     // for every copy on the tile.
-    let mut resolved: std::collections::HashMap<&str, Pixmap> = std::collections::HashMap::new();
+    let mut resolved: std::collections::HashMap<&str, Vec<Pixmap>> =
+        std::collections::HashMap::new();
     for placement in &pattern.placements {
         if resolved.contains_key(placement.motif_id.as_str()) {
             continue;
@@ -171,7 +172,7 @@ fn sprites(
         let motif = lookup(bank, pattern, &placement.motif_id)?;
         resolved.insert(
             placement.motif_id.as_str(),
-            motif::resolve(motif, &pattern.palette)?,
+            mip_chain(motif::resolve(motif, &pattern.palette)?),
         );
     }
 
@@ -324,9 +325,99 @@ fn lookup<'a>(
     })
 }
 
+/// Successively halved copies of a motif, largest first.
+///
+/// Artwork arrives at illustration resolution — a thousand pixels or more —
+/// and is drawn at a fraction of that: 78 mm at preview scale is under a
+/// hundred pixels. Bilinear sampling reads a 2x2 neighbourhood, so reducing by
+/// eight in one step looks at four source pixels out of every sixty-four and
+/// throws the rest away. A dark keyline a few pixels wide falls between
+/// samples and simply disappears in places, which is why a preview looked
+/// coarser than the artwork rather than merely smaller.
+///
+/// Halving by box average loses nothing: every source pixel contributes to the
+/// level below. Reducing to within a factor of two of the target and letting
+/// bilinear do the rest is the standard answer, and it costs about a third of
+/// the base again in memory.
+///
+/// Integer arithmetic throughout, so the chain is identical on any platform —
+/// this sits upstream of everything a seed is supposed to reproduce.
+fn mip_chain(base: Pixmap) -> Vec<Pixmap> {
+    let mut levels = vec![base];
+    while levels
+        .last()
+        .is_some_and(|l| l.width() > 1 || l.height() > 1)
+    {
+        let Some(next) = halved(levels.last().expect("just checked")) else {
+            break;
+        };
+        levels.push(next);
+    }
+    levels
+}
+
+/// One level of the chain: a 2x2 box average, rounding half up.
+///
+/// Channels stay premultiplied, which is exactly the representation in which
+/// averaging is correct — averaging unpremultiplied colour would let a fully
+/// transparent pixel's arbitrary colour bleed into its neighbours.
+///
+/// An odd dimension rounds up rather than dropping the final row or column, so
+/// the motif keeps its full extent; that last output pixel averages the one
+/// source pixel available to it.
+fn halved(src: &Pixmap) -> Option<Pixmap> {
+    let (sw, sh) = (src.width(), src.height());
+    let (w, h) = (sw.div_ceil(2).max(1), sh.div_ceil(2).max(1));
+    if w == sw && h == sh {
+        return None;
+    }
+
+    let mut out = Pixmap::new(w, h)?;
+    let sp = src.pixels();
+    let dp = out.pixels_mut();
+    for y in 0..h {
+        for x in 0..w {
+            let (mut r, mut g, mut b, mut a, mut n) = (0u32, 0u32, 0u32, 0u32, 0u32);
+            for dy in 0..2 {
+                for dx in 0..2 {
+                    let (sx, sy) = (x * 2 + dx, y * 2 + dy);
+                    if sx >= sw || sy >= sh {
+                        continue;
+                    }
+                    let p = sp[(sy * sw + sx) as usize];
+                    r += p.red() as u32;
+                    g += p.green() as u32;
+                    b += p.blue() as u32;
+                    a += p.alpha() as u32;
+                    n += 1;
+                }
+            }
+            let mean = |v: u32| ((v + n / 2) / n.max(1)) as u8;
+            dp[(y * w + x) as usize] =
+                PremultipliedColorU8::from_rgba(mean(r), mean(g), mean(b), mean(a))
+                    .unwrap_or(sp[((y * 2).min(sh - 1) * sw + (x * 2).min(sw - 1)) as usize]);
+        }
+    }
+    Some(out)
+}
+
+/// The smallest level that is still at least as large as the target.
+///
+/// Never smaller, so the final bilinear step is always a reduction of under a
+/// factor of two or an enlargement from full resolution — never a reduction
+/// large enough to skip source pixels.
+fn level_for(chain: &[Pixmap], target: IVec2) -> &Pixmap {
+    chain
+        .iter()
+        .take_while(|l| l.width() as i32 >= target.x && l.height() as i32 >= target.y)
+        .last()
+        .or_else(|| chain.first())
+        .expect("a chain always has its base level")
+}
+
 /// Scale, and if asked rotate, one motif into its own pixmap.
 fn rasterise(
-    base: &Pixmap,
+    chain: &[Pixmap],
     motif: &Motif,
     scale: f32,
     rotation_deg: f32,
@@ -336,6 +427,7 @@ fn rasterise(
         ((motif.natural_size_mm.x * scale * px_per_mm).round() as i32).max(1),
         ((motif.natural_size_mm.y * scale * px_per_mm).round() as i32).max(1),
     );
+    let base = level_for(chain, target);
     let sx = target.x as f32 / base.width() as f32;
     let sy = target.y as f32 / base.height() as f32;
 

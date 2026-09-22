@@ -1,0 +1,109 @@
+{
+  "motifs": [
+    {
+      "id": "peeled",
+      "file": "20-banana-peeled.png",
+      "natural_size_mm": [
+        42.9,
+        42.9
+      ],
+      "matte": "ExistingAlpha"
+    },
+    {
+      "id": "whole",
+      "file": "21-banana-whole.png",
+      "natural_size_mm": [
+        47.3,
+        47.3
+      ],
+      "matte": "ExistingAlpha"
+    },
+    {
+      "id": "bunch",
+      "file": "22-banana-bunch.png",
+      "natural_size_mm": [
+        52.3,
+        52.3
+      ],
+      "matte": "ExistingAlpha"
+    }
+  ],
+  "pattern": {
+    "tile_size_mm": [
+      300.0,
+      225.0
+    ],
+    "lattice": {
+      "u": [
+        300.0,
+        0.0
+      ],
+      "v": [
+        0.0,
+        225.0
+      ]
+    },
+    "placements": [],
+    "palette": {
+      "colors": [
+        {
+          "r": 250,
+          "g": 246,
+          "b": 238
+        },
+        {
+          "r": 9,
+          "g": 9,
+          "b": 7
+        },
+        {
+          "r": 55,
+          "g": 45,
+          "b": 14
+        },
+        {
+          "r": 223,
+          "g": 165,
+          "b": 1
+        },
+        {
+          "r": 227,
+          "g": 170,
+          "b": 3
+        },
+        {
+          "r": 247,
+          "g": 205,
+          "b": 44
+        }
+      ]
+    },
+    "seed": 0
+  },
+  "grid": {
+    "rows": 4,
+    "cols": 4,
+    "prevent_overlap": true,
+    "row_offset": 0.0,
+    "rotation_jitter_deg": 0.0,
+    "scale_range": [
+      1.0,
+      1.0
+    ],
+    "mix": [
+      {
+        "motif_id": "whole",
+        "weight": 3.0
+      },
+      {
+        "motif_id": "peeled",
+        "weight": 2.0
+      },
+      {
+        "motif_id": "bunch",
+        "weight": 1.5
+      }
+    ],
+    "seed": 2
+  }
+}
