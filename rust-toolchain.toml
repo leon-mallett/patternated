@@ -1,0 +1,13 @@
+# Pinned, so that CI and this machine compile the same code with the same
+# compiler.
+#
+# Two reasons beyond the usual. Clippy's lint set changes between releases and
+# the workspace is built with `-D warnings`, so an unpinned toolchain turns CI
+# red on a Rust release rather than on a change anybody made. And determinism
+# is a feature here — the same seed has to give byte-identical output — which
+# makes the compiler part of what is being held still.
+#
+# Moving it is a deliberate commit, with the test suite as the evidence.
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]

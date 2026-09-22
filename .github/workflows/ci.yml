@@ -1,0 +1,110 @@
+# Everything the project claims about itself, checked on every push.
+#
+# Two things worth knowing about the shape of this.
+#
+# It runs on Linux while development happens on macOS, which is deliberate
+# rather than incidental. Determinism across platforms is a stated invariant
+# and has never been verified — the golden images and the byte-identical
+# render tests have only ever run on one machine. Running them on a second
+# architecture is the cheapest evidence available, and if they disagree that
+# is a finding rather than a reason to loosen the test.
+#
+# It uses no third-party actions. `actions/checkout`, `actions/cache` and
+# `actions/setup-node` are GitHub's own; the usual Rust caching action is not,
+# and an action with write access to the build cache is exactly the supply
+# chain risk the house rules ask to pause over. Hand-rolling the cache is a few
+# more lines and introduces no new trust.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # A backtrace is worth more than a line number when a test fails on a machine
+  # nobody can attach a debugger to.
+  RUST_BACKTRACE: 1
+
+jobs:
+  engine:
+    name: Engine
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The workspace includes the Tauri shell, so the whole thing needs
+      # webkit's development headers to compile even though no window is ever
+      # opened. This is Tauri v2's documented Debian prerequisite set.
+      - name: Install the desktop shell's build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            patchelf
+
+      # The toolchain file pins the version; this only makes sure the two
+      # components it names are present.
+      - name: Show the toolchain
+        run: |
+          rustup show
+          cargo --version
+          cargo clippy --version
+          cargo fmt --version
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Formatting
+        run: cargo fmt --all -- --check
+
+      - name: Lints
+        run: cargo clippy --all-targets -- -D warnings
+
+      # `--locked` so a dependency cannot drift underneath the build: the
+      # lockfile is the record of what the tests were last green against.
+      - name: Tests
+        run: cargo test --workspace --locked
+
+      - name: Documentation links
+        run: python3 scripts/check-docs.py
+
+  app:
+    name: App shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # `npm ci` rather than `npm install`: it installs exactly the lockfile
+      # and fails if the two have diverged, which is the point of having one.
+      - name: Install
+        working-directory: app
+        run: npm ci
+
+      # The project's own build script, which type-checks and then bundles.
+      # CI running the same command a developer runs is one less thing that
+      # can be true in one place and not the other.
+      - name: Build
+        working-directory: app
+        run: npm run build
