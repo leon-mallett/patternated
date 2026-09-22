@@ -1081,3 +1081,56 @@ another — a white star on a navy ground is exactly this.
 again, because the same number is wanted in the app where there is no report to
 hand, and a share computed in two places is a share that will eventually
 disagree with itself.
+
+---
+
+## Unsaved work is detected by comparison, not by a flag
+
+**Decided.** `Session` keeps the document as it stood when last written or
+opened, serialised, and compares against it. There is no dirty flag.
+
+**Why.** A flag has to be set at every site that changes the document —
+parameters, palette slots, colourways, colour count, layout — and the cost of
+missing one is telling a designer their work is safe when it is not. That is
+the one direction this must not be wrong in. Comparison cannot miss a site,
+because there is nothing to remember to do at a site.
+
+Palette editing is the case that makes the point: it does not go through the
+parameter path at all, so a flag set in `write_params` would already have
+missed it.
+
+**Cost.** A serialisation of the document on every close request, and a stored
+copy of its text. A pattern document is a few kilobytes; the placements make it
+larger but not enough to matter beside a render.
+
+**Rejected.** Deriving PartialEq on `Document` and keeping a clone. Equivalent,
+and it spreads a derive across a dozen types in the core to serve a question
+the app layer is asking.
+
+**Consequence.** A pattern that has never been written counts as unsaved
+whatever its state, because closing discards it entirely. The refusal says
+which of the two it is so the interface can ask the right question.
+
+Described in [Features](./features.md#getting-back-out).
+
+---
+
+## The dev server does not sit on Tauri's default port
+
+**Decided.** Vite serves the app shell on 1421, named in both
+`app/vite.config.ts` and `tauri.conf.json`.
+
+**Why.** Every scaffolded Tauri app takes 1420, and this machine runs several
+of them. Whichever starts second dies with "Port 1420 is already in use" and no
+indication of which project is holding it — which is how this was found, with
+`~/Projects/unpack` holding the port and pattern-engine refusing to start.
+
+**The alternative was worse than it looks.** Freeing the port means killing
+another project's dev server, and on a shared machine the process holding a
+default port is very often not yours. Taking a port of our own costs nothing
+and removes the question.
+
+**Not made configurable.** The port is fixed rather than found, because
+`devUrl` names it: a moving port means a blank window with no obvious cause,
+which is the reason the original comment in `vite.config.ts` gives for fixing
+it in the first place. That reasoning is unchanged; only the number moved.

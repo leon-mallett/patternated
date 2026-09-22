@@ -558,6 +558,30 @@ artwork. Aspect ratio always comes from the artwork and is never adjusted.
 Colour and colourways are edited here too — see
 [Colourways](#colourways).
 
+## Getting back out
+
+**Close** returns the app to its start screen, where New and Open live. Until
+it existed there was no way out of a document: trying a pattern and then
+wanting a different one meant quitting and relaunching.
+
+The engine refuses to close while there is unsaved work, and says which kind —
+a pattern that has never been written at all, or one changed since it was last
+saved. The interface then asks the question that situation calls for rather
+than a blanket "are you sure". Keeping the refusal in the engine and the
+question in the interface means the rule can be tested; a backend that puts up
+its own dialog cannot be.
+
+Whether there is unsaved work is answered by **comparing the document against
+what was last written**, rather than by a flag set wherever the document
+changes. A flag has to be maintained at every such site, and the cost of
+missing one is telling a designer their work is safe when it is not — which is
+the one direction this must not be wrong in. A colour edit does not go through
+the parameter path at all, and a flag set there would already have missed it.
+
+A test asserts that opening a document and letting the interface settle does
+*not* count as a change, since a prompt that always fires is a prompt people
+learn to dismiss.
+
 ## Command line
 
 ```

@@ -115,6 +115,24 @@ export interface Preview {
   window_repeats: boolean;
 }
 
+/** What a request to close did, or why it did not. */
+export interface CloseOutcome {
+  /** False when the close was refused because work would be lost. */
+  closed: boolean;
+  /** The pattern has never been written to a file, so closing discards it. */
+  never_saved: boolean;
+  /** The pattern has changed since it was last written. */
+  changed: boolean;
+}
+
+/** Put the app back to its empty state.
+ *
+ *  Refuses rather than asking when there is unsaved work, and carries the two
+ *  facts the question needs, so the asking stays in the interface where a
+ *  person can see it. Call again with `discard` to go through with it. */
+export const closeDocument = (discard: boolean) =>
+  invoke<CloseOutcome>("close_document", { discard });
+
 export const openDocument = (path: string) =>
   invoke<Opened>("open_document", { path });
 

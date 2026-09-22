@@ -26,6 +26,29 @@ struct Session {
     /// a suggested path but no file, so Save must ask rather than silently
     /// creating one.
     saved: bool,
+    /// The document as it stood when it was last written or opened, serialised.
+    ///
+    /// Compared rather than tracked with a flag. A flag has to be set at every
+    /// site that changes the document, and the cost of missing one is telling
+    /// a designer their work is safe when it is not — the one direction this
+    /// must not be wrong in. Comparing cannot miss a site, because there is
+    /// nothing to remember to do.
+    written: String,
+}
+
+impl Session {
+    /// Whether closing now would lose work.
+    fn unsaved_changes(&self) -> bool {
+        !self.saved
+            || serde_json::to_string(&self.document)
+                .map(|now| now != self.written)
+                .unwrap_or(true)
+    }
+
+    /// Mark the document as matching what is on disk.
+    fn mark_written(&mut self) {
+        self.written = serde_json::to_string(&self.document).unwrap_or_default();
+    }
 }
 
 #[derive(Default)]
@@ -167,12 +190,15 @@ fn open_document(app: State<'_, App>, path: String) -> Reply<Opened> {
         Document::load(&path).map_err(|e| fail("could not open that document", e))?;
 
     let opened = describe(&path, &document, &bank);
-    *app.session.lock().map_err(|e| fail("state", e))? = Some(Session {
+    let mut session = Session {
         path,
         document,
         bank,
         saved: true,
-    });
+        written: String::new(),
+    };
+    session.mark_written();
+    *app.session.lock().map_err(|e| fail("state", e))? = Some(session);
     Ok(opened)
 }
 
@@ -300,6 +326,50 @@ fn lattice_name(lattice: &Lattice, tile: Vec2) -> String {
     }
 }
 
+/// What a request to close did, or why it did not.
+#[derive(Serialize)]
+struct CloseOutcome {
+    /// False when the close was refused because work would be lost.
+    closed: bool,
+    /// The pattern has never been written to a file, so closing discards it.
+    never_saved: bool,
+    /// The pattern has changed since it was last written.
+    changed: bool,
+}
+
+/// Put the app back to its empty state.
+///
+/// There was no way out of a document once one was open: the start screen
+/// offering New and Open could only be reached by restarting the app, so
+/// trying a pattern and then wanting a different one meant quitting.
+///
+/// Refuses rather than asking, and leaves the asking to the interface. A
+/// backend that puts up its own dialog cannot be tested and cannot be driven
+/// by anything but a person — and the refusal carries the two facts the
+/// question needs, so the interface does not have to work them out or guess.
+#[tauri::command]
+fn close_document(app: State<'_, App>, discard: bool) -> Reply<CloseOutcome> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_ref().ok_or("no document is open")?;
+
+    let never_saved = !session.saved;
+    let changed = session.unsaved_changes();
+    if changed && !discard {
+        return Ok(CloseOutcome {
+            closed: false,
+            never_saved,
+            changed,
+        });
+    }
+
+    *guard = None;
+    Ok(CloseOutcome {
+        closed: true,
+        never_saved: false,
+        changed: false,
+    })
+}
+
 /// Start a pattern from image files, with no document in existence.
 ///
 /// The route M4 was missing. Until this existed the only way into the app was
@@ -323,6 +393,7 @@ fn new_from_images(app: State<'_, App>, files: Vec<String>, longest_edge_mm: f32
         document,
         bank: MotifBank::new(),
         saved: false,
+        written: String::new(),
     };
     session.bank = session
         .document
@@ -890,6 +961,7 @@ fn save_document(app: State<'_, App>, path: Option<String>) -> Reply<String> {
     session.document = rewritten;
     session.path = target.clone();
     session.saved = true;
+    session.mark_written();
     Ok(target.display().to_string())
 }
 /// Parse a CSS hex colour, which is how the interface talks about colour.
@@ -1087,6 +1159,7 @@ pub fn run() {
             remember_colourway,
             use_colourway,
             set_palette_size,
+            close_document,
             palette
         ])
         .run(tauri::generate_context!())
@@ -1108,12 +1181,15 @@ mod tests {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../examples/peel-club-scatter/pattern.json");
         let (document, bank) = Document::load(&path).expect("the example should open");
-        Session {
+        let mut session = Session {
             path,
             document,
             bank,
             saved: true,
-        }
+            written: String::new(),
+        };
+        session.mark_written();
+        session
     }
 
     fn params(density: f32, seed: u64) -> Params {
@@ -1338,6 +1414,94 @@ mod tests {
             .set_palette_size(10, &s.path)
             .expect("should re-derive");
         assert_eq!(s.document.pattern.palette.ground(), Some(navy));
+    }
+
+    #[test]
+    fn a_freshly_opened_document_has_nothing_to_lose() {
+        // The claim the close prompt rests on. If merely opening a pattern
+        // counted as a change, the warning would fire every time and stop
+        // meaning anything.
+        let s = session();
+        assert!(!s.unsaved_changes());
+    }
+
+    #[test]
+    fn the_interface_settling_after_an_open_is_not_a_change() {
+        // The case that decides whether the warning is worth having. The app
+        // renders a preview as soon as a document is open, and that goes
+        // through the same path as moving a slider. If it wrote anything back
+        // the document would be dirty the instant it appeared, and a prompt
+        // that always fires teaches people to dismiss it.
+        let mut s = session();
+        let shown = describe(&s.path, &s.document, &s.bank);
+        let settle = Params {
+            tile_mm: shown.tile_mm,
+            lattice: shown.lattice.clone(),
+            density: shown.density,
+            rotation_jitter_deg: shown.rotation_jitter_deg,
+            scale_range: shown.scale_range,
+            seed: shown.seed,
+            layout: shown.layout.clone(),
+            prevent_overlap: shown.prevent_overlap,
+            on_axis_share: shown.on_axis_share,
+            grid_rows: shown.grid_rows,
+            grid_cols: shown.grid_cols,
+            weights: shown
+                .motifs
+                .iter()
+                .map(|m| (m.id.clone(), m.weight))
+                .collect(),
+            sizes: shown
+                .motifs
+                .iter()
+                .map(|m| (m.id.clone(), m.longest_edge_mm))
+                .collect(),
+            preview_width_px: 600,
+            cols: 3,
+            rows: 3,
+        };
+
+        write_params(&mut s, &settle).expect("apply");
+        assert!(
+            !s.unsaved_changes(),
+            "showing the document changed it, so the close prompt would always fire"
+        );
+    }
+
+    #[test]
+    fn touching_the_document_is_enough_to_count_as_a_change() {
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        p.seed = 4242;
+        write_params(&mut s, &p).expect("apply");
+        assert!(
+            s.unsaved_changes(),
+            "a re-seeded scatter should count as unsaved work"
+        );
+    }
+
+    #[test]
+    fn a_change_no_deeper_than_a_palette_slot_still_counts() {
+        // The reason this is a comparison rather than a flag: a colour edit
+        // does not go through the parameter path at all, and a flag set there
+        // would miss it.
+        let mut s = session();
+        s.document.pattern.palette = pattern_core::with_colour(
+            &s.document.pattern.palette,
+            0,
+            pattern_core::Color::new(1, 2, 3),
+        );
+        assert!(s.unsaved_changes());
+    }
+
+    #[test]
+    fn a_pattern_that_has_never_been_written_always_has_something_to_lose() {
+        let mut s = session();
+        s.saved = false;
+        assert!(
+            s.unsaved_changes(),
+            "an unsaved pattern is lost entirely by closing, changed or not"
+        );
     }
 
     #[test]

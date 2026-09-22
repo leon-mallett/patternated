@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
+import {
+  confirm as confirmDialog,
+  open as openDialog,
+  save as saveDialog,
+} from "@tauri-apps/plugin-dialog";
 import {
   apply,
   deriveColourway,
@@ -26,6 +30,7 @@ import {
   type MockupView,
   LAYOUTS,
   COLOUR_COUNTS,
+  closeDocument,
   setPaletteSize,
   LAYOUT_GROUPS,
   isScatterLayout,
@@ -223,6 +228,49 @@ export default function App() {
     setStatus(note);
   }
 
+  /// Put the app back to the start screen.
+  ///
+  /// The engine refuses while there is unsaved work and says which kind, so
+  /// the question asked here is the one the situation actually calls for
+  /// rather than a blanket "are you sure".
+  async function onClose() {
+    try {
+      const first = await closeDocument(false);
+      if (!first.closed) {
+        const ok = await confirmDialog(
+          first.never_saved
+            ? "This pattern has never been saved. Closing it discards it."
+            : "There are changes since this pattern was last saved. Closing loses them.",
+          { title: "Close this pattern?", kind: "warning", okLabel: "Close" },
+        );
+        if (!ok) return;
+        await closeDocument(true);
+      }
+      forget();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /// Drop everything belonging to the open document.
+  ///
+  /// Not only `doc`: a stale preview or garment would flash behind the next
+  /// pattern before its own render arrived.
+  function forget() {
+    setDoc(null);
+    setPreview(null);
+    setPalette(null);
+    setMotifs(null);
+    setDropped([]);
+    setWorn(null);
+    setWearing(null);
+    setExporting(false);
+    setPlan(null);
+    setProofing(false);
+    setError(null);
+    setStatus(null);
+  }
+
   async function onNew() {
     const chosen = await openDialog({
       title: "Choose the artwork for this pattern",
@@ -409,6 +457,9 @@ export default function App() {
             <button onClick={onNew}>New…</button>
             <button onClick={onOpen}>Open…</button>
             <button onClick={onSave}>Save</button>
+            <button onClick={onClose} title="Back to the start screen">
+              Close
+            </button>
             <button className="primary" onClick={() => setExporting(true)}>
               Export…
             </button>
