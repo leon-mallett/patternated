@@ -64,9 +64,11 @@ anything; that keeps outlay at zero until the approach is shown to hold.
 
 Not milestones, but not forgotten.
 
-- **Cross-platform determinism is unverified.** See
-  [Test strategy](./test-strategy.md#what-is-deliberately-not-tested). Needs
-  deciding before anyone relies on reproducing a print from a seed months later.
+- **Cross-platform determinism is verified on two platforms, not three.** CI
+  runs the suite on Linux x86-64 and development happens on macOS arm64; the
+  golden images agree as identical bytes, rotation included. Windows is
+  untested. See
+  [Test strategy](./test-strategy.md#what-is-deliberately-not-tested).
 - **Circular, wave, ogee and damask arrangements.** Asked for once and
   deliberately deferred: they are the family the spec places in v2, and they are
   neither a lattice nor a grid, so they need a motif frame rather than another

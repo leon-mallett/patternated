@@ -190,21 +190,28 @@ Stated rather than left as silence, since silence reads as coverage.
   semi-transparent airbrush or texture layers, and drop shadows baked into the
   export.
 
-- **Cross-platform determinism, in the renderer.** Byte-identical output is
-  asserted within a run on one machine (macOS, Apple silicon, 2026-09-20). The
-  spec asks for identical output *across* platforms, and that is still
-  unverified for pixels.
+- **Cross-platform determinism — now largely evidenced, and no longer only an
+  argument.** The concern was that *rendering* rotates through `sin_cos`, which
+  IEEE-754 does not pin down, and that scatter makes rotation the common case
+  rather than the exception. Placement generation was already believed exact —
+  it uses no transcendental arithmetic at all, and a test enforces that — but
+  pixels were not.
 
-  M2 narrowed this rather than closing it. *Placement generation* is now
-  believed cross-platform exact: scatter uses no transcendental arithmetic at
-  all, only operations IEEE-754 specifies exactly, and a test enforces that. So
-  the same seed should give the same placements anywhere. *Rendering* still
-  rotates through `sin_cos`, which carries no such guarantee — and M2 makes
-  rotation the common case rather than the exception, since scatter jitters
-  every motif. Unrotated placements avoid the path entirely.
+  Since 2026-09-22, CI runs the whole suite on **Linux x86-64** while
+  development happens on **macOS arm64**. The three golden images were
+  generated on macOS and match on Linux — not approximately, but as identical
+  encoded PNG bytes, which is what the comparison actually does. One of them,
+  `a_scattered_field_matches_its_golden`, is a scatter with 30 degrees of
+  rotation jitter, so the `sin_cos` path is exercised on every motif in it.
 
-  Still needs a second platform, or a deterministic trigonometric
-  implementation, before anyone relies on reproducing a print from a seed.
+  Two architectures, two C libraries, two rasteriser builds, identical output.
+  That is much stronger than the argument it replaces, and it is a *standing*
+  check rather than a one-off measurement.
+
+  What it still does not cover: **Windows**, and any platform whose libm
+  differs from both. And it evidences agreement between two implementations
+  rather than proving a guarantee — a future Rust or libm release could still
+  move one of them, which is now exactly what CI is there to notice.
 - **The CLI's own behaviour.** No test drives the binary. It is thin, but it
   has grown: document loading, on-the-fly ingest, library resolution, the
   design-palette check and PNG writing all live there now, and the
