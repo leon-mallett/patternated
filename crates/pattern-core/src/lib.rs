@@ -16,13 +16,14 @@ mod palette;
 mod pattern;
 mod placement;
 mod scatter;
+mod texture;
 mod torus;
 
 pub use bands::{Band, Bands, Crossing};
 pub use colourway::{rotate_hue, shift_lightness, swap_ground, with_colour};
 pub use error::PatternError;
 pub use grid::{grid, grid_with_outcome, GridOutcome, GridParams};
-pub use ground::Ground;
+pub use ground::{Ground, LaidGround};
 pub use lattice::{Lattice, NEIGHBOUR_COUNT};
 pub use mirror::{fold_into_cell, mirror_distance_sq, reflect, self_image_distance_sq, Mirror};
 pub use motif::{IndexedMotif, Motif};
@@ -30,6 +31,7 @@ pub use palette::{Color, Palette, GROUND_SLOT};
 pub use pattern::{resolved_color_count, Pattern};
 pub use placement::{wrap_into_tile, Placement};
 pub use scatter::{scatter, MotifWeight, ScatterParams};
+pub use texture::{Growth, SlotField, Texture, MOST_CELLS, MOST_STEPS};
 pub use torus::lattice_distance_sq;
 
 /// Millimetres per inch. The one constant tying physical units to output DPI.

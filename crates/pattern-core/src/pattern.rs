@@ -55,17 +55,18 @@ impl Pattern {
         // with a half-drop looks plausible in a parameter file and prints as a
         // break running down every mirror axis, so it is refused rather than
         // rendered.
-        // A band sequence lives in the tile and repeats with it, so it only
-        // runs straight across the fabric when the lattice steps by whole
-        // tiles. On a half-drop the neighbouring column arrives half a tile
-        // down and the stripes step at every join — the same thing that made a
-        // grid on a drop lattice break, and refused here for the same reason.
+        // A ground lives in the tile and repeats with it, so it only meets
+        // itself when the lattice steps by whole tiles. On a half-drop the
+        // neighbouring column arrives half a tile down: stripes step at every
+        // join, and a texture grown on a torus meets an edge that is not the
+        // edge it was grown against. The same thing that made a grid on a drop
+        // lattice break, and refused here for the same reason.
         if self.ground.as_ref().is_some_and(|g| !g.is_empty()) {
             let block = crate::Lattice::block(self.tile_size_mm);
             if (self.lattice.u - block.u).length() >= 1e-3
                 || (self.lattice.v - block.v).length() >= 1e-3
             {
-                return Err(PatternError::BandsNeedBlockLattice);
+                return Err(PatternError::GroundNeedsBlockLattice);
             }
         }
 

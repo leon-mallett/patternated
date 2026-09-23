@@ -1397,3 +1397,111 @@ with it. The search is confined to the tail.
 wholesale, which would strand the ground's slots. Their colours are carried
 across and the sequence renumbered, so a striped document survives a resize
 instead of coming back referring to slots that no longer exist.
+
+---
+
+## A ground is a kind, not a band sequence with options
+
+**Decided.** `Pattern.ground` is an enum, `Ground`, tagged by `kind` in JSON.
+Bands are one variant; a grown texture is another. Everything downstream —
+palette resolution, colourways, colour counting, seamlessness, the lattice
+check — stops knowing which it is.
+
+**Why.** The interface a ground needs is small and was already there in bands:
+a function from a point in the tile to a slot, or to nothing where the fabric
+shows. Nothing else about a check is general, and nothing else has to be.
+
+**Tagged rather than inferred.** A document that gained a second kind would
+otherwise be identified by which fields it happened to carry, which is
+ambiguous the moment two kinds share a field name.
+
+**One ground, not a stack.** Nothing has asked for a texture underneath a
+check. A list of grounds would be untested surface until something does.
+
+**What this cost.** One rename across the workspace and a migration of three
+committed examples. Doing it before the second generator existed rather than
+after meant the second generator had somewhere to go.
+
+---
+
+## A grown ground, and why it tiles
+
+**Decided.** Reaction–diffusion (Gray–Scott) as the second generator: two
+notional chemicals spread across the tile and consume each other, and after a
+few thousand steps the field has organised itself into spots, or a maze, or
+coral. Quantised onto palette slots like everything else.
+
+**Why this one.** It produces the thing placement cannot: pattern with no
+visible grid in it. A tossed layout still repeats on a lattice and the eye
+finds it; a grown field has no lattice to find, only the tile's own period.
+
+**Why it tiles.** The field lives on a torus — every Laplacian reads its
+neighbours modulo the grid, so the left column's left neighbour *is* the right
+column, in the same simulation. Seamless by construction rather than fixed up
+at the edges afterwards, which is the only thing that could work here: a blend
+or a mirror at the seam would be visible precisely because the interior has no
+straight lines to hide it in. The unit test states it as an equality — the same
+seed patch, started ten cells along, must give the same field ten cells along,
+bit for bit.
+
+**Parameters, never the field.** A 192-cell grid is 36,864 floats. The document
+stores the growth, the scale, the step count and the seed; the field is grown
+when the ground is laid on a tile. That is also why `Ground::laid_over` exists
+at all — no ground can be sampled without knowing its tile, and bands had the
+same obligation without it being named.
+
+**The published rates are for a different Laplacian.** Every write-up quotes
+feed and kill rates against the bare five-point stencil. This uses the
+normalised nine-point one, which is about four times smaller for the same
+field, so the diffusion rate has to rise to match — and the live region of the
+parameter space moves with it. At the cited rates for "worms" this model is
+dead within a few hundred steps. The six named growths were found by sweeping
+the space and looking at the renders, and a test walks all six and fails any
+that covers almost none or almost all of the tile, which is what being outside
+the live region looks like from the outside.
+
+**The field is sampled, not classified.** `SlotField` keeps concentrations and
+cuts them into levels on the way out. Reducing to a slot per cell was the first
+version and it printed as a staircase: a cell is eighteen pixels at print
+resolution, so every curve stepped, and raising the cell count to hide it made
+the shapes smaller instead. Bilinear-then-threshold gives an edge that stays
+smooth at any output resolution and gives the cell count back its only
+meaning — how large the shapes are. The interpolation wraps on the torus, so
+the last half-cell of the tile blends with the first cell of the next rather
+than with a clamped copy of its own edge.
+
+**A memo, not a faster simulation.** Laying a ground on a tile is a pure
+function of two arguments and the most expensive thing in a render. The
+renderer remembers the last one, so a preview that changes the motif density
+does not grow the field again, and the interface's own look at the field —
+what share each level covered — shares the same one. Texture edits are
+additionally coalesced in front of the control, the way previews already were.
+Band edits are not, deliberately: `mirrored` is a one-shot instruction, and
+coalescing a reflect with the edit after it would cancel the pending send and
+lose the reflection.
+
+**Determinism.** The step is `+`, `-` and `*` on `f32` and nothing else — no
+`exp`, no `powf`, nothing whose last bit is allowed to differ between
+platforms. A pinned field checksum stands in for a golden image, and CI is
+Linux while development is macOS, so the claim is checked somewhere other than
+where it was made.
+
+---
+
+## Sampling a ground in the tile's coordinates, not the canvas's
+
+**Decided.** The renderer takes the pixel's position within its own tile before
+converting to millimetres, rather than letting the coordinate grow across a
+field of tiles.
+
+**Why.** A field of nine tiles is 720 mm across where a tile is 240, and an
+`f32` carries about six decimal digits. Asking for the slot at 683.1693 mm and
+at 3.1693 mm is the same question and not the same arithmetic; near a cell or
+band boundary the two answers can differ.
+
+**How it was found.** A grown ground disagreed with itself in ninety pixels at
+150 DPI and in none at 96 — the seamlessness test compares two independent
+routes to the same field, and they take different paths to the same
+millimetre. Bands had carried the identical hazard from the start and had never
+been unlucky enough to show it. Taking the remainder in *pixels* is exact,
+because a field is always a whole number of tiles.

@@ -36,10 +36,11 @@ pub enum PatternError {
     MirrorNeedsBlockLattice { index: usize, motif_id: String },
 
     #[error(
-        "this pattern has a striped or checked ground, which needs a block lattice; an oblique \
-         repeat steps the bands by part of a tile at every join and they stop running straight"
+        "this pattern has a ground, which needs a block lattice; an oblique repeat steps the \
+         ground by part of a tile at every join, so bands stop running straight and a grown \
+         texture meets an edge it was not grown against"
     )]
-    BandsNeedBlockLattice,
+    GroundNeedsBlockLattice,
 
     #[error(
         "placement {index} ('{motif_id}') uses palette slot {slot}, but the palette has {len} \

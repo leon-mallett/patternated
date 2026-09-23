@@ -140,6 +140,43 @@ export interface CloseOutcome {
 export const closeDocument = (discard: boolean) =>
   invoke<CloseOutcome>("close_document", { discard });
 
+/** The named regions of the reaction's parameter space.
+ *
+ *  Not styles layered on top of one model: each is a pair of rates, and the
+ *  difference between a spot and a maze is two thousandths. The names were
+ *  chosen from what the renders actually look like rather than from the
+ *  literature, whose rates are quoted for a different Laplacian and are dead
+ *  in this one. */
+export const GROWTHS = [
+  { id: "spots", label: "Spots" },
+  { id: "pebbles", label: "Pebbles" },
+  { id: "rings", label: "Rings" },
+  { id: "worms", label: "Worms" },
+  { id: "maze", label: "Maze" },
+  { id: "coral", label: "Coral" },
+] as const;
+
+/** A grown ground: two chemicals spreading across the tile and consuming each
+ *  other, quantised onto palette slots.
+ *
+ *  The one generator here with no lattice in it. A tossed layout still repeats
+ *  on one and the eye finds it; this has only the tile's own period. */
+export interface TextureSpec {
+  growth: string;
+  /** Cells across the tile — the pattern's *scale*, not its quality. Doubling
+   *  it does not resolve the same picture more finely, it grows twice as many
+   *  spots. */
+  cells: number;
+  /** How long to let it run. The field settles by about two thousand steps;
+   *  stopping short gives a rougher, more broken version of the same look. */
+  steps: number;
+  seed: number;
+  /** A colour per level, sparsest first. `null` is the fabric showing
+   *  through, which is how the same growth gives light-on-dark or
+   *  dark-on-light without needing two of everything. */
+  levels: Array<string | null>;
+}
+
 /** One band in the ground's sequence. */
 export interface GroundBand {
   width_mm: number;
@@ -155,6 +192,9 @@ export interface GroundBand {
  *  what gets stored, so there is no hidden flag for a reopened document to
  *  guess at — and guessing it wrong would double the reflection next edit. */
 export interface GroundSummary {
+  /** Which editor this ground belongs to. */
+  kind: "bands" | "texture";
+  texture: TextureSpec;
   bands: GroundBand[];
   direction: "vertical" | "horizontal" | "both";
   /** What to paint where two bands cross.
@@ -189,6 +229,12 @@ export interface BandState extends GroundSummary {
   ground_colours: number;
   palette: string[];
   lattice: string;
+  /** The share of the tile each texture level actually covers.
+   *
+   *  Worth showing: the thresholds are evenly spaced by concentration and a
+   *  field may not reach between two of them, so a colour can be paid for and
+   *  not printed. */
+  level_shares: number[];
 }
 
 /** Put a striped or checked ground under the pattern, or take it away.
@@ -203,6 +249,14 @@ export const setGround = (spec: GroundSpec) =>
  *
  *  Choosing one fills the sequence in; everything after that is editing rows,
  *  which is why a tartan needs no preset of its own. */
+export const DEFAULT_TEXTURE: TextureSpec = {
+  growth: "spots",
+  cells: 192,
+  steps: 2500,
+  seed: 1,
+  levels: [null, "#1f3d3a"],
+};
+
 export const GROUND_PRESETS: Array<{
   id: string;
   label: string;
@@ -213,6 +267,8 @@ export const GROUND_PRESETS: Array<{
     label: "Plain",
     make: () => ({
       bands: [],
+      kind: "bands",
+      texture: DEFAULT_TEXTURE,
       mirrored: false,
       direction: "both",
       crossings: "blend",
@@ -226,6 +282,8 @@ export const GROUND_PRESETS: Array<{
         { width_mm: 18, colour: ink },
         { width_mm: 18, colour: null },
       ],
+      kind: "bands",
+      texture: DEFAULT_TEXTURE,
       mirrored: false,
       direction: "vertical",
       crossings: "blend",
@@ -239,6 +297,8 @@ export const GROUND_PRESETS: Array<{
         { width_mm: 2, colour: ink },
         { width_mm: 22, colour: null },
       ],
+      kind: "bands",
+      texture: DEFAULT_TEXTURE,
       mirrored: false,
       direction: "vertical",
       crossings: "blend",
@@ -255,6 +315,8 @@ export const GROUND_PRESETS: Array<{
         { width_mm: 16, colour: ink },
         { width_mm: 16, colour: "#f2f0ea" },
       ],
+      kind: "bands",
+      texture: DEFAULT_TEXTURE,
       mirrored: false,
       direction: "both",
       crossings: "blend",
@@ -268,6 +330,8 @@ export const GROUND_PRESETS: Array<{
         { width_mm: 3, colour: ink },
         { width_mm: 40, colour: null },
       ],
+      kind: "bands",
+      texture: DEFAULT_TEXTURE,
       mirrored: false,
       direction: "both",
       crossings: "blend",
@@ -283,6 +347,8 @@ export const GROUND_PRESETS: Array<{
         { width_mm: 24, colour: "#1f4020" },
         { width_mm: 3, colour: "#c8a020" },
       ],
+      kind: "bands",
+      texture: DEFAULT_TEXTURE,
       mirrored: true,
       direction: "both",
       crossings: "blend",

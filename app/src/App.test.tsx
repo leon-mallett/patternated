@@ -27,6 +27,7 @@ import {
 import userEvent from "@testing-library/user-event";
 
 import { makeMotif, makeOpened, makePreview } from "./test/factories";
+import { DEFAULT_TEXTURE } from "./api";
 import type { GroundSpec, Opened, PaletteSized, Preview } from "./api";
 
 /** What the fake engine will answer with, rewritten per test. */
@@ -40,6 +41,7 @@ const engine = {
   closeCalls: [] as boolean[],
   grounds: [] as GroundSpec[],
   groundSlots: [3, 4],
+  levelShares: [0.7, 0.3],
 };
 
 vi.mock("./api", async (importOriginal) => {
@@ -82,6 +84,7 @@ vi.mock("./api", async (importOriginal) => {
           ? [...engine.opened.palette, "#9a8f7e", "#6b6154"]
           : engine.opened.palette,
         lattice: "block",
+        level_shares: engine.levelShares,
       };
     },
     setPaletteSize: async (colours: number) => {
@@ -131,6 +134,7 @@ beforeEach(() => {
   engine.closeCalls = [];
   engine.grounds = [];
   engine.groundSlots = [3, 4];
+  engine.levelShares = [0.7, 0.3];
   dialog.confirmed = true;
   dialog.chosen = "/patterns/cherries.json";
 });
@@ -297,6 +301,119 @@ describe("the preview", () => {
   });
 });
 
+/** The ground the engine was last sent.
+ *
+ *  A wait rather than a read. Ground edits are coalesced — growing a texture
+ *  is expensive enough that a drag would otherwise queue one simulation per
+ *  step — so the send lands a moment after the control moves. A test that read
+ *  it straight away would be asserting on the edit before last. */
+async function sentGround(): Promise<GroundSpec> {
+  const before = engine.grounds.length;
+  await waitFor(() => expect(engine.grounds.length).toBeGreaterThan(before - 1));
+  await waitFor(() => expect(engine.grounds.at(-1)).toBeTruthy());
+  return engine.grounds.at(-1)!;
+}
+
+describe("a grown ground", () => {
+  /** Switch the ground panel to the texture editor and wait for it. */
+  async function openTexture() {
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-kind"), "texture");
+    await screen.findByTestId("texture-growth");
+    await waitFor(() => expect(engine.grounds.at(-1)?.kind).toBe("texture"));
+    return user;
+  }
+
+  it("offers the texture editor instead of the band sequence", async () => {
+    // The two are alternatives, not layers: a pattern has one ground. Showing
+    // both editors would suggest otherwise.
+    const user = await openTexture();
+    expect(screen.queryByTestId("ground-preset")).toBeNull();
+    expect(screen.queryByTestId("ground-sequence")).toBeNull();
+    const sent = await sentGround();
+    expect(sent.kind).toBe("texture");
+    expect(sent.bands).toEqual([]);
+    expect(user).toBeTruthy();
+  });
+
+  it("sends the whole texture when one control changes", async () => {
+    // Same rebuild-from-scratch discipline as the band sequence: a change that
+    // sent only its own field would drop the rest of the parameters.
+    const user = await openTexture();
+    await user.selectOptions(screen.getByTestId("texture-growth"), "maze");
+
+    await waitFor(() => {
+      const last = engine.grounds.at(-1);
+      expect(last?.texture.growth).toBe("maze");
+      expect(last?.texture.cells).toBe(DEFAULT_TEXTURE.cells);
+      expect(last?.texture.levels.length).toBe(2);
+    });
+
+    fireEvent.change(screen.getByTestId("texture-cells"), {
+      target: { value: "96" },
+    });
+    await waitFor(() => {
+      const last = engine.grounds.at(-1);
+      expect(last?.texture.cells).toBe(96);
+      expect(last?.texture.growth).toBe("maze");
+    });
+  });
+
+  it("grows another of the same by moving the seed, not the parameters", async () => {
+    // The control a designer reaches for when the look is right and the
+    // arrangement is not. If it changed anything else it would not be that.
+    const user = await openTexture();
+    const before = engine.grounds.at(-1)!.texture;
+
+    await user.click(screen.getByTestId("texture-reseed"));
+
+    await waitFor(() => {
+      const after = engine.grounds.at(-1)!.texture;
+      expect(after.seed).not.toBe(before.seed);
+      expect({ ...after, seed: 0 }).toEqual({ ...before, seed: 0 });
+    });
+  });
+
+  it("turns a level between ink and fabric", async () => {
+    // How the same growth gives light-on-dark as well as dark-on-light. The
+    // fabric is the absence of a colour, not a colour that matches it.
+    const user = await openTexture();
+    expect((await sentGround()).texture.levels[0]).toBeNull();
+
+    await user.click(screen.getByTestId("level-fabric-0"));
+    await waitFor(() =>
+      expect(engine.grounds.at(-1)?.texture.levels[0]).not.toBeNull(),
+    );
+
+    await user.click(screen.getByTestId("level-fabric-1"));
+    await waitFor(() =>
+      expect(engine.grounds.at(-1)?.texture.levels[1]).toBeNull(),
+    );
+  });
+
+  it("adds tones and reports what each one covered", async () => {
+    // The share comes from the field the engine grew, not from the request:
+    // a level can fall between two concentrations the field never reaches.
+    const user = await openTexture();
+    engine.levelShares = [0.6, 0.39, 0.01];
+
+    await user.click(screen.getByTestId("texture-add-level"));
+
+    await waitFor(() => expect(engine.grounds.at(-1)?.texture.levels.length).toBe(3));
+    const rows = await screen.findByTestId("texture-levels");
+    expect(rows.textContent).toContain("60%");
+    expect(rows.textContent).toContain("1%");
+  });
+
+  it("goes back to bands without carrying the texture into them", async () => {
+    const user = await openTexture();
+    await user.selectOptions(screen.getByTestId("ground-kind"), "bands");
+    await screen.findByTestId("ground-preset");
+    await waitFor(() => expect(engine.grounds.at(-1)?.kind).toBe("bands"));
+    expect(screen.queryByTestId("texture-growth")).toBeNull();
+  });
+});
+
 describe("the ground", () => {
   it("fills the sequence from a preset and shows it row by row", async () => {
     const user = await openApp();
@@ -309,7 +426,7 @@ describe("the ground", () => {
     expect(screen.getByTestId("band-width-0")).toBeTruthy();
     expect(screen.getByTestId("band-width-1")).toBeTruthy();
     expect(screen.queryByTestId("band-width-2")).toBeNull();
-    expect(engine.grounds.at(-1)?.direction).toBe("both");
+    expect((await sentGround()).direction).toBe("both");
   });
 
   it("sends the whole sequence when one row changes", async () => {
@@ -367,7 +484,7 @@ describe("the ground", () => {
     await user.selectOptions(screen.getByTestId("ground-preset"), "tartan");
 
     await screen.findByTestId("ground-sequence");
-    const spec = engine.grounds.at(-1);
+    const spec = await sentGround();
     expect(spec?.bands.length).toBe(4);
     expect(spec?.mirrored).toBe(true);
     expect(spec?.crossings).toBe("blend");
@@ -407,6 +524,21 @@ describe("the ground", () => {
     expect(await screen.findByTestId("ground-crossings")).toBeTruthy();
   });
 
+  it("does not lose a reflection to a quick second edit", async () => {
+    // Texture edits are coalesced because growing one is expensive. Bands are
+    // not, and this is why: `mirrored` is a one-shot instruction answered by
+    // returning the reflected sequence, so coalescing a reflect with the edit
+    // that followed would cancel the pending send and the reflection would
+    // never reach the engine at all.
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-preset"), "tartan");
+    fireEvent.change(screen.getByTestId("band-width-0"), { target: { value: "9" } });
+
+    await waitFor(() =>
+      expect(engine.grounds.some((g) => g.mirrored)).toBe(true),
+    );
+  });
+
   it("says how many colours the ground costs", async () => {
     const user = await openApp();
     engine.groundSlots = [3, 4, 5, 6, 7, 8];
@@ -440,6 +572,6 @@ describe("the ground", () => {
     await user.selectOptions(screen.getByTestId("ground-preset"), "none");
 
     await waitFor(() => expect(screen.queryByTestId("ground-sequence")).toBeNull());
-    expect(engine.grounds.at(-1)?.bands).toEqual([]);
+    await waitFor(() => expect(engine.grounds.at(-1)?.bands).toEqual([]));
   });
 });

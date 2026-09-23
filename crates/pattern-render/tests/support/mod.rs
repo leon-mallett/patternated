@@ -14,8 +14,8 @@
 use glam::Vec2;
 use motif_ingest::{matte, quantise, trim, MatteMethod, SourceImage};
 use pattern_core::{
-    scatter, Bands, Color, Lattice, Mirror, Motif, MotifWeight, Palette, Pattern, Placement,
-    ScatterParams,
+    scatter, Bands, Color, Growth, Lattice, Mirror, Motif, MotifWeight, Palette, Pattern,
+    Placement, ScatterParams, Texture,
 };
 use pattern_render::MotifBank;
 use tiny_skia::{Paint, PathBuilder, Pixmap, Transform};
@@ -151,6 +151,27 @@ pub fn straddling_pattern(lattice: Lattice) -> Pattern {
 pub fn checked_pattern(lattice: Lattice, seed: u64) -> Pattern {
     let mut pattern = scattered_pattern(lattice, seed, 0.2);
     pattern.ground = Some(Bands::check(9.0, 8.0, 1, 2).into());
+    pattern
+}
+
+/// The same scatter over a grown ground instead of a drawn one.
+///
+/// Small and short by fixture standards — a texture is the expensive thing the
+/// engine does, and these tests grow one for every lattice and resolution they
+/// walk. 64 cells is still four times the sampling of the render underneath it
+/// at the resolutions used here, so the seam being tested is a real seam.
+pub fn textured_pattern(lattice: Lattice, seed: u64) -> Pattern {
+    let mut pattern = scattered_pattern(lattice, seed, 0.2);
+    pattern.ground = Some(
+        Texture {
+            growth: Growth::Spots,
+            cells: 64,
+            steps: 600,
+            seed,
+            levels: vec![pattern_core::GROUND_SLOT, 1],
+        }
+        .into(),
+    );
     pattern
 }
 

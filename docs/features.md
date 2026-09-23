@@ -286,6 +286,76 @@ gap.
 `examples/generated-motifs/bananas-tartan.json` is a Black Watch sett — four
 threads, ten crossings, six of them new colours, reflected about its pivots.
 
+## Grounds are a kind, not a setting
+
+Bands were the first ground, and the shape they needed turned out to be
+general: a function from a point in the tile to a slot, or to nothing where the
+fabric shows. `Pattern.ground` is therefore an enum tagged by `kind` in the
+document, and everything below it — palette resolution, colourways, colour
+counting, seamlessness, the block-lattice requirement — stops knowing which
+kind it has.
+
+Sampling one takes a step: `Ground::laid_over(tile_w, tile_h)`. No ground can
+be sampled without knowing its tile. For bands that means fitting the sequence
+so it closes; for a texture it means growing the field. Making it one call
+means neither can be skipped by accident.
+
+One ground, not a stack of them — nothing has yet wanted a texture underneath a
+check.
+
+## Grown grounds
+
+Reaction–diffusion: two notional chemicals spread across the tile and consume
+each other, and after a few thousand steps the field has organised itself into
+spots, or worms, or a maze. Nobody positions anything.
+
+It is here because it produces the one thing placement cannot: **pattern with
+no visible grid in it.** A tossed layout still repeats on a lattice and the eye
+finds it. A grown field has no lattice to find, only the tile's own period.
+
+**Why it tiles.** The field lives on a torus. Every Laplacian reads its
+neighbours modulo the grid, so the left column's left neighbour *is* the right
+column — not a copy of it, the same cells in the same simulation. Seamless by
+construction rather than repaired at the edges, which is the only thing that
+could work: a blend or a mirror at the seam would be visible precisely because
+the interior has no straight lines to hide it in. Like bands, it needs a block
+lattice, and for a sharper version of the same reason — a half-drop tile's
+right edge is not the edge the field was grown against.
+
+**Six growths**, each a pair of feed and kill rates: Spots, Pebbles, Rings,
+Worms, Maze, Coral. The interesting band of that parameter space is a sliver a
+few thousandths wide and either side of it the field dies flat or floods solid,
+so these are coordinates known to sit inside it. They were found by sweeping
+and looking, not by citation — the rates in the usual write-ups are quoted
+against a different Laplacian and are dead in this one.
+
+**Scale, not quality.** The cell count is how large the spots are, not how
+finely they are resolved: doubling it grows twice as many, half the size.
+
+**Levels.** A colour per band of concentration, sparsest first, any of which
+may be the fabric showing through — which is how the same growth gives
+light-on-dark as well as dark-on-light without needing two of everything. The
+thresholds are evenly spaced by concentration rather than by area, because a
+spot print is mostly empty and splitting it into equal shares would turn a
+scatter of dots into half the fabric. The cost is that a level can come out
+covering nothing, so the interface reports what each one actually covered.
+
+**Sampled between the cells, not at them.** The grown field keeps its
+concentrations and the levels are cut on the way out, so an edge is where the
+concentration crosses a threshold rather than where one cell ends. A cell is
+about 1.5 mm at a typical scale — eighteen pixels at print resolution — so
+classifying per cell would put an eighteen-pixel staircase along every curve,
+and the cell count would be controlling the raggedness of the edges rather than
+the size of the shapes. The interpolation wraps like everything else, which is
+what keeps the join invisible at the one place it would be easiest to see.
+
+**Parameters, never the field.** A 192-cell grid is 36,864 floats, larger than
+every other part of a document put together. The document stores the growth,
+the scale, the steps and the seed.
+
+`examples/generated-motifs/bananas-texture.json` is bananas tossed over a grown
+pebble ground — two layers, both repeating, one of them with no lattice in it.
+
 ## Scatter placement
 
 Many motifs distributed across the tile to read as hand-strewn, by toroidal

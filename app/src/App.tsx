@@ -32,9 +32,12 @@ import {
   LAYOUTS,
   COLOUR_COUNTS,
   GROUND_PRESETS,
+  GROWTHS,
+  DEFAULT_TEXTURE,
   setGround,
   type GroundBand,
   type GroundSpec,
+  type TextureSpec,
   closeDocument,
   setPaletteSize,
   LAYOUT_GROUPS,
@@ -71,11 +74,14 @@ export default function App() {
   const [motifs, setMotifs] = useState<MotifEntry[] | null>(null);
   const [dropped, setDropped] = useState<string[]>([]);
   const [ground, setGroundState] = useState<GroundSpec>({
+    kind: "bands",
+    texture: DEFAULT_TEXTURE,
     bands: [],
     mirrored: false,
     direction: "both",
     crossings: "blend",
   });
+  const [levelShares, setLevelShares] = useState<number[]>([]);
   const [bandSlots, setBandSlots] = useState<number[]>([]);
   const [groundColours, setGroundColours] = useState(0);
   const [jitter, setJitter] = useState(20);
@@ -127,6 +133,7 @@ export default function App() {
 
   const paneRef = useRef<HTMLDivElement | null>(null);
   const timer = useRef<number | undefined>(undefined);
+  const groundTimer = useRef<number | undefined>(undefined);
   // Guards against a slow render landing after a newer one and overwriting it.
   const generation = useRef(0);
 
@@ -354,8 +361,31 @@ export default function App() {
   /// Its own path rather than `changePalette`, because a ground rewrites the
   /// tail of the palette and can move the repeat back onto a block lattice.
   /// Colours go down and slots come back: the editor never handles a slot.
-  async function changeGround(spec: GroundSpec) {
+  function changeGround(spec: GroundSpec) {
     setGroundState(spec);
+    window.clearTimeout(groundTimer.current);
+
+    // A texture is shown at once and sent when the hand stops. Growing one is
+    // a few hundred milliseconds where everything else in a render is a few,
+    // so a drag across the scale slider would otherwise queue a simulation per
+    // step and arrive at the last one long after the mouse did.
+    //
+    // Bands are not coalesced, and that is deliberate rather than an
+    // oversight. `mirrored` is a one-shot instruction that the engine answers
+    // by returning the reflected sequence; coalescing a reflect with the edit
+    // that followed it would cancel the pending send and lose the reflection
+    // entirely. Bands are cheap, so there is nothing to win by risking it.
+    if (spec.kind === "texture") {
+      groundTimer.current = window.setTimeout(
+        () => void sendGround(spec),
+        SETTLE_MS,
+      );
+    } else {
+      void sendGround(spec);
+    }
+  }
+
+  async function sendGround(spec: GroundSpec) {
     try {
       const state = await setGround(spec);
       // The engine's answer is the state, not the request: reflecting is
@@ -365,6 +395,7 @@ export default function App() {
       setGroundState({ ...state, mirrored: false });
       setBandSlots(state.slots);
       setGroundColours(state.ground_colours);
+      setLevelShares(state.level_shares);
       setPalette((p) => ({
         palette: state.palette,
         colourways: p?.colourways ?? [],
@@ -922,6 +953,32 @@ export default function App() {
 
         <Group title="Ground">
           <label>
+            Made of
+            <select
+              data-testid="ground-kind"
+              value={ground.kind}
+              onChange={(e) =>
+                changeGround(
+                  e.target.value === "texture"
+                    ? { ...ground, kind: "texture", bands: [] }
+                    : { ...ground, kind: "bands" },
+                )
+              }
+            >
+              <option value="bands">Bands — stripes, checks, tartans</option>
+              <option value="texture">Texture — grown, no lattice in it</option>
+            </select>
+          </label>
+
+          {ground.kind === "texture" ? (
+            <TextureEditor
+              texture={ground.texture}
+              shares={levelShares}
+              onChange={(texture) => changeGround({ ...ground, texture })}
+            />
+          ) : (
+          <>
+          <label>
             Pattern
             <select
               data-testid="ground-preset"
@@ -1086,6 +1143,8 @@ export default function App() {
               </p>
             </>
           )}
+          </>
+          )}
         </Group>
 
         <Group title="Motif colours">
@@ -1216,6 +1275,159 @@ function nearestColourIndex(colours: number): number {
     if (Math.abs(c - colours) < Math.abs(COLOUR_COUNTS[best] - colours)) best = i;
   });
   return best;
+}
+
+/// The reaction-diffusion ground: what it grows, how big, and in what.
+///
+/// Fewer controls than the band editor because there is less to decide: the
+/// growth and the scale do most of the work, and the seed is the only way to
+/// ask for *a different one of the same*. No lattice control, because a grown
+/// ground has no lattice in it.
+function TextureEditor({
+  texture,
+  shares,
+  onChange,
+}: {
+  texture: TextureSpec;
+  /// What each level covered, measured from the field the engine actually
+  /// grew. Shown because a level can come out empty — the thresholds are
+  /// evenly spaced by concentration, and the field may not reach between two
+  /// of them.
+  shares: number[];
+  onChange: (t: TextureSpec) => void;
+}) {
+  const levels = texture.levels;
+  return (
+    <>
+      <label>
+        Growth
+        <select
+          data-testid="texture-growth"
+          value={texture.growth}
+          onChange={(e) => onChange({ ...texture, growth: e.target.value })}
+        >
+          {GROWTHS.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <Slider
+        label="Scale"
+        testId="texture-cells"
+        value={texture.cells}
+        min={48}
+        max={384}
+        step={16}
+        format={(v) => `${v} cells across`}
+        ends={["Large", "Fine"]}
+        onChange={(cells) => onChange({ ...texture, cells })}
+      />
+
+      <Slider
+        label="Settle"
+        testId="texture-steps"
+        value={texture.steps}
+        min={200}
+        max={6000}
+        step={100}
+        format={(v) => `${v} steps`}
+        ends={["Broken", "Settled"]}
+        onChange={(steps) => onChange({ ...texture, steps })}
+      />
+
+      <div className="sequence" data-testid="texture-levels">
+        {levels.map((colour, i) => (
+          <div className="sequence-row" key={i}>
+            <label className="swatch-edit">
+              <input
+                type="color"
+                data-testid={`level-colour-${i}`}
+                value={colour ?? "#ffffff"}
+                disabled={colour === null}
+                onChange={(e) =>
+                  onChange({
+                    ...texture,
+                    levels: levels.map((c, j) =>
+                      j === i ? e.target.value : c,
+                    ),
+                  })
+                }
+              />
+              <span
+                className="swatch"
+                style={{
+                  background: colour ?? "transparent",
+                  borderStyle: colour === null ? "dashed" : "solid",
+                }}
+              />
+            </label>
+            <span className="hint">
+              {i === 0 ? "Sparsest" : i === levels.length - 1 ? "Densest" : "Between"}
+              {shares[i] !== undefined && ` · ${Math.round(shares[i] * 100)}%`}
+            </span>
+            <button
+              type="button"
+              data-testid={`level-fabric-${i}`}
+              onClick={() =>
+                onChange({
+                  ...texture,
+                  levels: levels.map((c, j) =>
+                    j === i ? (c === null ? "#3c78a0" : null) : c,
+                  ),
+                })
+              }
+            >
+              {colour === null ? "Ink" : "Fabric"}
+            </button>
+            {levels.length > 2 && (
+              <button
+                type="button"
+                data-testid={`level-remove-${i}`}
+                onClick={() =>
+                  onChange({
+                    ...texture,
+                    levels: levels.filter((_, j) => j !== i),
+                  })
+                }
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="row">
+        <button
+          type="button"
+          data-testid="texture-add-level"
+          disabled={levels.length >= 5}
+          onClick={() =>
+            onChange({ ...texture, levels: [...levels, "#3c78a0"] })
+          }
+        >
+          Add a tone
+        </button>
+        <button
+          type="button"
+          data-testid="texture-reseed"
+          onClick={() => onChange({ ...texture, seed: texture.seed + 1 })}
+        >
+          Grow another
+        </button>
+      </div>
+
+      <p className="hint">
+        Two chemicals spreading across the tile and consuming each other. It is
+        grown on a torus, so it meets itself at every edge — which is also why
+        it needs a block repeat. Nothing is placed, so there is no lattice in
+        it for the eye to find.
+      </p>
+    </>
+  );
 }
 
 function Slider({

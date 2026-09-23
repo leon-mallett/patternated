@@ -17,6 +17,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::bands::Bands;
+use crate::texture::{SlotField, Texture};
 
 /// A generated layer between the fabric and the motifs.
 ///
@@ -27,29 +28,31 @@ use crate::bands::Bands;
 pub enum Ground {
     /// Stripes, checks, ginghams and tartans.
     Bands(Bands),
+    /// Reaction–diffusion: spots, worms, mazes and coral.
+    Texture(Texture),
 }
 
 impl Ground {
-    /// The slot painted at a point, or `None` where the fabric shows.
+    /// Put this ground on a tile of a given size, ready to be sampled.
     ///
-    /// Expects a ground already fitted to the tile — see [`Self::fitted_to`].
-    #[must_use]
-    pub fn slot_at(&self, x_mm: f32, y_mm: f32) -> Option<u8> {
-        match self {
-            Ground::Bands(b) => b.slot_at(x_mm, y_mm),
-        }
-    }
-
-    /// The same ground, adjusted so that whatever it lays down closes over the
-    /// tile.
+    /// The step exists because no ground can be sampled without knowing the
+    /// tile it lives in. Bands have to be fitted to it or every join carries
+    /// the remainder of the sequence; a texture has to be *grown* on it, which
+    /// is a simulation rather than an adjustment. Both obligations are the same
+    /// obligation — whatever a ground lays down has to close over the tile —
+    /// and making it one call means neither can be skipped by accident.
     ///
-    /// Every ground has some version of this obligation, because every ground
-    /// lives in the tile and repeats with it. For bands it is the band widths;
-    /// for anything sampled on a grid it will be the grid.
+    /// Growing a texture is the expensive thing this crate does. Call it once
+    /// per render, not once per pixel.
     #[must_use]
-    pub fn fitted_to(&self, tile_width_mm: f32, tile_height_mm: f32) -> Self {
+    pub fn laid_over(&self, tile_width_mm: f32, tile_height_mm: f32) -> LaidGround {
         match self {
-            Ground::Bands(b) => Ground::Bands(b.fitted_to(tile_width_mm, tile_height_mm).0),
+            Ground::Bands(b) => LaidGround::Bands(b.fitted_to(tile_width_mm, tile_height_mm).0),
+            Ground::Texture(t) => LaidGround::Texture {
+                field: t.grown(tile_width_mm, tile_height_mm),
+                tile_width_mm,
+                tile_height_mm,
+            },
         }
     }
 
@@ -58,6 +61,7 @@ impl Ground {
     pub fn is_empty(&self) -> bool {
         match self {
             Ground::Bands(b) => b.is_empty(),
+            Ground::Texture(t) => t.is_empty(),
         }
     }
 
@@ -66,6 +70,7 @@ impl Ground {
     pub fn slots_used(&self) -> Vec<u8> {
         match self {
             Ground::Bands(b) => b.slots_used(),
+            Ground::Texture(t) => t.slots_used(),
         }
     }
 
@@ -78,6 +83,58 @@ impl Ground {
     pub fn as_bands(&self) -> Option<&Bands> {
         match self {
             Ground::Bands(b) => Some(b),
+            Ground::Texture(_) => None,
+        }
+    }
+
+    /// The texture, when that is what this is.
+    #[must_use]
+    pub fn as_texture(&self) -> Option<&Texture> {
+        match self {
+            Ground::Texture(t) => Some(t),
+            Ground::Bands(_) => None,
+        }
+    }
+}
+
+/// A ground already laid on a tile, and therefore samplable.
+///
+/// Not serialised and not stored. A document keeps the parameters; this is what
+/// they mean once a tile size is known, and it is thrown away with the render.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LaidGround {
+    Bands(Bands),
+    Texture {
+        field: SlotField,
+        tile_width_mm: f32,
+        tile_height_mm: f32,
+    },
+}
+
+impl LaidGround {
+    /// The slot painted at a point in the tile, or `None` where the fabric
+    /// shows through.
+    #[must_use]
+    pub fn slot_at(&self, x_mm: f32, y_mm: f32) -> Option<u8> {
+        match self {
+            LaidGround::Bands(b) => b.slot_at(x_mm, y_mm),
+            LaidGround::Texture {
+                field,
+                tile_width_mm,
+                tile_height_mm,
+            } => field.slot_at(x_mm, y_mm, *tile_width_mm, *tile_height_mm),
+        }
+    }
+
+    /// The share of the tile a slot actually covers, where that is knowable.
+    ///
+    /// `None` for bands, whose coverage is arithmetic on widths rather than a
+    /// count of cells, and which nothing has needed.
+    #[must_use]
+    pub fn share_of(&self, slot: u8) -> Option<f32> {
+        match self {
+            LaidGround::Bands(_) => None,
+            LaidGround::Texture { field, .. } => Some(field.share_of(slot)),
         }
     }
 }
@@ -88,6 +145,12 @@ impl From<Bands> for Ground {
     }
 }
 
+impl From<Texture> for Ground {
+    fn from(texture: Texture) -> Self {
+        Ground::Texture(texture)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -95,9 +158,11 @@ mod tests {
 
     #[test]
     fn a_ground_answers_for_whatever_kind_it_is() {
-        let g = Ground::from(Bands::check(10.0, 10.0, 2, 3));
+        let g = Ground::from(Bands::check(10.0, 10.0, 2, 3)).laid_over(240.0, 180.0);
         assert_eq!(g.slot_at(5.0, 5.0), Some(3), "both bands: the crossing");
         assert_eq!(g.slot_at(15.0, 15.0), None, "both gaps: the fabric");
+
+        let g = Ground::from(Bands::check(10.0, 10.0, 2, 3));
         assert_eq!(g.slots_used(), vec![2, 3]);
         assert!(!g.is_empty());
     }
@@ -114,8 +179,9 @@ mod tests {
         // makes it, and a ground that forgot to pass the call through would
         // tile with a band of the wrong width at every join.
         let g = Ground::from(Bands::check(9.0, 8.0, 1, 2));
-        let fitted = g.fitted_to(240.0, 180.0);
-        let bands = fitted.as_bands().expect("still bands");
+        let LaidGround::Bands(bands) = g.laid_over(240.0, 180.0) else {
+            unreachable!("bands stay bands");
+        };
         let period = Bands::period(&bands.vertical);
         let repeats = 240.0 / period;
         assert!(

@@ -8,8 +8,10 @@ pub mod mockup;
 pub mod motif;
 mod pixel_lattice;
 
+use std::sync::{Mutex, OnceLock};
+
 use glam::{IVec2, Vec2};
-use pattern_core::{wrap_into_tile, Color, Motif, Pattern, PatternError};
+use pattern_core::{wrap_into_tile, Color, Ground, LaidGround, Motif, Pattern, PatternError};
 use thiserror::Error;
 use tiny_skia::{FilterQuality, Pixmap, PixmapPaint, PremultipliedColorU8, Transform};
 
@@ -518,7 +520,7 @@ fn fill_bands(
 
     // Fitted to the tile, or whatever the ground lays down is cut at the
     // tile's edge and every join carries the remainder.
-    let ground = ground.fitted_to(pattern.tile_size_mm.x, pattern.tile_size_mm.y);
+    let ground = laid_ground(ground, pattern.tile_size_mm.x, pattern.tile_size_mm.y);
     let (w, h) = (target.width(), target.height());
     let scale = Vec2::new(
         pattern.tile_size_mm.x / pl.tile_px.x.max(1) as f32,
@@ -527,11 +529,24 @@ fn fill_bands(
 
     // Sampled at the middle of each pixel, so a band edge falling between two
     // pixels lands on one of them rather than on neither.
+    //
+    // In the tile's own coordinates, not the canvas's. A field of nine tiles is
+    // 720 mm across where a tile is 240, and an `f32` carries about six decimal
+    // digits: asking for the slot at 683.1693 mm and at 3.1693 mm is the same
+    // question but not the same arithmetic, and near a boundary the two answers
+    // can differ. Taking the remainder in *pixels* first is exact, because a
+    // field is always a whole number of tiles.
+    //
+    // Found by a grown ground disagreeing with itself in ninety pixels at 150
+    // DPI. Bands had the same hazard and had never been unlucky enough to show
+    // it.
+    let tile_px = (pl.tile_px.x.max(1) as u32, pl.tile_px.y.max(1) as u32);
     let pixels = target.pixels_mut();
     for y in 0..h {
+        let y_mm = ((y % tile_px.1) as f32 + 0.5) * scale.y;
         for x in 0..w {
-            let Some(slot) = ground.slot_at((x as f32 + 0.5) * scale.x, (y as f32 + 0.5) * scale.y)
-            else {
+            let x_mm = ((x % tile_px.0) as f32 + 0.5) * scale.x;
+            let Some(slot) = ground.slot_at(x_mm, y_mm) else {
                 continue;
             };
             let Some(Color { r, g, b }) = pattern.palette.resolve(slot) else {
@@ -543,6 +558,44 @@ fn fill_bands(
         }
     }
     Ok(())
+}
+
+/// Lay a ground on a tile, remembering the last one.
+///
+/// [`Ground::laid_over`] is a pure function of a ground and a tile size, and
+/// for a grown ground it is the most expensive thing in a render — a few
+/// hundred milliseconds where everything else is a few. A design session
+/// renders the same ground over and over: a preview per control change, a
+/// field and a tile, a proof, an export. Growing it again each time is work
+/// with a known answer.
+///
+/// One entry, because the caller that matters is an interface showing one
+/// pattern. A memo of a pure function changes nothing about what comes out;
+/// the same ground and the same tile give the same field whether it was just
+/// computed or is being handed back.
+///
+/// Public so that a caller which needs to *look at* the field — how much of
+/// the tile each level covered, say — shares the memo with the render that
+/// follows it rather than growing a second copy of the same thing.
+#[must_use]
+pub fn laid_ground(ground: &Ground, width_mm: f32, height_mm: f32) -> LaidGround {
+    type Memo = Mutex<Option<(Ground, f32, f32, LaidGround)>>;
+    static LAST: OnceLock<Memo> = OnceLock::new();
+
+    let cell = LAST.get_or_init(|| Mutex::new(None));
+    // A poisoned lock means another thread panicked mid-render. There is
+    // nothing to recover and nothing to corrupt — the worst case is growing
+    // the field again — so take the value through the poison rather than
+    // propagating a panic out of a render.
+    let mut held = cell.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((g, w, h, laid)) = held.as_ref() {
+        if g == ground && *w == width_mm && *h == height_mm {
+            return laid.clone();
+        }
+    }
+    let laid = ground.laid_over(width_mm, height_mm);
+    *held = Some((ground.clone(), width_mm, height_mm, laid.clone()));
+    laid
 }
 
 /// Where a sprite's leading edge goes, given where its centre should land.

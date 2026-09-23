@@ -1200,9 +1200,45 @@ struct GroundBand {
     colour: Option<String>,
 }
 
-/// A whole ground, as the sequence editor sends it.
+/// A reaction-diffusion ground, as its panel sends it.
+#[derive(Deserialize, Serialize, Clone)]
+struct TextureSpec {
+    /// One of [`pattern_core::Growth`], kebab-cased.
+    growth: String,
+    /// Cells across the tile: the pattern's scale, not its quality.
+    cells: u32,
+    steps: u32,
+    seed: u64,
+    /// A colour per level, lowest concentration first. `None` is the fabric,
+    /// showing through — the same convention as a gap in a band sequence, and
+    /// the reason a design can be light-on-dark or dark-on-light without
+    /// needing two of every growth.
+    levels: Vec<Option<String>>,
+}
+
+impl Default for TextureSpec {
+    fn default() -> Self {
+        let t = pattern_core::Texture::default();
+        Self {
+            growth: "spots".into(),
+            cells: t.cells,
+            steps: t.steps,
+            seed: t.seed,
+            levels: vec![None, Some("#1f3d3a".into())],
+        }
+    }
+}
+
+/// A whole ground, as its editor sends it.
 #[derive(Deserialize)]
 struct GroundSpec {
+    /// "bands" or "texture". Defaulted so that the band editor, which predates
+    /// there being a second kind, can go on sending what it always sent.
+    #[serde(default = "bands_kind")]
+    kind: String,
+    #[serde(default)]
+    texture: TextureSpec,
+    #[serde(default)]
     bands: Vec<GroundBand>,
     /// Reflect the sequence about its end bands, which is how a tartan sett is
     /// written. See [`pattern_core::Bands::reflected`].
@@ -1223,6 +1259,10 @@ fn blend() -> String {
     "blend".into()
 }
 
+fn bands_kind() -> String {
+    "bands".into()
+}
+
 /// A ground as the editor needs it back.
 ///
 /// Every field is read off the bands themselves. `mirrored` is deliberately
@@ -1232,23 +1272,40 @@ fn blend() -> String {
 /// edit.
 #[derive(Serialize)]
 struct GroundSummary {
+    kind: String,
     bands: Vec<GroundBand>,
     direction: String,
     crossings: String,
+    texture: TextureSpec,
 }
 
 fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
+    let blank = || GroundSummary {
+        kind: bands_kind(),
+        bands: Vec::new(),
+        direction: "both".into(),
+        crossings: blend(),
+        texture: TextureSpec::default(),
+    };
+    if let Some(t) = pattern
+        .ground
+        .as_ref()
+        .filter(|g| !g.is_empty())
+        .and_then(pattern_core::Ground::as_texture)
+    {
+        return GroundSummary {
+            kind: "texture".into(),
+            texture: texture_spec(t, &pattern.palette),
+            ..blank()
+        };
+    }
     let Some(b) = pattern
         .ground
         .as_ref()
         .filter(|g| !g.is_empty())
         .and_then(pattern_core::Ground::as_bands)
     else {
-        return GroundSummary {
-            bands: Vec::new(),
-            direction: "both".into(),
-            crossings: blend(),
-        };
+        return blank();
     };
     let sequence = if b.vertical.is_empty() {
         &b.horizontal
@@ -1256,6 +1313,8 @@ fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
         &b.vertical
     };
     GroundSummary {
+        kind: bands_kind(),
+        texture: TextureSpec::default(),
         bands: sequence
             .iter()
             .map(|band| GroundBand {
@@ -1338,6 +1397,17 @@ struct BandState {
     ground_colours: usize,
     palette: Vec<String>,
     lattice: String,
+    /// Which kind of ground this is, echoed back so the interface shows the
+    /// editor for what was stored rather than for what was last asked for.
+    kind: String,
+    texture: TextureSpec,
+    /// The share of the tile each texture level actually covers.
+    ///
+    /// Reported rather than assumed because a reaction can leave a level
+    /// empty: the thresholds are evenly spaced by concentration, and a field
+    /// may simply not reach between two of them. A colour that covers nothing
+    /// is one the design is paying a screen for and not printing.
+    level_shares: Vec<f32>,
 }
 
 /// Put a striped or checked ground under the pattern, or take it away.
@@ -1358,12 +1428,58 @@ fn set_ground(app: State<'_, App>, spec: GroundSpec) -> Reply<BandState> {
     ground_state(session, &spec)
 }
 
+/// Read a stored texture back as its panel describes it.
+fn texture_spec(t: &pattern_core::Texture, palette: &pattern_core::Palette) -> TextureSpec {
+    TextureSpec {
+        growth: growth_name(t.growth).into(),
+        cells: t.cells,
+        steps: t.steps,
+        seed: t.seed,
+        levels: t
+            .levels
+            .iter()
+            .map(|slot| {
+                (*slot != pattern_core::GROUND_SLOT)
+                    .then(|| palette.resolve(*slot).map(|c| hex(&c)))
+                    .flatten()
+            })
+            .collect(),
+    }
+}
+
+/// The wire name of a growth, and back.
+///
+/// Spelled out in both directions rather than round-tripped through serde, so
+/// that the interface's vocabulary is visible here instead of being an
+/// accident of how the enum happens to be derived.
+fn growth_name(growth: pattern_core::Growth) -> &'static str {
+    use pattern_core::Growth::*;
+    match growth {
+        Spots => "spots",
+        Pebbles => "pebbles",
+        Rings => "rings",
+        Worms => "worms",
+        Maze => "maze",
+        Coral => "coral",
+    }
+}
+
+fn growth_named(name: &str) -> Option<pattern_core::Growth> {
+    pattern_core::Growth::all()
+        .into_iter()
+        .find(|g| growth_name(*g) == name)
+}
+
 /// The work behind [`set_ground`], as a plain function so it can be tested
 /// without a running app.
 fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> {
     let base = ground_base(session);
     let mut colors = session.document.pattern.palette.colors.clone();
     colors.truncate(base);
+
+    if spec.kind == "texture" {
+        return apply_texture(session, &spec.texture, colors);
+    }
 
     let painted: Vec<GroundBand> = spec
         .bands
@@ -1462,6 +1578,59 @@ fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> 
     Ok(())
 }
 
+/// Grow a texture under the pattern, allocating one slot per distinct level
+/// colour at the tail of the palette.
+///
+/// The same slot discipline as the band editor and for the same reason: the
+/// ground's colours are the tail, so rebuilding one is a truncate and an
+/// append. The palette arrives already truncated.
+fn apply_texture(
+    session: &mut Session,
+    spec: &TextureSpec,
+    mut colors: Vec<pattern_core::Color>,
+) -> anyhow::Result<()> {
+    let growth = growth_named(&spec.growth)
+        .ok_or_else(|| anyhow::anyhow!("'{}' is not a growth this engine has", spec.growth))?;
+
+    let mut slot_of: Vec<(String, u8)> = Vec::new();
+    let mut levels = Vec::with_capacity(spec.levels.len());
+    for level in &spec.levels {
+        let Some(hex) = level else {
+            levels.push(pattern_core::GROUND_SLOT);
+            continue;
+        };
+        if let Some((_, slot)) = slot_of.iter().find(|(c, _)| c == hex) {
+            levels.push(*slot);
+            continue;
+        }
+        let colour =
+            parse_hex(hex).ok_or_else(|| anyhow::anyhow!("'{hex}' is not a hex colour"))?;
+        let slot = colors.len() as u8;
+        colors.push(colour);
+        slot_of.push((hex.clone(), slot));
+        levels.push(slot);
+    }
+
+    let texture = pattern_core::Texture {
+        growth,
+        cells: spec.cells.clamp(16, pattern_core::MOST_CELLS),
+        steps: spec.steps.clamp(1, pattern_core::MOST_STEPS),
+        seed: spec.seed,
+        levels,
+    };
+
+    session.document.pattern.palette = pattern_core::Palette::new(colors);
+    session.document.pattern.ground = (!texture.is_empty()).then(|| texture.into());
+
+    // Grown on a torus, so it meets itself only where the lattice steps by
+    // whole tiles.
+    let tile = session.document.pattern.tile_size_mm;
+    session.document.pattern.lattice = Lattice::block(tile);
+
+    session.document.pattern.validate()?;
+    Ok(())
+}
+
 /// Describe the ground as it now stands.
 fn ground_state(session: &Session, spec: &GroundSpec) -> Reply<BandState> {
     let pattern = &session.document.pattern;
@@ -1496,6 +1665,38 @@ fn ground_state(session: &Session, spec: &GroundSpec) -> Reply<BandState> {
         })
         .unwrap_or_default();
 
+    let texture = pattern
+        .ground
+        .as_ref()
+        .and_then(pattern_core::Ground::as_texture);
+    let level_shares = texture.map_or_else(Vec::new, |t| {
+        // Through the renderer's memo, not `Texture::grown`, so that looking
+        // at the field costs nothing beyond the render that is about to use
+        // the same one.
+        let field = pattern_render::laid_ground(
+            pattern.ground.as_ref().expect("a texture is a ground"),
+            pattern.tile_size_mm.x,
+            pattern.tile_size_mm.y,
+        );
+        let share_of = |slot: u8| field.share_of(slot).unwrap_or(0.0);
+        t.levels
+            .iter()
+            .map(|slot| {
+                if *slot == pattern_core::GROUND_SLOT {
+                    // Slot 0 is absence, and a field records absence as
+                    // absence rather than as slot 0 — asking after its share
+                    // would report nothing wherever the fabric shows.
+                    //
+                    // Summed over the *distinct* painted slots: a colour used
+                    // for two levels covers its share once, not twice.
+                    1.0 - t.slots_used().iter().map(|s| share_of(*s)).sum::<f32>()
+                } else {
+                    share_of(*slot)
+                }
+            })
+            .collect()
+    });
+
     Ok(BandState {
         slots: slots.clone(),
         bands: shown,
@@ -1504,6 +1705,16 @@ fn ground_state(session: &Session, spec: &GroundSpec) -> Reply<BandState> {
         ground_colours: slots.len(),
         palette: pattern.palette.colors.iter().map(hex).collect(),
         lattice: lattice_name(&pattern.lattice, pattern.tile_size_mm),
+        kind: if texture.is_some() {
+            "texture".into()
+        } else {
+            spec.kind.clone()
+        },
+        texture: texture.map_or_else(
+            || spec.texture.clone(),
+            |t| texture_spec(t, &pattern.palette),
+        ),
+        level_shares,
     })
 }
 
@@ -1909,7 +2120,152 @@ mod tests {
             mirrored: false,
             direction: direction.into(),
             crossings: blend(),
+            kind: bands_kind(),
+            texture: TextureSpec::default(),
         }
+    }
+
+    fn texture_spec_of(growth: &str, levels: &[Option<&str>]) -> GroundSpec {
+        GroundSpec {
+            kind: "texture".into(),
+            texture: TextureSpec {
+                growth: growth.into(),
+                cells: 48,
+                steps: 400,
+                seed: 4,
+                levels: levels.iter().map(|c| c.map(str::to_string)).collect(),
+            },
+            ..spec(&[], "both")
+        }
+    }
+
+    #[test]
+    fn a_texture_takes_slots_at_the_tail_like_any_other_ground() {
+        // The slot discipline is what lets either kind of ground be rebuilt by
+        // truncating and appending. If a texture allocated anywhere else, the
+        // next edit would take a motif's colour with it.
+        let mut s = session();
+        let before = s.document.pattern.palette.len();
+        apply_ground(&mut s, &texture_spec_of("spots", &[None, Some("#204080")])).expect("texture");
+
+        let palette = &s.document.pattern.palette;
+        assert_eq!(palette.len(), before + 1, "one colour, one slot");
+        assert_eq!(
+            palette.resolve(before as u8).map(|c| hex(&c)).as_deref(),
+            Some("#204080"),
+            "and it is the last slot"
+        );
+
+        // Rebuilt, not accumulated: a second edit replaces the tail.
+        apply_ground(&mut s, &texture_spec_of("maze", &[None, Some("#802040")])).expect("texture");
+        assert_eq!(s.document.pattern.palette.len(), before + 1);
+    }
+
+    #[test]
+    fn a_texture_comes_back_as_the_panel_sent_it() {
+        let mut s = session();
+        apply_ground(
+            &mut s,
+            &texture_spec_of("rings", &[None, Some("#204080"), Some("#0b1020")]),
+        )
+        .expect("texture");
+
+        let summary = ground_summary(&s.document.pattern);
+        assert_eq!(summary.kind, "texture");
+        assert_eq!(summary.texture.growth, "rings");
+        assert_eq!(summary.texture.cells, 48);
+        assert_eq!(summary.texture.seed, 4);
+        assert_eq!(
+            summary.texture.levels,
+            vec![
+                None,
+                Some("#204080".to_string()),
+                Some("#0b1020".to_string())
+            ],
+            "the fabric comes back as absence, not as a colour"
+        );
+        assert!(summary.bands.is_empty(), "a texture has no band sequence");
+    }
+
+    #[test]
+    fn switching_kind_takes_the_other_ground_away() {
+        // Otherwise a pattern would carry a band sequence it no longer shows,
+        // and the palette would keep paying for its colours.
+        let mut s = session();
+        apply_ground(
+            &mut s,
+            &spec(&[(10.0, Some("#3c78a0")), (10.0, Some("#e8eef2"))], "both"),
+        )
+        .expect("bands");
+        let with_bands = s.document.pattern.palette.len();
+
+        apply_ground(&mut s, &texture_spec_of("spots", &[None, Some("#204080")])).expect("texture");
+        assert!(s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .unwrap()
+            .as_bands()
+            .is_none());
+        assert!(
+            s.document.pattern.palette.len() < with_bands,
+            "the check's three tones should have gone with it"
+        );
+    }
+
+    #[test]
+    fn a_texture_that_paints_nothing_is_no_ground_at_all() {
+        let mut s = session();
+        apply_ground(&mut s, &texture_spec_of("spots", &[None, None])).expect("texture");
+        assert!(s.document.pattern.ground.is_none());
+    }
+
+    #[test]
+    fn an_unknown_growth_is_refused_rather_than_guessed() {
+        let mut s = session();
+        let e = apply_ground(
+            &mut s,
+            &texture_spec_of("paisley", &[None, Some("#204080")]),
+        )
+        .expect_err("should refuse");
+        assert!(e.to_string().contains("paisley"), "{e}");
+    }
+
+    #[test]
+    fn a_texture_reports_what_each_level_actually_covered() {
+        // The number a designer needs and cannot get from the parameters: a
+        // level can fall between two concentrations the field never reaches,
+        // and then it is a screen paid for and not printed.
+        let mut s = session();
+        let request = texture_spec_of("spots", &[None, Some("#204080")]);
+        apply_ground(&mut s, &request).expect("texture");
+        let state = ground_state(&s, &request).expect("state");
+
+        assert_eq!(state.level_shares.len(), 2);
+        let total: f32 = state.level_shares.iter().sum();
+        assert!(
+            (total - 1.0).abs() < 1e-3,
+            "the levels should account for the whole tile, not {total}"
+        );
+        assert!(
+            state.level_shares[1] > 0.01,
+            "spots covered {:.3} of the tile",
+            state.level_shares[1]
+        );
+    }
+
+    #[test]
+    fn a_texture_moves_the_repeat_onto_a_block_lattice() {
+        // Grown on a torus, so its left edge is its right edge. A half-drop
+        // says those edges do not meet, and the engine refuses the pair.
+        let mut s = session();
+        s.document.pattern.lattice = Lattice::half_drop(s.document.pattern.tile_size_mm);
+        apply_ground(&mut s, &texture_spec_of("worms", &[None, Some("#204080")])).expect("texture");
+        assert_eq!(
+            lattice_name(&s.document.pattern.lattice, s.document.pattern.tile_size_mm),
+            "block"
+        );
     }
 
     #[test]

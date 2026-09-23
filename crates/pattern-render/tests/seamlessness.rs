@@ -11,7 +11,9 @@ mod support;
 
 use pattern_core::Lattice;
 use pattern_render::{render_field, render_field_direct, render_tile};
-use support::{bank, checked_pattern, scattered_pattern, straddling_pattern, TILE};
+use support::{
+    bank, checked_pattern, scattered_pattern, straddling_pattern, textured_pattern, TILE,
+};
 
 /// Positions where the two renders differ, and by how much at the worst.
 fn differences(a: &tiny_skia::Pixmap, b: &tiny_skia::Pixmap) -> (usize, u8) {
@@ -257,6 +259,50 @@ fn a_checked_ground_tiles_with_no_seam() {
             );
         }
     }
+}
+
+#[test]
+fn a_grown_ground_tiles_with_no_seam() {
+    // The claim a reaction-diffusion ground rests on, checked the same way as
+    // every other kind: the field is grown on a torus, so its left column's
+    // neighbour is its right column, and a printer laying tiles side by side
+    // should find them continuous.
+    //
+    // Worth its own test rather than trusting the unit one. That test proves
+    // the *field* wraps; this proves nothing between the field and the pixels
+    // loses it — the sampling, the fitting, the rounding of millimetres to a
+    // cell index at a tile edge.
+    let bank = bank();
+    for dpi in [96.0, 150.0] {
+        let pattern = textured_pattern(Lattice::block(TILE), 5);
+        let tiled = render_field(&pattern, &bank, dpi, 3, 3).expect("field should render");
+        let direct = render_field_direct(&pattern, &bank, dpi, 3, 3).expect("field should render");
+
+        let (count, worst) = differences(&tiled, &direct);
+        assert_eq!(
+            count, 0,
+            "{count} pixels differ (worst {worst}) at {dpi} DPI"
+        );
+    }
+}
+
+#[test]
+fn a_grown_ground_actually_put_something_on_the_fabric() {
+    // Kept because the test above passes trivially against a ground that
+    // painted nothing, and a Gray-Scott field outside its live region paints
+    // nothing — the failure mode is a blank tile, not a broken one.
+    let pattern = textured_pattern(Lattice::block(TILE), 5);
+    let texture = pattern
+        .ground
+        .as_ref()
+        .and_then(pattern_core::Ground::as_texture)
+        .expect("the fixture has a texture");
+    let share = texture.grown(TILE.x, TILE.y).share_of(1);
+    assert!(
+        (0.05..0.95).contains(&share),
+        "the grown ground covers {:.1}% of the tile",
+        share * 100.0
+    );
 }
 
 #[test]
