@@ -13,6 +13,11 @@ use pattern_core::{wrap_into_tile, Color, Motif, Pattern, PatternError};
 use thiserror::Error;
 use tiny_skia::{FilterQuality, Pixmap, PixmapPaint, PremultipliedColorU8, Transform};
 
+/// Re-exported because this crate's public API hands back its types: a caller
+/// receiving a `Pixmap` has to be able to name one, and naming it through a
+/// dependency of their own risks two versions of the same crate.
+pub use tiny_skia;
+
 pub use mockup::{render_mockup, Garment, Mockup};
 pub use motif::{resolve, MotifBank};
 pub use pixel_lattice::PixelLattice;

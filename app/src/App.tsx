@@ -454,13 +454,13 @@ export default function App() {
                 </option>
               ))}
             </select>
-            <button onClick={onNew}>New…</button>
-            <button onClick={onOpen}>Open…</button>
-            <button onClick={onSave}>Save</button>
-            <button onClick={onClose} title="Back to the start screen">
+            <button data-testid="new" onClick={onNew}>New…</button>
+            <button data-testid="open" onClick={onOpen}>Open…</button>
+            <button data-testid="save" onClick={onSave}>Save</button>
+            <button data-testid="close" onClick={onClose} title="Back to the start screen">
               Close
             </button>
-            <button className="primary" onClick={() => setExporting(true)}>
+            <button className="primary" data-testid="export" onClick={() => setExporting(true)}>
               Export…
             </button>
           </div>
@@ -546,6 +546,7 @@ export default function App() {
           <label className="check">
             <input
               type="checkbox"
+              data-testid="prevent-overlap"
               checked={preventOverlap}
               onChange={(e) => setPreventOverlap(e.target.checked)}
             />
@@ -560,7 +561,7 @@ export default function App() {
           </p>
           <label>
             Arrangement
-            <select value={layout} onChange={(e) => setLayout(e.target.value)}>
+            <select data-testid="layout" value={layout} onChange={(e) => setLayout(e.target.value)}>
               {LAYOUT_GROUPS.map((group) => (
                 <optgroup key={group} label={group}>
                   {LAYOUTS.filter((l) => l.group === group).map((l) => (
@@ -586,6 +587,7 @@ export default function App() {
             <>
               <NumberField
                 label="Rows"
+            testId="grid-rows"
                 unit="per tile"
                 value={gridRows}
                 min={1}
@@ -595,6 +597,7 @@ export default function App() {
               />
               <NumberField
                 label="Columns"
+            testId="grid-cols"
                 unit="per tile"
                 value={gridCols}
                 min={1}
@@ -620,7 +623,7 @@ export default function App() {
         <Group title="Repeat">
           <label>
             Type
-            <select value={lattice} onChange={(e) => setLattice(e.target.value)}>
+            <select data-testid="repeat-type" value={lattice} onChange={(e) => setLattice(e.target.value)}>
               <option value="half-drop">Half-drop</option>
               <option value="block">Block</option>
               <option value="brick">Brick</option>
@@ -629,6 +632,7 @@ export default function App() {
           </label>
           <NumberField
             label="Width"
+            testId="tile-width"
             unit="mm"
             value={tile[0]}
             min={20}
@@ -638,6 +642,7 @@ export default function App() {
           />
           <NumberField
             label="Height"
+            testId="tile-height"
             unit="mm"
             value={tile[1]}
             min={20}
@@ -653,6 +658,7 @@ export default function App() {
             <Group title="Scatter">
               <Slider
                 label="Coverage"
+                testId="coverage"
                 value={density}
                 min={0.02}
                 max={0.9}
@@ -662,6 +668,7 @@ export default function App() {
               />
               <Slider
                 label="Rotation"
+            testId="rotation"
                 value={jitter}
                 min={0}
                 max={180}
@@ -673,6 +680,7 @@ export default function App() {
                 <>
                   <Slider
                     label="On the lines"
+            testId="on-the-lines"
                     value={onAxisShare}
                     min={0}
                     max={1}
@@ -692,6 +700,7 @@ export default function App() {
               )}
               <Slider
                 label="Smallest"
+            testId="smallest"
                 value={scale[0]}
                 min={0.4}
                 max={1}
@@ -715,6 +724,7 @@ export default function App() {
               <Group title="Variation">
                 <Slider
                   label="Rotation"
+                  testId="grid-rotation"
                   value={jitter}
                   min={0}
                   max={180}
@@ -777,6 +787,7 @@ export default function App() {
         <Group title="Colours">
           <Slider
             label="Palette"
+            testId="palette-size"
             value={colourIndex}
             min={0}
             max={COLOUR_COUNTS.length - 1}
@@ -930,11 +941,23 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function Readout({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Readout({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  // The anchor is derived from the label rather than passed in. A readout has
+  // no behaviour to get wrong, so the handle only has to be findable — and one
+  // derived from what it already says cannot drift out of step with it.
+  const id = `readout-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
     <div className="readout-item" title={hint}>
       <dt>{label}</dt>
-      <dd>{value}</dd>
+      <dd data-testid={id}>{value}</dd>
     </div>
   );
 }
@@ -962,6 +985,7 @@ function Slider({
   format,
   onChange,
   ends,
+  testId,
 }: {
   label: string;
   value: number;
@@ -973,6 +997,9 @@ function Slider({
   /** Names for the two ends, where the scale is a register rather than a
    *  quantity and the numbers alone do not say what it is for. */
   ends?: [string, string];
+  /** Stable handle for tests. See `docs/test-strategy.md`; anchors go on the
+   *  control itself, not its wrapper, so a test drives what a person drives. */
+  testId?: string;
 }) {
   return (
     <label className="slider">
@@ -982,6 +1009,7 @@ function Slider({
       </span>
       <input
         type="range"
+        data-testid={testId}
         value={value}
         min={min}
         max={max}
@@ -1006,6 +1034,7 @@ function NumberField({
   max,
   step,
   onChange,
+  testId,
 }: {
   label: string;
   unit: string;
@@ -1014,6 +1043,7 @@ function NumberField({
   max: number;
   step: number;
   onChange: (v: number) => void;
+  testId?: string;
 }) {
   return (
     <label className="number">
@@ -1022,6 +1052,7 @@ function NumberField({
       </span>
       <input
         type="number"
+        data-testid={testId}
         value={value}
         min={min}
         max={max}

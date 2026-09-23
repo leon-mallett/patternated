@@ -32,9 +32,74 @@ pub fn encode(bytes: &[u8]) -> String {
     out
 }
 
+/// The other direction, so a test can look at the picture the interface was
+/// actually handed.
+///
+/// Test-only on purpose: nothing the app does needs to decode, and a function
+/// that exists solely to be exercised by its own tests should say so rather
+/// than sit in the public surface looking load-bearing.
+///
+/// Checked against the same RFC vectors as the encoder, in both directions,
+/// rather than only against a round trip — a round trip agrees with itself
+/// whatever two mirrored mistakes it contains.
+#[cfg(test)]
+#[must_use]
+pub fn decode(text: &str) -> Option<Vec<u8>> {
+    let value = |c: u8| -> Option<u32> { ALPHABET.iter().position(|a| *a == c).map(|i| i as u32) };
+
+    let mut out = Vec::with_capacity(text.len() / 4 * 3);
+    let symbols: Vec<u8> = text.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
+    if !symbols.len().is_multiple_of(4) {
+        return None;
+    }
+
+    for quad in symbols.chunks(4) {
+        let padding = quad.iter().filter(|c| **c == b'=').count();
+        if padding > 2 {
+            return None;
+        }
+        let mut n = 0u32;
+        for c in quad {
+            n = (n << 6) | if *c == b'=' { 0 } else { value(*c)? };
+        }
+        out.push((n >> 16) as u8);
+        if padding < 2 {
+            out.push((n >> 8) as u8);
+        }
+        if padding < 1 {
+            out.push(n as u8);
+        }
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn decodes_the_rfc_examples_too() {
+        // The same vectors read the other way, so the decoder is pinned to the
+        // standard rather than to this file's encoder.
+        for (bytes, text) in [
+            (&b""[..], ""),
+            (&b"f"[..], "Zg=="),
+            (&b"fo"[..], "Zm8="),
+            (&b"foo"[..], "Zm9v"),
+            (&b"foob"[..], "Zm9vYg=="),
+            (&b"fooba"[..], "Zm9vYmE="),
+            (&b"foobar"[..], "Zm9vYmFy"),
+        ] {
+            assert_eq!(decode(text).as_deref(), Some(bytes), "decoding {text}");
+        }
+        assert_eq!(decode("AP+A").as_deref(), Some(&[0x00, 0xff, 0x80][..]));
+    }
+
+    #[test]
+    fn refuses_what_is_not_base64() {
+        assert_eq!(decode("Zg="), None, "length is not a multiple of four");
+        assert_eq!(decode("Zg!="), None, "not an alphabet symbol");
+    }
 
     #[test]
     fn matches_the_rfc_examples() {

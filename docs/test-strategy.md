@@ -105,6 +105,58 @@ the log already records, arriving from the opposite direction: not a fixture
 that contains the signal too cleanly, but one that cannot contain it at all.
 These tests draw the same cherry at illustration resolution instead.
 
+## Asserting that something was drawn
+
+An engine whose output is a picture has to assert on the picture. Until
+2026-09-23 the only thing the app layer said about its preview was that the
+base64 was non-empty — which a picture of plain background passes, along with
+every other signal: the command succeeds, the dimensions are right, the PNG
+decodes, the placement count is correct.
+
+Four assertions now stand between the app and a preview that is quietly wrong,
+in increasing order of what they catch:
+
+1. **Something is drawn.** More than 5% of the preview is not the ground
+   colour.
+2. **It changes when the pattern does.** Rerolling the seed changes the bytes,
+   and so does raising the coverage — the second because a preview regenerated
+   from the seed alone could still ignore its parameters.
+3. **It changes in the direction the control promises.** Four times the
+   coverage puts measurably more ink down. A preview wired to the wrong
+   parameter would pass (2) and fail this.
+4. **It shows the colours the palette names.** Set slot 1 to magenta and find
+   magenta in the image. Ties the picture to the palette rather than to itself.
+
+All four are made on the **decoded base64** the interface actually receives,
+not on the pixmap before encoding, because the encoding and the base64 are part
+of what could be wrong. The decoder that makes that possible is checked against
+the RFC's own vectors in both directions rather than by round-tripping the
+encoder — a round trip agrees with itself whatever two mirrored mistakes it
+contains.
+
+**Verified to fail.** A renderer that resolves every sprite and draws none of
+them breaks all four, and leaves the width, colour-count and window-size
+assertions passing. That is the shape of the hazard: the signals you would
+naturally check all agree that nothing is wrong.
+
+## Anchors for driving the interface
+
+Every control a test would drive carries a `data-testid` — the repeat fields,
+the layout and repeat-type menus, every slider, the overlap checkbox, and the
+New, Open, Save, Close and Export buttons. Readouts carry one derived from
+their own label, since a readout has no behaviour to get wrong and a handle
+derived from what it already says cannot drift out of step with it.
+
+They are added because the house playbook is blunt that they are nearly free
+while building and a tax to retrofit — and this project had accrued that tax,
+having built a palette control, a damask slider, a close dialogue and a grid
+warning with no way to drive any of them.
+
+What anchors cannot do is show a layout. The playbook records a desktop UI
+verified entirely through the accessibility tree — every control present,
+labelled and correctly enabled — whose right-hand panel was clipping its own
+buttons. An anchor-driven test proves behaviour; only a picture proves layout.
+
 ## The supporting levels
 
 **Unit tests in `pattern-core`** cover the lattice, wrapping, palette resolution

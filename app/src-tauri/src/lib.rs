@@ -1870,6 +1870,133 @@ mod tests {
         assert_eq!(preview.placements, s.document.pattern.placements.len());
     }
 
+    /// The preview as pixels, decoded back from what the interface receives.
+    ///
+    /// Asserting on the bytes the app actually hands over, rather than on the
+    /// pixmap before encoding, because the encoding and the base64 are part of
+    /// what could be wrong.
+    fn preview_pixels(preview: &Preview) -> pattern_render::tiny_skia::Pixmap {
+        let raw = base64::decode(&preview.png_base64).expect("preview should be valid base64");
+        pattern_render::tiny_skia::Pixmap::decode_png(&raw).expect("preview should be a PNG")
+    }
+
+    /// Share of the preview that is not the ground colour.
+    fn inked_share(preview: &Preview, session: &Session) -> f32 {
+        let image = preview_pixels(preview);
+        let ground = session
+            .document
+            .pattern
+            .palette
+            .ground()
+            .expect("palette has a ground");
+        let inked = image
+            .pixels()
+            .iter()
+            .filter(|p| {
+                let c = p.demultiply();
+                (c.red(), c.green(), c.blue()) != (ground.r, ground.g, ground.b)
+            })
+            .count();
+        inked as f32 / image.pixels().len() as f32
+    }
+
+    #[test]
+    fn the_preview_has_something_drawn_on_it() {
+        // A renderer that draws nothing is indistinguishable from a fast one,
+        // and every signal agrees that all is well: the command succeeds, the
+        // dimensions are right, the PNG decodes, the placement count is
+        // correct. The only assertion this file used to make on the image was
+        // that its base64 was non-empty, which a picture of plain background
+        // passes.
+        let mut s = session();
+        let p = params(0.3, 1);
+        write_params(&mut s, &p).expect("apply");
+        let preview = render(&s, &p).expect("render");
+
+        let inked = inked_share(&preview, &s);
+        assert!(
+            inked > 0.05,
+            "only {:.1}% of the preview is anything but the ground colour",
+            inked * 100.0
+        );
+    }
+
+    #[test]
+    fn the_preview_changes_when_the_pattern_does() {
+        // The failure the test above cannot see: a preview frozen on its first
+        // frame. It is not blank, the dimensions are right, and it looks
+        // entirely correct in a screenshot — it is simply the wrong picture.
+        let mut s = session();
+        let mut p = params(0.3, 1);
+        write_params(&mut s, &p).expect("apply");
+        let first = render(&s, &p).expect("render").png_base64;
+
+        p.seed = 20260923;
+        write_params(&mut s, &p).expect("apply");
+        let reseeded = render(&s, &p).expect("render").png_base64;
+        assert_ne!(
+            first, reseeded,
+            "rerolling the seed did not change the preview"
+        );
+
+        // And to a change that is not the seed, since a preview could be
+        // regenerated from the seed alone and still ignore its parameters.
+        p.seed = 1;
+        p.density = 0.6;
+        write_params(&mut s, &p).expect("apply");
+        let denser = render(&s, &p).expect("render").png_base64;
+        assert_ne!(
+            first, denser,
+            "raising the coverage did not change the preview"
+        );
+    }
+
+    #[test]
+    fn more_coverage_puts_more_ink_on_the_preview() {
+        // Stronger than "the bytes differ": the picture has to change in the
+        // direction the control promises. A preview wired to the wrong
+        // parameter would still differ.
+        let mut s = session();
+        let mut p = params(0.15, 4);
+        write_params(&mut s, &p).expect("apply");
+        let sparse = inked_share(&render(&s, &p).expect("render"), &s);
+
+        p.density = 0.6;
+        write_params(&mut s, &p).expect("apply");
+        let dense = inked_share(&render(&s, &p).expect("render"), &s);
+
+        assert!(
+            dense > sparse * 1.5,
+            "coverage 0.15 inked {:.1}% and 0.6 inked {:.1}%",
+            sparse * 100.0,
+            dense * 100.0
+        );
+    }
+
+    #[test]
+    fn the_preview_shows_the_colours_the_palette_names() {
+        // Ties the image to the palette rather than to itself. A preview that
+        // ignored a colourway would pass every assertion above.
+        let mut s = session();
+        let p = params(0.3, 1);
+        write_params(&mut s, &p).expect("apply");
+
+        let magenta = pattern_core::Color::new(255, 0, 144);
+        s.document.pattern.palette =
+            pattern_core::with_colour(&s.document.pattern.palette, 1, magenta);
+        let preview = render(&s, &p).expect("render");
+
+        let image = preview_pixels(&preview);
+        let found = image.pixels().iter().any(|q| {
+            let c = q.demultiply();
+            (c.red(), c.green(), c.blue()) == (magenta.r, magenta.g, magenta.b)
+        });
+        assert!(
+            found,
+            "slot 1 was set to magenta and none of it reached the preview"
+        );
+    }
+
     #[test]
     fn the_preview_reports_the_colours_a_printer_would_charge_for() {
         let mut s = session();
