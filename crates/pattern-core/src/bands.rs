@@ -108,6 +108,33 @@ impl Bands {
         }
     }
 
+    /// A sequence reflected about its two end bands.
+    ///
+    /// Most tartan setts are written this way: the threadcount runs from one
+    /// pivot to the other, and the full repeat is that sequence followed by
+    /// itself reversed with **both pivots left out**, so neither end band is
+    /// doubled. `A B C D` repeats as `A B C D C B`, not `A B C D D C B A`.
+    ///
+    /// Worth its own function and its own test because the off-by-one is
+    /// invisible: doubling the pivots gives a sett that is still symmetrical,
+    /// still tiles, and is simply the wrong tartan.
+    #[must_use]
+    pub fn reflected(sequence: &[Band]) -> Vec<Band> {
+        if sequence.len() < 3 {
+            return sequence.to_vec();
+        }
+        let mut out = sequence.to_vec();
+        out.extend(
+            sequence
+                .iter()
+                .rev()
+                .skip(1)
+                .take(sequence.len() - 2)
+                .copied(),
+        );
+        out
+    }
+
     /// Whether anything is painted at all.
     #[must_use]
     pub fn is_empty(&self) -> bool {
@@ -335,6 +362,46 @@ mod tests {
         let (fitted, _) = b.fitted_to(240.0, 180.0);
         let period = Bands::period(&fitted.vertical);
         assert!((period - 240.0).abs() < 1e-3, "one repeat fills the tile");
+    }
+
+    #[test]
+    fn a_reflected_sett_does_not_double_its_pivots() {
+        // The off-by-one that gives a sett which is still symmetrical, still
+        // tiles, and is the wrong tartan.
+        let seq: Vec<Band> = [1u8, 2, 3, 4].iter().map(|s| Band::new(10.0, *s)).collect();
+        let slots: Vec<u8> = Bands::reflected(&seq).iter().map(|b| b.slot).collect();
+        assert_eq!(slots, vec![1, 2, 3, 4, 3, 2]);
+    }
+
+    #[test]
+    fn reflecting_a_short_sequence_leaves_it_alone() {
+        // Two bands reflected about both of them is the two bands. Reflecting
+        // anyway would repeat the sequence rather than mirror it.
+        for n in 0..3 {
+            let seq: Vec<Band> = (0..n).map(|i| Band::new(10.0, i as u8 + 1)).collect();
+            assert_eq!(Bands::reflected(&seq), seq, "length {n}");
+        }
+    }
+
+    #[test]
+    fn a_reflected_sett_is_symmetrical_about_its_pivots() {
+        // The property the rule exists for, checked rather than assumed: read
+        // the repeat forwards from the first pivot and backwards from it, and
+        // the colours agree.
+        let seq: Vec<Band> = [1u8, 2, 3, 4, 5]
+            .iter()
+            .map(|s| Band::new(10.0, *s))
+            .collect();
+        let full = Bands::reflected(&seq);
+        let n = full.len();
+        for i in 1..n {
+            assert_eq!(
+                full[i].slot,
+                full[n - i].slot,
+                "band {i} should mirror band {}",
+                n - i
+            );
+        }
     }
 
     #[test]

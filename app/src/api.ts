@@ -14,9 +14,9 @@ export interface Opened {
   palette: string[];
   /** Colours the design is quantised onto, ground included. */
   palette_colours: number;
-  band_style: string;
-  band_width_mm: number;
-  band_gap_mm: number;
+  /** The ground as the sequence editor needs it, so reopening a document
+   *  shows the bands it has rather than an empty editor. */
+  ground: GroundSummary;
   band_slots: number[];
   colourways: string[];
   active_colourway: string | null;
@@ -140,37 +140,155 @@ export interface CloseOutcome {
 export const closeDocument = (discard: boolean) =>
   invoke<CloseOutcome>("close_document", { discard });
 
-/** The striped and checked grounds, as a designer names them.
+/** One band in the ground's sequence. */
+export interface GroundBand {
+  width_mm: number;
+  /** `null` is a gap — the fabric showing. Expressed as the absence of a
+   *  colour rather than a colour that happens to match, so recolouring the
+   *  fabric takes the gaps with it. */
+  colour: string | null;
+}
+
+/** A ground as it comes back.
  *
- *  Two numbers cover all of them — a band width and a gap — so a pinstripe is
- *  a stripe with a thin band rather than a style of its own. What differs is
- *  which directions are painted and what a crossing resolves to. */
-export const BAND_STYLES = [
-  { id: "none", label: "Plain" },
-  { id: "stripe", label: "Stripe" },
-  { id: "band", label: "Bands across" },
-  { id: "check", label: "Check" },
-  { id: "windowpane", label: "Windowpane" },
-] as const;
+ *  No `mirrored`: reflecting is applied once and the reflected sequence is
+ *  what gets stored, so there is no hidden flag for a reopened document to
+ *  guess at — and guessing it wrong would double the reflection next edit. */
+export interface GroundSummary {
+  bands: GroundBand[];
+  direction: "vertical" | "horizontal" | "both";
+  /** What to paint where two bands cross.
+   *
+   *  `blend` is the woven answer and the default — half the threads at a
+   *  crossing are each colour, and a thread crossing itself stays itself.
+   *  `overprint` multiplies, which is what a second pass of ink does.
+   *  `across` adds nothing: the across-band wins, and it is the fewest
+   *  colours to print. */
+  crossings: "blend" | "overprint" | "across";
+}
+
+/** A whole ground, as the sequence editor sends it. */
+export interface GroundSpec extends GroundSummary {
+  /** Reflect the sequence about its end bands, which is how a tartan sett is
+   *  written: `A B C D` becomes `A B C D C B`, neither pivot doubled.
+   *
+   *  A one-shot instruction, not a stored mode: the reflected sequence comes
+   *  back as the sequence, and the editor shows the rows it produced. */
+  mirrored: boolean;
+}
 
 /** The ground after a change. */
-export interface BandState {
+export interface BandState extends GroundSummary {
   style: string;
   width_mm: number;
   gap_mm: number;
   /** The slots the bands paint with, so their swatches can sit beside the
    *  control rather than lost among the motif colours. */
   slots: number[];
+  /** Colours this ground puts on the fabric, crossings included. */
+  ground_colours: number;
   palette: string[];
   lattice: string;
 }
 
 /** Put a striped or checked ground under the pattern, or take it away.
  *
- *  Its own command because it can add colours to the palette, which `apply`
- *  never does. */
-export const setBands = (style: string, widthMm: number, gapMm: number) =>
-  invoke<BandState>("set_bands", { style, widthMm, gapMm });
+ *  Its own command because it rewrites the tail of the palette, which `apply`
+ *  never does. Colours go in and slots are allocated behind it, so the editor
+ *  never has to know a palette slot exists. */
+export const setGround = (spec: GroundSpec) =>
+  invoke<BandState>("set_ground", { spec });
+
+/** Starting points for the sequence editor, not modes.
+ *
+ *  Choosing one fills the sequence in; everything after that is editing rows,
+ *  which is why a tartan needs no preset of its own. */
+export const GROUND_PRESETS: Array<{
+  id: string;
+  label: string;
+  make: (ink: string) => GroundSpec;
+}> = [
+  {
+    id: "none",
+    label: "Plain",
+    make: () => ({
+      bands: [],
+      mirrored: false,
+      direction: "both",
+      crossings: "blend",
+    }),
+  },
+  {
+    id: "stripe",
+    label: "Stripe",
+    make: (ink) => ({
+      bands: [
+        { width_mm: 18, colour: ink },
+        { width_mm: 18, colour: null },
+      ],
+      mirrored: false,
+      direction: "vertical",
+      crossings: "blend",
+    }),
+  },
+  {
+    id: "pinstripe",
+    label: "Pinstripe",
+    make: (ink) => ({
+      bands: [
+        { width_mm: 2, colour: ink },
+        { width_mm: 22, colour: null },
+      ],
+      mirrored: false,
+      direction: "vertical",
+      crossings: "blend",
+    }),
+  },
+  {
+    id: "check",
+    label: "Check",
+    // Two *threads*, not a thread and a gap. A gap has nothing to blend with,
+    // so an ink and a gap give two tones; an ink and a pale thread give three,
+    // which is what makes a gingham a gingham.
+    make: (ink) => ({
+      bands: [
+        { width_mm: 16, colour: ink },
+        { width_mm: 16, colour: "#f2f0ea" },
+      ],
+      mirrored: false,
+      direction: "both",
+      crossings: "blend",
+    }),
+  },
+  {
+    id: "windowpane",
+    label: "Windowpane",
+    make: (ink) => ({
+      bands: [
+        { width_mm: 3, colour: ink },
+        { width_mm: 40, colour: null },
+      ],
+      mirrored: false,
+      direction: "both",
+      crossings: "blend",
+    }),
+  },
+  {
+    id: "tartan",
+    label: "Tartan",
+    make: () => ({
+      bands: [
+        { width_mm: 24, colour: "#1b2a4a" },
+        { width_mm: 4, colour: "#0b0b0b" },
+        { width_mm: 24, colour: "#1f4020" },
+        { width_mm: 3, colour: "#c8a020" },
+      ],
+      mirrored: true,
+      direction: "both",
+      crossings: "blend",
+    }),
+  },
+];
 
 export const openDocument = (path: string) =>
   invoke<Opened>("open_document", { path });

@@ -236,23 +236,55 @@ both the banana artwork over a banded ground.
 
 ### In the app
 
-A **Ground** control offers plain, stripe, bands across, check and windowpane,
-with a band width and a gap. Two numbers cover the family, so a pinstripe is a
-stripe with a thin band rather than a style of its own; what actually differs
-between the named grounds is which directions are painted and what a crossing
-resolves to.
+A **Ground** panel edits the sequence directly: a row per band, each with a
+colour and a width, with rows added, removed, or turned into gaps. The named
+grounds — stripe, pinstripe, check, windowpane, tartan — are **starting points
+that fill the sequence in**, not modes, which is why a tartan needs no special
+support: it is a longer sequence.
 
-The first ground asked for **borrows two palette slots**, shaded from the
-fabric's own colour rather than taken from a fixed list, so what appears first
-is a tone of the ground already chosen. They are ordinary slots — the swatch
-controls recolour them, a colourway carries them, and they count toward what a
-printer charges for — but their swatches sit beside the ground control rather
-than among the motif colours, where nobody would connect them to the stripes.
+**Colours go down and slots come back.** The editor names colours and the
+engine allocates palette slots behind it, so the interface never handles a
+slot. The ground owns the *tail* of the palette, so changing it is a truncate
+and an append rather than an index map that would have to stay in step with
+every other palette operation — and a crossing may only borrow a slot from
+within that tail, or the next rebuild would truncate away a motif's colour.
 
-Choosing a ground moves the repeat back to a block lattice, for the reason
-above. That is held in the parameter path rather than in the layout switch,
-because a document that places its motifs by hand never reaches the layout
-switch and can have a striped ground too.
+**Mirroring is applied once, not remembered.** "Mirror the sequence" writes the
+reflected bands into the list, so what is stored is the repeat and what is
+shown is the repeat. A remembered flag would have to be guessed at when a
+document was reopened, and guessing it wrong would reflect an
+already-reflected sett.
+
+Choosing a ground moves the repeat back to a block lattice. That is held in the
+parameter path rather than the layout switch, because a document that places
+its motifs by hand never reaches the layout switch and can have a striped
+ground too.
+
+### What happens where two bands cross
+
+Three answers, because there are three real behaviours:
+
+- **Blend** — the default, and what cloth does. Half the threads at a crossing
+  are each colour, so the result is their average, and **a thread crossing
+  itself stays itself**.
+- **Overprint** — multiply, which is what a second pass of translucent ink
+  does. Right for a design built from overlapping bands.
+- **Across-band wins** — nothing extra, and the fewest colours to print.
+
+This was got wrong first. Crossings multiplied to begin with, on the reasoning
+that a crossing is a second pass of ink, and the first tartan rendered came out
+**very nearly black** — multiplying navy by navy is far darker than navy.
+Correct for ink, wrong for cloth, and obvious in the render while invisible in
+the model.
+
+The same correction shows why a check needs **two threads rather than a thread
+and a gap**: a gap has nothing to blend with, so an ink and a gap give two
+tones, while an ink and a pale thread give three. That is what makes a gingham
+a gingham, and it is why the check preset writes a pale thread rather than a
+gap.
+
+`examples/generated-motifs/bananas-tartan.json` is a Black Watch sett — four
+threads, ten crossings, six of them new colours, reflected about its pivots.
 
 ## Scatter placement
 

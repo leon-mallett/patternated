@@ -1,0 +1,278 @@
+{
+  "motifs": [
+    {
+      "id": "peeled",
+      "file": "20-banana-peeled.png",
+      "natural_size_mm": [
+        40.0,
+        40.0
+      ],
+      "matte": "ExistingAlpha"
+    },
+    {
+      "id": "whole",
+      "file": "21-banana-whole.png",
+      "natural_size_mm": [
+        40.0,
+        40.0
+      ],
+      "matte": "ExistingAlpha"
+    },
+    {
+      "id": "bunch",
+      "file": "22-banana-bunch.png",
+      "natural_size_mm": [
+        40.0,
+        40.0
+      ],
+      "matte": "ExistingAlpha"
+    }
+  ],
+  "scatter": {
+    "density": 0.0001,
+    "prevent_overlap": true,
+    "rotation_jitter_deg": 30.0,
+    "scale_range": [
+      0.85,
+      1.15
+    ],
+    "mix": [
+      {
+        "motif_id": "whole",
+        "weight": 3.0
+      }
+    ],
+    "seed": 20260922
+  },
+  "pattern": {
+    "tile_size_mm": [
+      300.0,
+      225.0
+    ],
+    "lattice": {
+      "u": [
+        300.0,
+        0.0
+      ],
+      "v": [
+        0.0,
+        225.0
+      ]
+    },
+    "placements": [],
+    "palette": {
+      "colors": [
+        {
+          "r": 250,
+          "g": 246,
+          "b": 238
+        },
+        {
+          "r": 27,
+          "g": 42,
+          "b": 74
+        },
+        {
+          "r": 11,
+          "g": 11,
+          "b": 11
+        },
+        {
+          "r": 31,
+          "g": 64,
+          "b": 32
+        },
+        {
+          "r": 200,
+          "g": 160,
+          "b": 32
+        },
+        {
+          "r": 19,
+          "g": 26,
+          "b": 42
+        },
+        {
+          "r": 29,
+          "g": 53,
+          "b": 53
+        },
+        {
+          "r": 113,
+          "g": 101,
+          "b": 53
+        },
+        {
+          "r": 21,
+          "g": 37,
+          "b": 21
+        },
+        {
+          "r": 105,
+          "g": 85,
+          "b": 21
+        },
+        {
+          "r": 115,
+          "g": 112,
+          "b": 32
+        }
+      ]
+    },
+    "seed": 0,
+    "bands": {
+      "vertical": [
+        {
+          "width_mm": 24.0,
+          "slot": 1
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 1
+        },
+        {
+          "width_mm": 24.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 24.0,
+          "slot": 3
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 3.0,
+          "slot": 4
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 24.0,
+          "slot": 3
+        },
+        {
+          "width_mm": 24.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 1
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 2
+        }
+      ],
+      "horizontal": [
+        {
+          "width_mm": 24.0,
+          "slot": 1
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 1
+        },
+        {
+          "width_mm": 24.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 24.0,
+          "slot": 3
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 3.0,
+          "slot": 4
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 24.0,
+          "slot": 3
+        },
+        {
+          "width_mm": 24.0,
+          "slot": 2
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 1
+        },
+        {
+          "width_mm": 4.0,
+          "slot": 2
+        }
+      ],
+      "crossings": [
+        {
+          "a": 1,
+          "b": 1,
+          "slot": 1
+        },
+        {
+          "a": 1,
+          "b": 2,
+          "slot": 5
+        },
+        {
+          "a": 1,
+          "b": 3,
+          "slot": 6
+        },
+        {
+          "a": 1,
+          "b": 4,
+          "slot": 7
+        },
+        {
+          "a": 2,
+          "b": 2,
+          "slot": 2
+        },
+        {
+          "a": 2,
+          "b": 3,
+          "slot": 8
+        },
+        {
+          "a": 2,
+          "b": 4,
+          "slot": 9
+        },
+        {
+          "a": 3,
+          "b": 3,
+          "slot": 3
+        },
+        {
+          "a": 3,
+          "b": 4,
+          "slot": 10
+        },
+        {
+          "a": 4,
+          "b": 4,
+          "slot": 4
+        }
+      ]
+    }
+  }
+}

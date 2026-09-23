@@ -1344,3 +1344,56 @@ and an oblique lattice is what usually disagrees. Worth checking first the next
 time something new is laid out inside a tile.
 
 Described in [Features](./features.md#stripes-checks-and-ginghams).
+
+---
+
+## A crossing blends, because cloth is not ink
+
+**Decided.** Where two bands cross, the default is the **average** of the two
+colours. Multiplying — what a second pass of translucent ink does — is offered
+as "overprint", and "across-band wins" adds no colour at all.
+
+**Why, and how it was found.** Crossings multiplied first, on what seemed like
+solid reasoning: a crossing is ink over ink, and multiplying gives a two-colour
+check its third tone. The first tartan rendered came out very nearly black,
+because multiplying navy by navy is far darker than navy. In cloth, half the
+threads at a crossing are each colour — so the answer is their average, and a
+thread crossing itself stays itself.
+
+**The model said nothing.** Every test passed, the slots were allocated
+correctly, the sett reflected correctly, and the tiling was exact. It was
+visible in the first picture and in nothing else, which is the argument for
+rendering a real example before believing a colour model.
+
+**What the correction exposed.** Under blending, a check needs **two threads
+rather than a thread and a gap** — a gap has nothing to blend with, so an ink
+and a gap give two tones. An ink and a pale thread give three, which is what a
+gingham is. The preset writes a pale thread now.
+
+**Rejected.** Picking one rule. All three are real behaviours and the choice
+changes the colour count, which is what a screen printer charges by. A select
+with three named options costs one `match`.
+
+---
+
+## The ground owns the tail of the palette
+
+**Decided.** The sequence editor names colours; the engine allocates slots. The
+ground's slots are always the tail of the palette, so rebuilding one is a
+truncate and an append.
+
+**Why.** The alternative is tracking indices that would have to stay in step
+with every other palette operation — the colour count, colourways, slot edits.
+A tail needs no bookkeeping: its length is `bands.slots_used().len()`, and
+everything before it belongs to the motifs.
+
+**The bug this invariant caught.** Crossing colours are de-duplicated so that a
+thread crossing itself does not add a slot. Searching the *whole* palette for a
+match let a crossing borrow a motif's slot — and since the tail is what the
+next rebuild truncates, changing the ground would have taken a motif's colour
+with it. The search is confined to the tail.
+
+**Consequence handled.** A change of colour count replaces the palette
+wholesale, which would strand the ground's slots. Their colours are carried
+across and the sequence renumbered, so a striped document survives a resize
+instead of coming back referring to slots that no longer exist.

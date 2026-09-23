@@ -27,7 +27,7 @@ import {
 import userEvent from "@testing-library/user-event";
 
 import { makeMotif, makeOpened, makePreview } from "./test/factories";
-import type { Opened, PaletteSized, Preview } from "./api";
+import type { GroundSpec, Opened, PaletteSized, Preview } from "./api";
 
 /** What the fake engine will answer with, rewritten per test. */
 const engine = {
@@ -38,7 +38,7 @@ const engine = {
   applied: [] as unknown[],
   paletteSizes: [] as number[],
   closeCalls: [] as boolean[],
-  grounds: [] as Array<[string, number, number]>,
+  grounds: [] as GroundSpec[],
   groundSlots: [3, 4],
 };
 
@@ -67,18 +67,20 @@ vi.mock("./api", async (importOriginal) => {
         ? { closed: true, never_saved: false, changed: false }
         : engine.closeOutcome;
     },
-    setBands: async (style: string, widthMm: number, gapMm: number) => {
-      engine.grounds.push([style, widthMm, gapMm]);
-      const painted = style !== "none";
+    setGround: async (spec: GroundSpec) => {
+      engine.grounds.push(spec);
+      const painted = spec.bands.some((b) => b.colour !== null);
       return {
-        style,
-        width_mm: widthMm,
-        gap_mm: gapMm,
+        ...spec,
+        style: painted ? "check" : "none",
+        width_mm: spec.bands[0]?.width_mm ?? 18,
+        gap_mm: spec.bands[1]?.width_mm ?? 18,
         slots: painted ? engine.groundSlots : [],
+        ground_colours: painted ? engine.groundSlots.length : 0,
         palette: painted
           ? [...engine.opened.palette, "#9a8f7e", "#6b6154"]
           : engine.opened.palette,
-        lattice: painted ? "block" : "half-drop",
+        lattice: "block",
       };
     },
     setPaletteSize: async (colours: number) => {
@@ -278,51 +280,135 @@ describe("the preview", () => {
 });
 
 describe("the ground", () => {
-  it("shows its widths only once a pattern is chosen", async () => {
+  it("fills the sequence from a preset and shows it row by row", async () => {
     const user = await openApp();
-    expect(screen.queryByTestId("band-width")).toBeNull();
+    expect(screen.queryByTestId("ground-sequence")).toBeNull();
 
-    await user.selectOptions(screen.getByTestId("band-style"), "check");
+    await user.selectOptions(screen.getByTestId("ground-preset"), "check");
 
-    await screen.findByTestId("band-width");
-    expect(screen.getByTestId("band-gap")).toBeTruthy();
-    expect(engine.grounds).toEqual([["check", 18, 18]]);
+    await screen.findByTestId("ground-sequence");
+    // Two rows: the ink and the gap.
+    expect(screen.getByTestId("band-width-0")).toBeTruthy();
+    expect(screen.getByTestId("band-width-1")).toBeTruthy();
+    expect(screen.queryByTestId("band-width-2")).toBeNull();
+    expect(engine.grounds.at(-1)?.direction).toBe("both");
   });
 
-  it("carries the widths through when only the style changes", async () => {
-    // The three controls are one command, so changing any of them has to send
-    // the other two as they stand rather than as they started.
+  it("sends the whole sequence when one row changes", async () => {
+    // The ground is rebuilt from the sequence each time, so a row edit that
+    // sent only its own row would drop every other band.
     const user = await openApp();
-    await user.selectOptions(screen.getByTestId("band-style"), "stripe");
-    fireEvent.change(screen.getByTestId("band-width"), { target: { value: "7" } });
-    await waitFor(() => expect(engine.grounds.length).toBe(2));
+    await user.selectOptions(screen.getByTestId("ground-preset"), "check");
+    await screen.findByTestId("band-width-0");
 
-    await user.selectOptions(screen.getByTestId("band-style"), "windowpane");
+    fireEvent.change(screen.getByTestId("band-width-0"), { target: { value: "5" } });
 
+    await waitFor(() => {
+      const last = engine.grounds.at(-1);
+      expect(last?.bands.length).toBe(2);
+      expect(last?.bands[0].width_mm).toBe(5);
+      // The row that was not touched keeps its own width and colour. A check
+      // is two threads rather than a thread and a gap, so there is a second
+      // colour here to lose.
+      expect(last?.bands[1].width_mm).toBe(16);
+      expect(last?.bands[1].colour).toBe("#f2f0ea");
+    });
+  });
+
+  it("adds and removes bands, which is what makes a tartan reachable", async () => {
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-preset"), "check");
+    await screen.findByTestId("band-add");
+
+    await user.click(screen.getByTestId("band-add"));
+    await waitFor(() => expect(engine.grounds.at(-1)?.bands.length).toBe(3));
+    await screen.findByTestId("band-width-2");
+
+    await user.click(screen.getByTestId("band-remove-0"));
+    await waitFor(() => expect(engine.grounds.at(-1)?.bands.length).toBe(2));
+  });
+
+  it("turns a band into a gap and back", async () => {
+    // A gap is the absence of a colour rather than a colour matching the
+    // ground, so that recolouring the fabric takes the gaps with it.
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-preset"), "check");
+    await screen.findByTestId("band-gap-0");
+
+    await user.click(screen.getByTestId("band-gap-0"));
+    await waitFor(() => expect(engine.grounds.at(-1)?.bands[0].colour).toBeNull());
+
+    await user.click(screen.getByTestId("band-gap-0"));
     await waitFor(() =>
-      expect(engine.grounds.at(-1)).toEqual(["windowpane", 7, 18]),
+      expect(engine.grounds.at(-1)?.bands[0].colour).not.toBeNull(),
     );
   });
 
+  it("brings a tartan in mirrored, with its crossings overprinted", async () => {
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-preset"), "tartan");
+
+    await screen.findByTestId("ground-sequence");
+    const spec = engine.grounds.at(-1);
+    expect(spec?.bands.length).toBe(4);
+    expect(spec?.mirrored).toBe(true);
+    expect(spec?.crossings).toBe("blend");
+    expect(spec?.direction).toBe("both");
+  });
+
+  it("asks to mirror once, and never asks again", async () => {
+    // Reflecting writes the reflected bands into the list rather than
+    // remembering a mode. If the request kept its flag, the next edit would
+    // reflect the already-reflected sequence.
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-preset"), "tartan");
+    await screen.findByTestId("ground-sequence");
+
+    fireEvent.change(screen.getByTestId("band-width-0"), { target: { value: "9" } });
+
+    await waitFor(() => expect(engine.grounds.at(-1)?.mirrored).toBe(false));
+  });
+
+  it("will not mirror a sequence too short to have two pivots", async () => {
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-preset"), "check");
+    await screen.findByTestId("ground-sequence");
+    // Two bands reflected about both of them is the two bands.
+    expect((screen.getByTestId("ground-mirror") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("asks about crossings only where bands actually cross", async () => {
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-preset"), "stripe");
+    await screen.findByTestId("ground-sequence");
+
+    // A stripe runs one way, so nothing crosses and there is nothing to ask.
+    expect(screen.queryByTestId("ground-crossings")).toBeNull();
+
+    await user.selectOptions(screen.getByTestId("ground-direction"), "both");
+    expect(await screen.findByTestId("ground-crossings")).toBeTruthy();
+  });
+
+  it("says how many colours the ground costs", async () => {
+    const user = await openApp();
+    engine.groundSlots = [3, 4, 5, 6, 7, 8];
+    await user.selectOptions(screen.getByTestId("ground-preset"), "tartan");
+
+    const note = await screen.findByTestId("ground-colours");
+    expect(note.textContent).toContain("6 colours");
+  });
+
   it("puts the ground's own colours beside it, not among the motif colours", async () => {
-    // A band slot is an ordinary palette slot, so it would otherwise appear in
-    // the motif swatches — where nobody would connect it to the stripes.
     const user = await openApp();
     const colours = (el: HTMLElement) =>
       el.querySelectorAll('input[type="color"]').length;
-
-    // Three slots to start: the ground, and two the motifs use. The motif
-    // swatches show the two, since the ground has a control of its own.
     expect(colours(screen.getByTestId("motif-swatches"))).toBe(2);
 
-    await user.selectOptions(screen.getByTestId("band-style"), "check");
+    await user.selectOptions(screen.getByTestId("ground-preset"), "check");
+    await screen.findByTestId("ground-sequence");
 
-    // The engine appended two slots for the bands and reported them as 3 and
-    // 4. They belong beside the ground control...
-    const ground = await screen.findByTestId("band-swatches");
-    expect(colours(ground)).toBe(2);
-    // ...and not among the motif colours, where nobody would connect them to
-    // the stripes.
+    // The engine reported slots 3 and 4 for the bands, and they stay out of
+    // the motif swatches where nobody would connect them to the stripes.
     await waitFor(() =>
       expect(colours(screen.getByTestId("motif-swatches"))).toBe(2),
     );
@@ -330,12 +416,12 @@ describe("the ground", () => {
 
   it("takes the ground away again", async () => {
     const user = await openApp();
-    await user.selectOptions(screen.getByTestId("band-style"), "check");
-    await screen.findByTestId("band-width");
+    await user.selectOptions(screen.getByTestId("ground-preset"), "check");
+    await screen.findByTestId("ground-sequence");
 
-    await user.selectOptions(screen.getByTestId("band-style"), "none");
+    await user.selectOptions(screen.getByTestId("ground-preset"), "none");
 
-    await waitFor(() => expect(screen.queryByTestId("band-width")).toBeNull());
-    expect(engine.grounds.at(-1)?.[0]).toBe("none");
+    await waitFor(() => expect(screen.queryByTestId("ground-sequence")).toBeNull());
+    expect(engine.grounds.at(-1)?.bands).toEqual([]);
   });
 });

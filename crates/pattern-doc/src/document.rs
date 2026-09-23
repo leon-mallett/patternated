@@ -399,6 +399,45 @@ impl Document {
             self.active_colourway = None;
         }
 
+        // The ground's slots live at the tail of the palette, and the palette
+        // has just been replaced wholesale — so its colours are carried across
+        // and its sequence renumbered. Without this a striped document would
+        // come back from a colour-count change referring to slots that no
+        // longer exist, and stop rendering at all.
+        let carried: Vec<(u8, pattern_core::Color)> = self
+            .pattern
+            .bands
+            .as_ref()
+            .map(|b| {
+                b.slots_used()
+                    .into_iter()
+                    .filter_map(|s| self.pattern.palette.resolve(s).map(|c| (s, c)))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let mut palette = palette;
+        let mut moved = std::collections::HashMap::new();
+        for (old_slot, colour) in carried {
+            moved.insert(old_slot, palette.colors.len() as u8);
+            palette.colors.push(colour);
+        }
+        if let Some(bands) = self.pattern.bands.as_mut() {
+            let renumber = |slot: &mut u8| {
+                if let Some(new) = moved.get(slot) {
+                    *slot = *new;
+                }
+            };
+            for band in bands.vertical.iter_mut().chain(bands.horizontal.iter_mut()) {
+                renumber(&mut band.slot);
+            }
+            for crossing in &mut bands.crossings {
+                renumber(&mut crossing.a);
+                renumber(&mut crossing.b);
+                renumber(&mut crossing.slot);
+            }
+        }
+
         self.pattern.palette = palette.clone();
         self.design_palette = if self.colourways.is_empty() {
             None

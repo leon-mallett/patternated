@@ -71,10 +71,10 @@ struct Opened {
     palette: Vec<String>,
     /// Colours the design is quantised onto, ground included.
     palette_colours: usize,
-    /// The striped or checked ground, if there is one.
-    band_style: String,
-    band_width_mm: f32,
-    band_gap_mm: f32,
+    /// The striped or checked ground, if there is one — as the sequence
+    /// editor needs it, so that reopening a document shows the bands it has
+    /// rather than an empty editor.
+    ground: GroundSummary,
     band_slots: Vec<u8>,
     colourways: Vec<String>,
     active_colourway: Option<String>,
@@ -232,9 +232,7 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
         motifs: motif_entries(bank, scatter),
         palette: p.palette.colors.iter().map(hex).collect(),
         palette_colours: p.palette.len(),
-        band_style: band_style(p.bands.as_ref()),
-        band_width_mm: band_widths(p.bands.as_ref()).0,
-        band_gap_mm: band_widths(p.bands.as_ref()).1,
+        ground: ground_summary(p),
         band_slots: p
             .bands
             .as_ref()
@@ -1161,175 +1159,314 @@ fn set_palette_size(app: State<'_, App>, colours: usize) -> Reply<PaletteSized> 
     })
 }
 
-/// The striped and checked grounds the app offers by name.
-///
-/// Two numbers cover all of them — a band width and a gap — so a pinstripe is
-/// a stripe with a thin band rather than a preset of its own. What actually
-/// differs is which directions are painted and what a crossing resolves to.
-const BAND_STYLES: &[&str] = &["none", "stripe", "band", "check", "windowpane"];
-
-/// Which named ground a pattern's bands are, for the UI's benefit.
-///
-/// Read back from the bands rather than stored, on the same reasoning as
-/// `lattice_name`: the document stays the single source of truth, and a
-/// hand-edited sequence that is none of these is reported honestly.
-fn band_style(bands: Option<&pattern_core::Bands>) -> String {
-    let Some(b) = bands.filter(|b| !b.is_empty()) else {
-        return "none".into();
-    };
-    let across = b.vertical.iter().any(|x| x.slot != 0);
-    let down = b.horizontal.iter().any(|x| x.slot != 0);
-    match (across, down) {
-        (true, false) => "stripe".into(),
-        (false, true) => "band".into(),
-        (true, true) => {
-            let band = b.vertical.iter().find(|x| x.slot != 0).map(|x| x.slot);
-            let crossing = b.crossings.first().map(|c| c.slot);
-            if crossing.is_some() && crossing != band {
-                "check".into()
-            } else {
-                "windowpane".into()
-            }
-        }
-        (false, false) => "none".into(),
-    }
+/// One band as the interface describes it: a width and a colour, or a gap.
+#[derive(Deserialize, Serialize, Clone)]
+struct GroundBand {
+    width_mm: f32,
+    /// `None` is a gap — the fabric, showing. Expressed as the absence of a
+    /// colour rather than as a colour that happens to match the ground, so
+    /// that recolouring the fabric takes the gaps with it.
+    ///
+    /// Note what a gap cannot do: take part in a crossing. Two *threads* are
+    /// what give a check its third tone, so a gingham is written as an ink and
+    /// a fabric-coloured thread rather than an ink and a gap.
+    colour: Option<String>,
 }
 
-/// The band's own width and its gap, in millimetres.
-fn band_widths(bands: Option<&pattern_core::Bands>) -> (f32, f32) {
-    let Some(b) = bands else {
-        return (18.0, 18.0);
+/// A whole ground, as the sequence editor sends it.
+#[derive(Deserialize)]
+struct GroundSpec {
+    bands: Vec<GroundBand>,
+    /// Reflect the sequence about its end bands, which is how a tartan sett is
+    /// written. See [`pattern_core::Bands::reflected`].
+    ///
+    /// A one-shot instruction rather than a stored mode: the reflected
+    /// sequence is what gets kept, so nothing has to remember whether it has
+    /// already been applied.
+    #[serde(default)]
+    mirrored: bool,
+    /// "vertical", "horizontal" or "both".
+    direction: String,
+    /// How a crossing resolves: "blend", "overprint" or "across".
+    #[serde(default = "blend")]
+    crossings: String,
+}
+
+fn blend() -> String {
+    "blend".into()
+}
+
+/// A ground as the editor needs it back.
+///
+/// Every field is read off the bands themselves. `mirrored` is deliberately
+/// absent: reflecting is applied once and the reflected sequence is what gets
+/// stored, so there is no hidden flag that a reopened document would have to
+/// guess at — and guessing it wrong would double the reflection on the next
+/// edit.
+#[derive(Serialize)]
+struct GroundSummary {
+    bands: Vec<GroundBand>,
+    direction: String,
+    crossings: String,
+}
+
+fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
+    let Some(b) = pattern.bands.as_ref().filter(|b| !b.is_empty()) else {
+        return GroundSummary {
+            bands: Vec::new(),
+            direction: "both".into(),
+            crossings: blend(),
+        };
     };
     let sequence = if b.vertical.is_empty() {
         &b.horizontal
     } else {
         &b.vertical
     };
-    let painted = sequence.iter().find(|x| x.slot != 0).map(|x| x.width_mm);
-    let gap = sequence.iter().find(|x| x.slot == 0).map(|x| x.width_mm);
-    (painted.unwrap_or(18.0), gap.unwrap_or(18.0))
+    GroundSummary {
+        bands: sequence
+            .iter()
+            .map(|band| GroundBand {
+                width_mm: band.width_mm,
+                colour: (band.slot != 0)
+                    .then(|| pattern.palette.resolve(band.slot).map(|c| hex(&c)))
+                    .flatten(),
+            })
+            .collect(),
+        direction: match (b.vertical.is_empty(), b.horizontal.is_empty()) {
+            (false, true) => "vertical".into(),
+            (true, false) => "horizontal".into(),
+            _ => "both".into(),
+        },
+        crossings: if b.crossings.is_empty() {
+            "across".into()
+        } else {
+            blend()
+        },
+    }
 }
 
-/// Slots the bands paint with, appended to the palette if they are not there.
+/// What to paint where two bands cross.
 ///
-/// Derived from the ground rather than picked from a fixed list, so the first
-/// thing a designer sees is a tone of the fabric they already chose rather
-/// than a colour from nowhere. Both are ordinary palette slots, so the swatch
-/// controls recolour them and a colourway carries them.
-fn ensure_band_slots(session: &mut Session) -> (u8, u8) {
-    let palette = &session.document.pattern.palette;
-    if palette.len() >= 2 {
-        if let Some(existing) = session
-            .document
-            .pattern
-            .bands
-            .as_ref()
-            .map(pattern_core::Bands::slots_used)
-            .filter(|s| s.len() == 2)
-        {
-            return (existing[0], existing[1]);
-        }
+/// **Blend** is the woven answer and the default: half the threads at a
+/// crossing are each colour, so the result is their average — and a colour
+/// crossing itself comes out as itself, which is what a tartan needs.
+///
+/// This was got wrong first time round by multiplying instead, on the
+/// reasoning that a crossing is a second pass of ink. That is right for ink
+/// and wrong for cloth, and the difference is not subtle: a navy sett came out
+/// very nearly black, because multiplying two dark colours is far darker than
+/// either. It was obvious in the first render and invisible in the model.
+///
+/// **Overprint** multiplies, which is what a second pass of translucent ink
+/// really does — right for a design built from overlapping bands, and the
+/// reason it is still offered rather than deleted.
+///
+/// **Across** adds nothing: the across-band wins, which is the fewest colours
+/// to print.
+fn crossing_colour(rule: &str, a: Color, b: Color) -> Option<Color> {
+    let mix = |x: u8, y: u8| ((u16::from(x) + u16::from(y)) / 2) as u8;
+    let mul = |x: u8, y: u8| ((u16::from(x) * u16::from(y)) / 255) as u8;
+    match rule {
+        "overprint" => Some(Color::new(mul(a.r, b.r), mul(a.g, b.g), mul(a.b, b.b))),
+        "across" => None,
+        _ => Some(Color::new(mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b))),
     }
+}
 
-    let ground = palette.ground().unwrap_or(Color::new(250, 246, 238));
-    let shade = |f: f32| {
-        Color::new(
-            (f32::from(ground.r) * f) as u8,
-            (f32::from(ground.g) * f) as u8,
-            (f32::from(ground.b) * f) as u8,
-        )
-    };
-    let mut colors = palette.colors.clone();
-    let band = colors.len() as u8;
-    colors.push(shade(0.62));
-    let crossing = colors.len() as u8;
-    colors.push(shade(0.44));
-    session.document.pattern.palette = pattern_core::Palette::new(colors);
-    (band, crossing)
+/// Where the ground's slots start.
+///
+/// They are always the tail of the palette, so a ground can be rebuilt by
+/// truncating and appending rather than by tracking indices that would have to
+/// stay in step with every other palette operation.
+fn ground_base(session: &Session) -> usize {
+    let used = session
+        .document
+        .pattern
+        .bands
+        .as_ref()
+        .map(pattern_core::Bands::slots_used)
+        .map_or(0, |s| s.len());
+    session.document.pattern.palette.len().saturating_sub(used)
 }
 
 /// What the ground looks like after a change.
 #[derive(Serialize)]
 struct BandState {
-    style: String,
-    width_mm: f32,
-    gap_mm: f32,
-    /// The slots the bands paint with, so the interface can show those two
+    /// The slots the bands paint with, so the interface can show those
     /// swatches beside the control rather than lost among the motif colours.
     slots: Vec<u8>,
+    /// The sequence as the editor should show it, so the interface can stay
+    /// out of the business of allocating slots.
+    bands: Vec<GroundBand>,
+    direction: String,
+    crossings: String,
+    /// Colours this ground puts on the fabric, crossings included — what a
+    /// screen printer would charge for on the ground alone.
+    ground_colours: usize,
     palette: Vec<String>,
     lattice: String,
 }
 
 /// Put a striped or checked ground under the pattern, or take it away.
 ///
-/// Its own command rather than another parameter because it can change the
-/// palette, which `apply` never does.
+/// Its own command rather than another parameter because it rewrites the tail
+/// of the palette, which `apply` never does.
+///
+/// The interface sends colours and this allocates the slots, so the sequence
+/// editor never has to know that a palette slot exists. The ground's slots are
+/// always the tail, so rebuilding is a truncate and an append rather than an
+/// index map that would have to stay in step with every other palette
+/// operation.
 #[tauri::command]
-fn set_bands(app: State<'_, App>, style: String, width_mm: f32, gap_mm: f32) -> Reply<BandState> {
+fn set_ground(app: State<'_, App>, spec: GroundSpec) -> Reply<BandState> {
     let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
     let session = guard.as_mut().ok_or("no document is open")?;
-    if !BAND_STYLES.contains(&style.as_str()) {
-        return Err(format!("no such ground: '{style}'"));
-    }
+    apply_ground(session, &spec).map_err(|e| fail("that ground cannot be printed", e))?;
+    ground_state(session, &spec)
+}
 
-    let width = width_mm.clamp(1.0, 200.0);
-    let gap = gap_mm.clamp(0.0, 200.0);
+/// The work behind [`set_ground`], as a plain function so it can be tested
+/// without a running app.
+fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> {
+    let base = ground_base(session);
+    let mut colors = session.document.pattern.palette.colors.clone();
+    colors.truncate(base);
 
-    if style == "none" {
+    let painted: Vec<GroundBand> = spec
+        .bands
+        .iter()
+        .filter(|b| b.width_mm > 0.0)
+        .cloned()
+        .collect();
+    if painted.is_empty() || !painted.iter().any(|b| b.colour.is_some()) {
         session.document.pattern.bands = None;
-    } else {
-        let (band, crossing) = ensure_band_slots(session);
-        let sequence = vec![
-            pattern_core::Band::new(width, band),
-            pattern_core::Band::gap(gap),
-        ];
-        session.document.pattern.bands = Some(match style.as_str() {
-            "stripe" => pattern_core::Bands {
-                vertical: sequence,
-                ..Default::default()
-            },
-            "band" => pattern_core::Bands {
-                horizontal: sequence,
-                ..Default::default()
-            },
-            "windowpane" => pattern_core::Bands::check(width, gap, band, band),
-            _ => pattern_core::Bands::check(width, gap, band, crossing),
-        });
-
-        // A band sequence lives in the tile and repeats with it, so an oblique
-        // lattice steps the stripes at every join. Same reasoning as a mirror,
-        // and put right here rather than left to fail validation.
-        let tile = session.document.pattern.tile_size_mm;
-        session.document.pattern.lattice = Lattice::block(tile);
+        session.document.pattern.palette = pattern_core::Palette::new(colors);
+        return Ok(());
     }
 
-    session
-        .document
-        .pattern
-        .validate()
-        .map_err(|e| fail("that ground cannot be printed", e))?;
+    // One slot per distinct colour, in the order the sequence first uses them,
+    // so the palette reads the way the editor does.
+    let mut slot_of: Vec<(String, u8)> = Vec::new();
+    for band in painted.iter().filter_map(|b| b.colour.as_ref()) {
+        if slot_of.iter().any(|(c, _)| c == band) {
+            continue;
+        }
+        let colour =
+            parse_hex(band).ok_or_else(|| anyhow::anyhow!("'{band}' is not a hex colour"))?;
+        slot_of.push((band.clone(), colors.len() as u8));
+        colors.push(colour);
+    }
 
-    let bands = session.document.pattern.bands.as_ref();
+    let sequence: Vec<pattern_core::Band> = painted
+        .iter()
+        .map(|b| {
+            let slot = b
+                .colour
+                .as_ref()
+                .and_then(|c| slot_of.iter().find(|(k, _)| k == c))
+                .map_or(0, |(_, s)| *s);
+            pattern_core::Band::new(b.width_mm, slot)
+        })
+        .collect();
+    let sequence = if spec.mirrored {
+        pattern_core::Bands::reflected(&sequence)
+    } else {
+        sequence
+    };
+
+    let (vertical, horizontal) = match spec.direction.as_str() {
+        "vertical" => (sequence.clone(), Vec::new()),
+        "horizontal" => (Vec::new(), sequence.clone()),
+        _ => (sequence.clone(), sequence),
+    };
+
+    // A crossing exists only where both directions paint, so a one-way ground
+    // needs none of this.
+    let mut crossings = Vec::new();
+    if !vertical.is_empty() && !horizontal.is_empty() {
+        let slots: Vec<u8> = slot_of.iter().map(|(_, s)| *s).collect();
+        for (i, a) in slots.iter().enumerate() {
+            for b in slots.iter().skip(i) {
+                let Some(mixed) =
+                    crossing_colour(&spec.crossings, colors[*a as usize], colors[*b as usize])
+                else {
+                    continue;
+                };
+                // A colour blended with itself is itself, so it needs no slot
+                // of its own — and giving it one would put a duplicate in
+                // front of a designer counting colours.
+                //
+                // Searched only within the ground's own tail. Reaching back
+                // into the motif colours would let a crossing borrow a slot
+                // from outside the tail, and the tail is what the next rebuild
+                // truncates: the ground would then take a motif's colour with
+                // it when it was changed.
+                let slot = colors[base..].iter().position(|c| *c == mixed).map_or_else(
+                    || {
+                        colors.push(mixed);
+                        colors.len() as u8 - 1
+                    },
+                    |found| (base + found) as u8,
+                );
+                crossings.push(pattern_core::Crossing { a: *a, b: *b, slot });
+            }
+        }
+    }
+
+    session.document.pattern.palette = pattern_core::Palette::new(colors);
+    session.document.pattern.bands = Some(pattern_core::Bands {
+        vertical,
+        horizontal,
+        crossings,
+    });
+
+    // A band sequence lives in the tile and repeats with it, so an oblique
+    // lattice steps the stripes at every join.
+    let tile = session.document.pattern.tile_size_mm;
+    session.document.pattern.lattice = Lattice::block(tile);
+
+    session.document.pattern.validate()?;
+    Ok(())
+}
+
+/// Describe the ground as it now stands.
+fn ground_state(session: &Session, spec: &GroundSpec) -> Reply<BandState> {
+    let pattern = &session.document.pattern;
+    let bands = pattern.bands.as_ref();
+    let slots = bands
+        .map(pattern_core::Bands::slots_used)
+        .unwrap_or_default();
+
+    // Echoed back from the sequence in the palette rather than from the
+    // request, so the editor shows what was stored and not what was asked for.
+    let shown: Vec<GroundBand> = bands
+        .map(|b| {
+            let sequence = if b.vertical.is_empty() {
+                &b.horizontal
+            } else {
+                &b.vertical
+            };
+            sequence
+                .iter()
+                .map(|band| GroundBand {
+                    width_mm: band.width_mm,
+                    colour: (band.slot != 0)
+                        .then(|| pattern.palette.resolve(band.slot).map(|c| hex(&c)))
+                        .flatten(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
     Ok(BandState {
-        style: band_style(bands),
-        width_mm: width,
-        gap_mm: gap,
-        slots: bands
-            .map(pattern_core::Bands::slots_used)
-            .unwrap_or_default(),
-        palette: session
-            .document
-            .pattern
-            .palette
-            .colors
-            .iter()
-            .map(hex)
-            .collect(),
-        lattice: lattice_name(
-            &session.document.pattern.lattice,
-            session.document.pattern.tile_size_mm,
-        ),
+        slots: slots.clone(),
+        bands: shown,
+        direction: spec.direction.clone(),
+        crossings: spec.crossings.clone(),
+        ground_colours: slots.len(),
+        palette: pattern.palette.colors.iter().map(hex).collect(),
+        lattice: lattice_name(&pattern.lattice, pattern.tile_size_mm),
     })
 }
 
@@ -1373,7 +1510,7 @@ pub fn run() {
             remember_colourway,
             use_colourway,
             set_palette_size,
-            set_bands,
+            set_ground,
             close_document,
             palette
         ])
@@ -1721,97 +1858,203 @@ mod tests {
         );
     }
 
-    /// Put a ground under the session's pattern, as the command does.
-    fn ground(s: &mut Session, style: &str, width: f32, gap: f32) -> (u8, u8) {
-        let slots = if style == "none" {
-            s.document.pattern.bands = None;
-            return (0, 0);
-        } else {
-            ensure_band_slots(s)
-        };
-        let sequence = vec![
-            pattern_core::Band::new(width, slots.0),
-            pattern_core::Band::gap(gap),
-        ];
-        s.document.pattern.bands = Some(match style {
-            "stripe" => pattern_core::Bands {
-                vertical: sequence,
-                ..Default::default()
-            },
-            "band" => pattern_core::Bands {
-                horizontal: sequence,
-                ..Default::default()
-            },
-            "windowpane" => pattern_core::Bands::check(width, gap, slots.0, slots.0),
-            _ => pattern_core::Bands::check(width, gap, slots.0, slots.1),
-        });
-        slots
-    }
-
-    #[test]
-    fn a_ground_is_read_back_as_the_style_it_was_set_to() {
-        // Derived from the bands rather than stored, so a hand-edited document
-        // is described honestly rather than by a label that outlived it.
-        let mut s = session();
-        for style in ["stripe", "band", "check", "windowpane"] {
-            ground(&mut s, style, 10.0, 10.0);
-            assert_eq!(
-                band_style(s.document.pattern.bands.as_ref()),
-                style,
-                "set {style}"
-            );
+    /// A ground spec, the way the sequence editor sends one.
+    fn spec(bands: &[(f32, Option<&str>)], direction: &str) -> GroundSpec {
+        GroundSpec {
+            bands: bands
+                .iter()
+                .map(|(w, c)| GroundBand {
+                    width_mm: *w,
+                    colour: c.map(str::to_string),
+                })
+                .collect(),
+            mirrored: false,
+            direction: direction.into(),
+            crossings: blend(),
         }
-        ground(&mut s, "none", 10.0, 10.0);
-        assert_eq!(band_style(s.document.pattern.bands.as_ref()), "none");
     }
 
     #[test]
-    fn a_check_and_a_windowpane_differ_by_their_crossing() {
-        // The distinction is the whole of what separates them: a windowpane's
-        // lines simply overlap, a check's crossing is a third tone.
+    fn a_ground_is_read_back_as_the_editor_needs_it() {
+        // Read off the bands rather than stored, so a reopened document shows
+        // the sequence it has rather than an empty editor — and a hand-edited
+        // one is described honestly.
         let mut s = session();
-        let (band, crossing) = ground(&mut s, "check", 10.0, 10.0);
-        let checked = s.document.pattern.bands.clone().expect("bands");
-        assert_eq!(checked.resolve(Some(band), Some(band)), Some(crossing));
+        for (direction, expected) in [
+            ("vertical", "vertical"),
+            ("horizontal", "horizontal"),
+            ("both", "both"),
+        ] {
+            apply_ground(
+                &mut s,
+                &spec(
+                    &[(10.0, Some("#204080")), (10.0, Some("#faf6ee"))],
+                    direction,
+                ),
+            )
+            .expect("ground");
 
-        ground(&mut s, "windowpane", 10.0, 10.0);
-        let pane = s.document.pattern.bands.clone().expect("bands");
-        assert_eq!(pane.resolve(Some(band), Some(band)), Some(band));
+            let summary = ground_summary(&s.document.pattern);
+            assert_eq!(summary.direction, expected);
+            assert_eq!(summary.bands.len(), 2, "both threads come back");
+            assert_eq!(summary.bands[0].colour.as_deref(), Some("#204080"));
+        }
     }
 
     #[test]
-    fn the_bands_borrow_two_new_slots_shaded_from_the_ground() {
-        // A tone of the fabric already chosen rather than a colour from
-        // nowhere, and ordinary slots so the swatch controls recolour them.
+    fn a_check_gets_its_third_tone_from_two_threads() {
+        // Two colours, three tones — the thing no arrangement of motifs can
+        // do. It needs two *threads* rather than a thread and a gap: a gap has
+        // nothing to blend with, so an ink and a gap give only ink and fabric.
         let mut s = session();
-        let before = s.document.pattern.palette.len();
-        let (band, crossing) = ensure_band_slots(&mut s);
+        apply_ground(
+            &mut s,
+            &spec(&[(10.0, Some("#3c78a0")), (10.0, Some("#e8eef2"))], "both"),
+        )
+        .expect("ground");
 
-        assert_eq!(s.document.pattern.palette.len(), before + 2);
-        assert_eq!((band as usize, crossing as usize), (before, before + 1));
+        let bands = s.document.pattern.bands.clone().expect("bands");
+        let painted: Vec<u8> = bands.vertical.iter().map(|b| b.slot).collect();
+        let (a, b) = (painted[0], painted[1]);
 
-        let ground_colour = s.document.pattern.palette.ground().expect("ground");
-        let painted = s.document.pattern.palette.resolve(band).expect("band slot");
-        let deeper = s
-            .document
-            .pattern
-            .palette
-            .resolve(crossing)
-            .expect("crossing slot");
+        let tone = |x: u8, y: u8| bands.resolve(Some(x), Some(y)).expect("a crossing");
+        let tones: std::collections::HashSet<u8> =
+            [tone(a, a), tone(a, b), tone(b, b)].into_iter().collect();
+        assert_eq!(tones.len(), 3, "three tones from two threads");
+
+        // A thread crossing itself is itself, which is what keeps a tartan's
+        // colours rather than driving them towards black.
+        assert_eq!(tone(a, a), a);
+        assert_eq!(tone(b, b), b);
+    }
+
+    #[test]
+    fn a_thread_crossing_itself_stays_itself() {
+        // The mistake this replaced: crossings were multiplied, on the
+        // reasoning that a crossing is a second pass of ink. Right for ink and
+        // wrong for cloth — a navy sett came out very nearly black, which the
+        // first render showed and the model did not.
+        let navy = pattern_core::Color::new(0x1b, 0x2a, 0x4a);
+        assert_eq!(crossing_colour("blend", navy, navy), Some(navy));
+
+        let multiplied = crossing_colour("overprint", navy, navy).expect("overprint");
         assert!(
-            painted.r < ground_colour.r,
-            "the band is darker than the fabric"
+            multiplied.r < navy.r / 2 && multiplied.b < navy.b / 2,
+            "multiplying a dark colour by itself is far darker: {multiplied:?}"
         );
-        assert!(deeper.r < painted.r, "the crossing is darker than the band");
+
+        assert_eq!(crossing_colour("across", navy, navy), None);
     }
 
     #[test]
-    fn asking_twice_does_not_keep_adding_slots() {
+    fn a_tartan_gets_a_crossing_for_every_pair() {
+        // Four thread colours cross in ten ways, and a printed tartan really
+        // does carry the colours those crossings make. A count that reported
+        // only the threads would be quoting for the wrong job.
         let mut s = session();
-        ground(&mut s, "check", 10.0, 10.0);
+        let threads = [
+            (24.0, Some("#1b2a4a")),
+            (4.0, Some("#0b0b0b")),
+            (12.0, Some("#1f4020")),
+            (3.0, Some("#c8a020")),
+        ];
+        apply_ground(&mut s, &spec(&threads, "both")).expect("ground");
+
+        let bands = s.document.pattern.bands.clone().expect("bands");
+        assert_eq!(bands.crossings.len(), 10, "four threads cross in ten ways");
+        // Four threads, plus a colour only where two *different* ones meet: a
+        // thread crossing itself is itself and needs no slot of its own.
+        assert_eq!(bands.slots_used().len(), 4 + 6);
+
+        for c in &bands.crossings {
+            assert_eq!(bands.resolve(Some(c.a), Some(c.b)), Some(c.slot));
+        }
+    }
+
+    #[test]
+    fn a_one_way_ground_has_no_crossings_to_derive() {
+        // Nothing crosses a stripe, so the palette should not grow for it.
+        let mut s = session();
+        apply_ground(
+            &mut s,
+            &spec(&[(10.0, Some("#3c78a0")), (10.0, None)], "vertical"),
+        )
+        .expect("ground");
+        let bands = s.document.pattern.bands.clone().expect("bands");
+        assert!(bands.crossings.is_empty());
+        assert_eq!(bands.slots_used().len(), 1);
+    }
+
+    #[test]
+    fn one_slot_per_colour_however_often_it_repeats() {
+        // A tartan names the same thread many times. Allocating a slot per
+        // mention would fill the palette with duplicates and make recolouring
+        // one band leave the others behind.
+        let mut s = session();
+        let repeated = [
+            (20.0, Some("#1b2a4a")),
+            (4.0, Some("#0b0b0b")),
+            (20.0, Some("#1b2a4a")),
+            (4.0, Some("#0b0b0b")),
+        ];
+        apply_ground(&mut s, &spec(&repeated, "vertical")).expect("ground");
+        assert_eq!(
+            s.document
+                .pattern
+                .bands
+                .as_ref()
+                .unwrap()
+                .slots_used()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn rebuilding_a_ground_does_not_leave_its_old_slots_behind() {
+        // The ground owns the tail of the palette, so changing it truncates
+        // and appends. Without that the palette would grow on every drag of a
+        // width.
+        let mut s = session();
+        let base = s.document.pattern.palette.len();
+        apply_ground(
+            &mut s,
+            &spec(&[(10.0, Some("#3c78a0")), (10.0, Some("#faf6ee"))], "both"),
+        )
+        .expect("ground");
         let after_first = s.document.pattern.palette.len();
-        ground(&mut s, "check", 14.0, 6.0);
+        assert!(after_first > base);
+
+        apply_ground(
+            &mut s,
+            &spec(&[(14.0, Some("#a03c78")), (6.0, Some("#eeeeee"))], "both"),
+        )
+        .expect("ground");
         assert_eq!(s.document.pattern.palette.len(), after_first);
+
+        // And taking it away gives the slots back.
+        apply_ground(&mut s, &spec(&[(10.0, None)], "both")).expect("ground");
+        assert!(s.document.pattern.bands.is_none());
+        assert_eq!(s.document.pattern.palette.len(), base);
+    }
+
+    #[test]
+    fn a_mirrored_sett_lays_down_the_reflected_sequence() {
+        let mut s = session();
+        let mut spec = spec(
+            &[
+                (20.0, Some("#1b2a4a")),
+                (4.0, Some("#0b0b0b")),
+                (12.0, Some("#1f4020")),
+            ],
+            "both",
+        );
+        spec.mirrored = true;
+        apply_ground(&mut s, &spec).expect("ground");
+
+        let bands = s.document.pattern.bands.clone().expect("bands");
+        let widths: Vec<f32> = bands.vertical.iter().map(|b| b.width_mm).collect();
+        assert_eq!(widths, vec![20.0, 4.0, 12.0, 4.0], "pivots are not doubled");
     }
 
     #[test]
@@ -1821,7 +2064,11 @@ mod tests {
         // apply_layout, because a document that places its motifs by hand
         // never reaches apply_layout and can still have a striped ground.
         let mut s = session();
-        ground(&mut s, "stripe", 12.0, 12.0);
+        apply_ground(
+            &mut s,
+            &spec(&[(12.0, Some("#3c78a0")), (12.0, None)], "vertical"),
+        )
+        .expect("ground");
 
         let mut p = params(0.3, 1);
         p.lattice = "half-drop".into();
@@ -1842,9 +2089,58 @@ mod tests {
         let motifs: Vec<pattern_core::Motif> = s.bank.motifs().into_iter().cloned().collect();
         let plain = pattern_core::resolved_color_count(&s.document.pattern, &motifs);
 
-        ground(&mut s, "check", 10.0, 10.0);
+        apply_ground(
+            &mut s,
+            &spec(&[(10.0, Some("#3c78a0")), (10.0, Some("#d8e4ec"))], "both"),
+        )
+        .expect("ground");
         let checked = pattern_core::resolved_color_count(&s.document.pattern, &motifs);
-        assert_eq!(checked, plain + 2, "a check adds its band and its crossing");
+        assert_eq!(
+            checked,
+            plain + 3,
+            "two threads and the tone where they cross"
+        );
+    }
+
+    #[test]
+    fn a_ground_survives_a_change_of_colour_count() {
+        // The palette is replaced wholesale by a resize, and the ground's
+        // slots live at its tail. Without carrying them across, a striped
+        // document would come back referring to slots that no longer exist and
+        // stop rendering at all — which is a worse failure than the one the
+        // colour count was changed to fix.
+        let mut s = session();
+        apply_ground(
+            &mut s,
+            &spec(&[(10.0, Some("#3c78a0")), (10.0, None)], "both"),
+        )
+        .expect("ground");
+
+        let before = s.document.pattern.bands.clone().expect("bands");
+        let band_colour = s
+            .document
+            .pattern
+            .palette
+            .resolve(before.slots_used()[0])
+            .expect("band colour");
+
+        s.document
+            .set_palette_size(16, &s.path)
+            .expect("should re-derive");
+        s.bank = s.document.load_motifs(&s.path).expect("re-quantise");
+
+        let after = s.document.pattern.bands.clone().expect("bands survived");
+        assert_eq!(after.vertical.len(), before.vertical.len());
+        assert_eq!(after.crossings.len(), before.crossings.len());
+        assert_eq!(
+            s.document.pattern.palette.resolve(after.slots_used()[0]),
+            Some(band_colour),
+            "the band kept its colour"
+        );
+        s.document
+            .pattern
+            .validate()
+            .expect("still renderable after the resize");
     }
 
     #[test]
