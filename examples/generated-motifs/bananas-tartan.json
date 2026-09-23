@@ -120,7 +120,8 @@
       ]
     },
     "seed": 0,
-    "bands": {
+    "ground": {
+      "kind": "bands",
       "vertical": [
         {
           "width_mm": 24.0,

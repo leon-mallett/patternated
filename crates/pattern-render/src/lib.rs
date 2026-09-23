@@ -509,16 +509,16 @@ fn fill_bands(
     pattern: &Pattern,
     pl: &PixelLattice,
 ) -> Result<(), RenderError> {
-    let Some(bands) = &pattern.bands else {
+    let Some(ground) = &pattern.ground else {
         return Ok(());
     };
-    if bands.is_empty() {
+    if ground.is_empty() {
         return Ok(());
     }
 
-    // Fitted to the tile, or the sequence is cut at the tile's edge and every
-    // join carries a band of the wrong width.
-    let (bands, _) = bands.fitted_to(pattern.tile_size_mm.x, pattern.tile_size_mm.y);
+    // Fitted to the tile, or whatever the ground lays down is cut at the
+    // tile's edge and every join carries the remainder.
+    let ground = ground.fitted_to(pattern.tile_size_mm.x, pattern.tile_size_mm.y);
     let (w, h) = (target.width(), target.height());
     let scale = Vec2::new(
         pattern.tile_size_mm.x / pl.tile_px.x.max(1) as f32,
@@ -527,18 +527,11 @@ fn fill_bands(
 
     // Sampled at the middle of each pixel, so a band edge falling between two
     // pixels lands on one of them rather than on neither.
-    let columns: Vec<Option<u8>> = (0..w)
-        .map(|x| bands.vertical_slot_at((x as f32 + 0.5) * scale.x))
-        .collect();
-    let rows: Vec<Option<u8>> = (0..h)
-        .map(|y| bands.horizontal_slot_at((y as f32 + 0.5) * scale.y))
-        .collect();
-
     let pixels = target.pixels_mut();
     for y in 0..h {
-        let row = rows[y as usize];
         for x in 0..w {
-            let Some(slot) = bands.resolve(columns[x as usize], row) else {
+            let Some(slot) = ground.slot_at((x as f32 + 0.5) * scale.x, (y as f32 + 0.5) * scale.y)
+            else {
                 continue;
             };
             let Some(Color { r, g, b }) = pattern.palette.resolve(slot) else {

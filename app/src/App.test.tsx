@@ -48,6 +48,7 @@ vi.mock("./api", async (importOriginal) => {
     ...real,
     openDocument: async () => engine.opened,
     newFromImages: async () => engine.opened,
+    newPlain: async () => engine.opened,
     apply: async (params: unknown) => {
       engine.applied.push(params);
       return engine.preview;
@@ -137,12 +138,29 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("the start screen", () => {
-  it("offers both ways in", () => {
+  it("offers every way in", () => {
     // The defect this guards was reported from the running app: the shell
     // could open a document and appeared to have no way to create one.
     render(<App />);
     expect(screen.getByText("New pattern from artwork…")).toBeTruthy();
     expect(screen.getByText("Open a saved pattern…")).toBeTruthy();
+    // And the third: a stripe, check or tartan has no artwork in it, so
+    // demanding a PNG would put those patterns out of reach entirely.
+    expect(screen.getByTestId("new-plain")).toBeTruthy();
+  });
+
+  it("starts a pattern with no artwork", async () => {
+    engine.opened = makeOpened({ motifs: [], scattered: false });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByTestId("new-plain"));
+
+    await screen.findByTestId("close");
+    // The ground panel is the whole design here, and the scatter note says so
+    // rather than claiming the motifs were placed by hand.
+    expect(screen.getByTestId("ground-preset")).toBeTruthy();
+    expect(screen.getByText(/no artwork in it/)).toBeTruthy();
   });
 
   it("is where closing puts you back", async () => {

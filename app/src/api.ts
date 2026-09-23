@@ -294,6 +294,12 @@ export const openDocument = (path: string) =>
   invoke<Opened>("open_document", { path });
 
 /** Start a pattern from image files, with no document in existence. */
+/** Start a pattern with no artwork at all.
+ *
+ *  A tartan or a procedural ground has no motifs in it. The engine never
+ *  required any; the only way *in* did. */
+export const newPlain = () => invoke<Opened>("new_plain");
+
 export const newFromImages = (files: string[], longestEdgeMm: number) =>
   invoke<Opened>("new_from_images", { files, longestEdgeMm });
 

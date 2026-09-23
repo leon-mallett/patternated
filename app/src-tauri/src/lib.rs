@@ -234,9 +234,9 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
         palette_colours: p.palette.len(),
         ground: ground_summary(p),
         band_slots: p
-            .bands
+            .ground
             .as_ref()
-            .map(pattern_core::Bands::slots_used)
+            .map(pattern_core::Ground::slots_used)
             .unwrap_or_default(),
         colourways: document.colourways.iter().map(|c| c.name.clone()).collect(),
         active_colourway: document.active_colourway.clone(),
@@ -393,6 +393,33 @@ fn close_document(app: State<'_, App>, discard: bool) -> Reply<CloseOutcome> {
     })
 }
 
+/// Start a pattern with no artwork at all.
+///
+/// A tartan, a stripe or a procedural ground has no motifs in it. The engine
+/// never required any — it will render a pattern with an empty bank — but the
+/// only way into a document was through artwork, so a ground-only print could
+/// be written by hand and not made here.
+#[tauri::command]
+fn new_plain(app: State<'_, App>) -> Reply<Opened> {
+    // The warm off-white a range usually sits on, and the same default
+    // `new_from_images` uses for its ground.
+    let document = pattern_doc::new_plain(Color::new(250, 246, 238));
+    let anchor = PathBuf::from("untitled.json");
+
+    let mut session = Session {
+        path: anchor.clone(),
+        document,
+        bank: MotifBank::new(),
+        saved: false,
+        written: String::new(),
+    };
+    session.mark_written();
+
+    let opened = describe(&anchor, &session.document, &session.bank);
+    *app.session.lock().map_err(|e| fail("state", e))? = Some(session);
+    Ok(opened)
+}
+
 /// Start a pattern from image files, with no document in existence.
 ///
 /// The route M4 was missing. Until this existed the only way into the app was
@@ -459,9 +486,9 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
     if session
         .document
         .pattern
-        .bands
+        .ground
         .as_ref()
-        .is_some_and(|b| !b.is_empty())
+        .is_some_and(|g| !g.is_empty())
     {
         session.document.pattern.lattice = Lattice::block(tile);
     }
@@ -1211,7 +1238,12 @@ struct GroundSummary {
 }
 
 fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
-    let Some(b) = pattern.bands.as_ref().filter(|b| !b.is_empty()) else {
+    let Some(b) = pattern
+        .ground
+        .as_ref()
+        .filter(|g| !g.is_empty())
+        .and_then(pattern_core::Ground::as_bands)
+    else {
         return GroundSummary {
             bands: Vec::new(),
             direction: "both".into(),
@@ -1283,9 +1315,9 @@ fn ground_base(session: &Session) -> usize {
     let used = session
         .document
         .pattern
-        .bands
+        .ground
         .as_ref()
-        .map(pattern_core::Bands::slots_used)
+        .map(pattern_core::Ground::slots_used)
         .map_or(0, |s| s.len());
     session.document.pattern.palette.len().saturating_sub(used)
 }
@@ -1340,7 +1372,7 @@ fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> 
         .cloned()
         .collect();
     if painted.is_empty() || !painted.iter().any(|b| b.colour.is_some()) {
-        session.document.pattern.bands = None;
+        session.document.pattern.ground = None;
         session.document.pattern.palette = pattern_core::Palette::new(colors);
         return Ok(());
     }
@@ -1415,11 +1447,11 @@ fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> 
     }
 
     session.document.pattern.palette = pattern_core::Palette::new(colors);
-    session.document.pattern.bands = Some(pattern_core::Bands {
+    session.document.pattern.ground = Some(pattern_core::Ground::Bands(pattern_core::Bands {
         vertical,
         horizontal,
         crossings,
-    });
+    }));
 
     // A band sequence lives in the tile and repeats with it, so an oblique
     // lattice steps the stripes at every join.
@@ -1433,9 +1465,14 @@ fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> 
 /// Describe the ground as it now stands.
 fn ground_state(session: &Session, spec: &GroundSpec) -> Reply<BandState> {
     let pattern = &session.document.pattern;
-    let bands = pattern.bands.as_ref();
-    let slots = bands
-        .map(pattern_core::Bands::slots_used)
+    let bands = pattern
+        .ground
+        .as_ref()
+        .and_then(pattern_core::Ground::as_bands);
+    let slots = pattern
+        .ground
+        .as_ref()
+        .map(pattern_core::Ground::slots_used)
         .unwrap_or_default();
 
     // Echoed back from the sequence in the palette rather than from the
@@ -1497,6 +1534,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_document,
             new_from_images,
+            new_plain,
             apply,
             save_target,
             export_plan,
@@ -1913,7 +1951,14 @@ mod tests {
         )
         .expect("ground");
 
-        let bands = s.document.pattern.bands.clone().expect("bands");
+        let bands = s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .and_then(pattern_core::Ground::as_bands)
+            .cloned()
+            .expect("bands");
         let painted: Vec<u8> = bands.vertical.iter().map(|b| b.slot).collect();
         let (a, b) = (painted[0], painted[1]);
 
@@ -1960,7 +2005,14 @@ mod tests {
         ];
         apply_ground(&mut s, &spec(&threads, "both")).expect("ground");
 
-        let bands = s.document.pattern.bands.clone().expect("bands");
+        let bands = s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .and_then(pattern_core::Ground::as_bands)
+            .cloned()
+            .expect("bands");
         assert_eq!(bands.crossings.len(), 10, "four threads cross in ten ways");
         // Four threads, plus a colour only where two *different* ones meet: a
         // thread crossing itself is itself and needs no slot of its own.
@@ -1980,7 +2032,14 @@ mod tests {
             &spec(&[(10.0, Some("#3c78a0")), (10.0, None)], "vertical"),
         )
         .expect("ground");
-        let bands = s.document.pattern.bands.clone().expect("bands");
+        let bands = s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .and_then(pattern_core::Ground::as_bands)
+            .cloned()
+            .expect("bands");
         assert!(bands.crossings.is_empty());
         assert_eq!(bands.slots_used().len(), 1);
     }
@@ -2001,7 +2060,7 @@ mod tests {
         assert_eq!(
             s.document
                 .pattern
-                .bands
+                .ground
                 .as_ref()
                 .unwrap()
                 .slots_used()
@@ -2034,7 +2093,7 @@ mod tests {
 
         // And taking it away gives the slots back.
         apply_ground(&mut s, &spec(&[(10.0, None)], "both")).expect("ground");
-        assert!(s.document.pattern.bands.is_none());
+        assert!(s.document.pattern.ground.is_none());
         assert_eq!(s.document.pattern.palette.len(), base);
     }
 
@@ -2052,7 +2111,14 @@ mod tests {
         spec.mirrored = true;
         apply_ground(&mut s, &spec).expect("ground");
 
-        let bands = s.document.pattern.bands.clone().expect("bands");
+        let bands = s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .and_then(pattern_core::Ground::as_bands)
+            .cloned()
+            .expect("bands");
         let widths: Vec<f32> = bands.vertical.iter().map(|b| b.width_mm).collect();
         assert_eq!(widths, vec![20.0, 4.0, 12.0, 4.0], "pivots are not doubled");
     }
@@ -2116,7 +2182,14 @@ mod tests {
         )
         .expect("ground");
 
-        let before = s.document.pattern.bands.clone().expect("bands");
+        let before = s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .and_then(pattern_core::Ground::as_bands)
+            .cloned()
+            .expect("bands");
         let band_colour = s
             .document
             .pattern
@@ -2129,7 +2202,14 @@ mod tests {
             .expect("should re-derive");
         s.bank = s.document.load_motifs(&s.path).expect("re-quantise");
 
-        let after = s.document.pattern.bands.clone().expect("bands survived");
+        let after = s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .and_then(pattern_core::Ground::as_bands)
+            .cloned()
+            .expect("bands survived");
         assert_eq!(after.vertical.len(), before.vertical.len());
         assert_eq!(after.crossings.len(), before.crossings.len());
         assert_eq!(
@@ -2141,6 +2221,74 @@ mod tests {
             .pattern
             .validate()
             .expect("still renderable after the resize");
+    }
+
+    /// A document with no artwork, as the start screen now makes one.
+    fn plain_session() -> Session {
+        let mut s = Session {
+            path: PathBuf::from("untitled.json"),
+            document: pattern_doc::new_plain(pattern_core::Color::new(250, 246, 238)),
+            bank: MotifBank::new(),
+            saved: false,
+            written: String::new(),
+        };
+        s.mark_written();
+        s
+    }
+
+    #[test]
+    fn a_pattern_with_no_artwork_still_renders() {
+        // The whole point of the front door: a tartan has no motifs in it, and
+        // every path through the app has to survive an empty bank rather than
+        // assuming somebody brought PNGs.
+        let mut s = plain_session();
+        apply_ground(
+            &mut s,
+            &spec(&[(10.0, Some("#1b2a4a")), (10.0, Some("#1f4020"))], "both"),
+        )
+        .expect("ground");
+
+        let p = Params {
+            weights: vec![],
+            sizes: vec![],
+            ..params(0.3, 1)
+        };
+        write_params(&mut s, &p).expect("apply");
+        let preview = render(&s, &p).expect("render");
+
+        assert_eq!(preview.placements, 0);
+        assert!(
+            inked_share(&preview, &s) > 0.5,
+            "the ground should cover it"
+        );
+        // Two threads and the tone where they cross, plus the fabric.
+        assert_eq!(preview.colours, 4);
+    }
+
+    #[test]
+    fn a_plain_document_starts_with_nothing_but_its_fabric() {
+        let s = plain_session();
+        assert!(s.document.motifs.is_empty());
+        assert!(s.document.scatter.is_none());
+        assert!(s.document.pattern.ground.is_none());
+        assert_eq!(s.document.pattern.palette.len(), 1);
+        // Block, because a ground repeats by the tile and there is nothing
+        // strewn that would want an oblique one.
+        assert_eq!(
+            lattice_name(&s.document.pattern.lattice, s.document.pattern.tile_size_mm),
+            "block"
+        );
+        s.document
+            .pattern
+            .validate()
+            .expect("renderable from the start");
+    }
+
+    #[test]
+    fn a_plain_document_has_something_to_lose_from_the_moment_it_exists() {
+        // It has never been written anywhere, so closing discards it — the
+        // same rule as a document started from artwork.
+        assert!(plain_session().unsaved_changes());
     }
 
     #[test]

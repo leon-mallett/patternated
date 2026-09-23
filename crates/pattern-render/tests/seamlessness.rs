@@ -269,7 +269,11 @@ fn a_sequence_that_did_not_close_is_what_the_hazard_looks_like() {
     // and the engine stay independent: the tile is 240 mm and the sequence is
     // 17, so the ninth repeat is cut after 6 mm.
     let pattern = checked_pattern(Lattice::block(TILE), 7);
-    let bands = pattern.bands.as_ref().expect("the fixture has bands");
+    let bands = pattern
+        .ground
+        .as_ref()
+        .and_then(pattern_core::Ground::as_bands)
+        .expect("the fixture has bands");
     let period = pattern_core::Bands::period(&bands.vertical);
     assert!(
         (TILE.x / period - (TILE.x / period).round()).abs() > 0.1,

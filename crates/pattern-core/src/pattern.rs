@@ -19,12 +19,13 @@ pub struct Pattern {
     pub tile_size_mm: Vec2,
     pub lattice: Lattice,
     pub placements: Vec<Placement>,
-    /// A striped or checked ground, laid over the fabric and under the motifs.
+    /// A generated layer between the fabric and the motifs: stripes, a check,
+    /// a tartan, a texture.
     ///
-    /// Optional because most prints are motifs alone, and absent from a
-    /// document that predates it.
+    /// Optional because most prints are motifs alone — and a pattern may be a
+    /// ground with no motifs at all, which is what a tartan is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bands: Option<crate::Bands>,
+    pub ground: Option<crate::Ground>,
     pub palette: Palette,
     /// Seed for any randomised placement. Carried now though M1 places by hand,
     /// so that a pattern made today reproduces byte-identically later.
@@ -59,7 +60,7 @@ impl Pattern {
         // tiles. On a half-drop the neighbouring column arrives half a tile
         // down and the stripes step at every join — the same thing that made a
         // grid on a drop lattice break, and refused here for the same reason.
-        if self.bands.as_ref().is_some_and(|b| !b.is_empty()) {
+        if self.ground.as_ref().is_some_and(|g| !g.is_empty()) {
             let block = crate::Lattice::block(self.tile_size_mm);
             if (self.lattice.u - block.u).length() >= 1e-3
                 || (self.lattice.v - block.v).length() >= 1e-3
@@ -71,15 +72,15 @@ impl Pattern {
         // Bands resolve through the palette like everything else, so a slot
         // they name that the palette does not define is the same fault as a
         // motif naming one.
-        if let Some(bands) = &self.bands {
-            if let Some(slot) = bands
+        if let Some(ground) = &self.ground {
+            if let Some(slot) = ground
                 .slots_used()
                 .into_iter()
                 .find(|s| self.palette.resolve(*s).is_none())
             {
                 return Err(PatternError::SlotOutOfRange {
                     index: 0,
-                    motif_id: String::from("<bands>"),
+                    motif_id: String::from("<ground>"),
                     slot,
                     len: self.palette.len(),
                 });
@@ -127,8 +128,8 @@ pub fn resolved_color_count(pattern: &Pattern, motifs: &[Motif]) -> usize {
     let mut slots = vec![crate::palette::GROUND_SLOT];
     // A striped ground is printed too, and a designer quoting a colour count
     // that omitted it would be quoting for the wrong job.
-    if let Some(bands) = &pattern.bands {
-        slots.extend(bands.slots_used());
+    if let Some(ground) = &pattern.ground {
+        slots.extend(ground.slots_used());
     }
     for motif in motifs {
         if pattern.placements.iter().any(|p| p.motif_id == motif.id) {
@@ -152,7 +153,7 @@ mod tests {
             tile_size_mm: TILE,
             lattice,
             placements,
-            bands: None,
+            ground: None,
             palette: Palette::new(vec![Color::new(255, 250, 240), Color::new(200, 30, 45)]),
             seed: 0,
         }

@@ -133,7 +133,7 @@ pub fn straddling_pattern(lattice: Lattice) -> Pattern {
             Placement::new("cherry", Vec2::new(2.0, 3.0)),
             Placement::new("cherry", Vec2::new(140.0, 95.0)),
         ],
-        bands: None,
+        ground: None,
         palette: palette(),
         seed: 20260920,
     }
@@ -150,7 +150,7 @@ pub fn straddling_pattern(lattice: Lattice) -> Pattern {
 /// makes them close.
 pub fn checked_pattern(lattice: Lattice, seed: u64) -> Pattern {
     let mut pattern = scattered_pattern(lattice, seed, 0.2);
-    pattern.bands = Some(Bands::check(9.0, 8.0, 1, 2));
+    pattern.ground = Some(Bands::check(9.0, 8.0, 1, 2).into());
     pattern
 }
 
@@ -188,7 +188,7 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
         tile_size_mm: TILE,
         lattice,
         placements: scatter(&params, TILE, &lattice),
-        bands: None,
+        ground: None,
         palette: palette(),
         seed,
     }
@@ -241,7 +241,7 @@ pub fn mirrored_pattern_with(
         tile_size_mm: TILE,
         lattice,
         placements: scatter(&params, TILE, &lattice),
-        bands: None,
+        ground: None,
         palette: palette(),
         seed,
     }

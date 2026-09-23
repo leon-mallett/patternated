@@ -57,7 +57,7 @@ fn single_motif() -> Pattern {
         tile_size_mm: tile,
         lattice: Lattice::block(tile),
         placements: vec![Placement::new("cherry", Vec2::splat(TILE_MM / 2.0))],
-        bands: None,
+        ground: None,
         palette: palette(),
         seed: 1,
     }

@@ -13,7 +13,7 @@
 pub mod document;
 
 pub use document::{
-    derive_palette_from, ingest_to_library, load_source, new_from_images, render_cmyk,
+    derive_palette_from, ingest_to_library, load_source, new_from_images, new_plain, render_cmyk,
     render_for_export, save_to, sheet_tiles, soft_proof, Colourway, Document, GridSpec, MotifRef,
     PaletteResize, ScatterSpec,
 };

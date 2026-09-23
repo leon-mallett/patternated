@@ -12,6 +12,7 @@ import {
   garments,
   mockup,
   newFromImages,
+  newPlain,
   openDocument,
   proof,
   rememberColourway,
@@ -286,6 +287,15 @@ export default function App() {
     setStatus(null);
   }
 
+  /// Start a pattern with no artwork — a tartan, a stripe, a ground.
+  async function onNewPlain() {
+    try {
+      adopt(await newPlain(), "Started a plain ground");
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   async function onNew() {
     const chosen = await openDialog({
       title: "Choose the artwork for this pattern",
@@ -455,12 +465,20 @@ export default function App() {
             New pattern from artwork…
           </button>
           <button onClick={onOpen}>Open a saved pattern…</button>
+          <button data-testid="new-plain" onClick={onNewPlain}>
+            Start from a plain ground…
+          </button>
         </div>
         <p className="hint start-hint">
           Start with one or more PNG images, each showing a single motif. They
           can have a transparent background or sit on plain paper — the
           background is measured away either way. A palette is worked out from
           the artwork itself.
+        </p>
+        <p className="hint start-hint">
+          Or start from a <strong>plain ground</strong> and use no artwork at
+          all: a stripe, a check and a tartan are the fabric being a different
+          colour in bands, and need nothing placed on them.
         </p>
         <p className="hint start-hint">
           A <strong>saved pattern</strong> is a small <code>.json</code> file
@@ -830,8 +848,9 @@ export default function App() {
         ) : (
           <Group title="Motifs">
             <p className="hint">
-              This document places its motifs by hand, so the scatter controls do
-              not apply. Its placements are used exactly as written.
+              {doc.motifs.length === 0
+                ? "This pattern has no artwork in it — the ground is the whole design. Stripes, checks and tartans are made entirely in the Ground panel."
+                : "This document places its motifs by hand, so the scatter controls do not apply. Its placements are used exactly as written."}
             </p>
           </Group>
         )}

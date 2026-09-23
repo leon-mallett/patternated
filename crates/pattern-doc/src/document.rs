@@ -406,10 +406,10 @@ impl Document {
         // longer exist, and stop rendering at all.
         let carried: Vec<(u8, pattern_core::Color)> = self
             .pattern
-            .bands
+            .ground
             .as_ref()
-            .map(|b| {
-                b.slots_used()
+            .map(|g| {
+                g.slots_used()
                     .into_iter()
                     .filter_map(|s| self.pattern.palette.resolve(s).map(|c| (s, c)))
                     .collect()
@@ -422,7 +422,7 @@ impl Document {
             moved.insert(old_slot, palette.colors.len() as u8);
             palette.colors.push(colour);
         }
-        if let Some(bands) = self.pattern.bands.as_mut() {
+        if let Some(pattern_core::Ground::Bands(bands)) = self.pattern.ground.as_mut() {
             let renumber = |slot: &mut u8| {
                 if let Some(new) = moved.get(slot) {
                     *slot = *new;
@@ -891,7 +891,7 @@ pub fn new_from_images(
             tile_size_mm: tile,
             lattice: pattern_core::Lattice::half_drop(tile),
             placements: Vec::new(),
-            bands: None,
+            ground: None,
             palette,
             seed: 1,
         },
@@ -912,6 +912,43 @@ pub fn new_from_images(
             seed: 1,
         }),
     })
+}
+
+/// A document with no artwork in it at all.
+///
+/// The engine never needed motifs — a tartan or a procedural ground is a
+/// pattern with nothing placed on it, and renders perfectly well with an empty
+/// bank. What needed them was the way *in*: the only route to a document was
+/// `new_from_images`, so a ground-only print could be written by hand and not
+/// made in the app.
+///
+/// Starts with a palette of one colour, the fabric. A ground adds its own
+/// slots when one is chosen, which is why there is nothing to guess at here.
+#[must_use]
+pub fn new_plain(ground: pattern_core::Color) -> Document {
+    let tile = Vec2::new(240.0, 180.0);
+    Document {
+        motifs: Vec::new(),
+        library: None,
+        design_palette: None,
+        pattern: Pattern {
+            tile_size_mm: tile,
+            // Block, because a ground repeats by the tile itself and there is
+            // nothing strewn that would want an oblique one.
+            lattice: pattern_core::Lattice::block(tile),
+            placements: Vec::new(),
+            ground: None,
+            palette: Palette::new(vec![ground]),
+            seed: 1,
+        },
+        grid: None,
+        placements_are_generated: false,
+        colourways: Vec::new(),
+        active_colourway: None,
+        grid_scale_applied: 1.0,
+        grid_cells_used: (0, 0),
+        scatter: None,
+    }
 }
 
 /// Write a document, making motif paths relative to where it lands.
