@@ -157,6 +157,37 @@ verified entirely through the accessibility tree — every control present,
 labelled and correctly enabled — whose right-hand panel was clipping its own
 buttons. An anchor-driven test proves behaviour; only a picture proves layout.
 
+## Driving the interface
+
+`app/src/App.test.tsx` renders the real components in a headless DOM and drives
+them by anchor, faking the engine at **one seam** — `app/src/api.ts`, the module
+every Tauri command goes through. Mocking there rather than at the framework's
+internals keeps the surface tiny: a test names the handful of commands it cares
+about and every other export stays real.
+
+It catches what the layer beneath it cannot reach. Which controls a layout
+shows — a grid has rows and columns and no coverage, a mirror has coverage
+*and* the mirror-line share. Whether a warning appears when the engine reports
+a problem. Whether a confirmation actually gates a destructive action. All of
+that lives in the component, and none of it is visible from the command layer,
+however well tested that is.
+
+**Verified to fail**, on the two that guard something that matters:
+
+- Closing without asking — `closeDocument(true)` straight away — breaks both
+  close tests. That is a destructive action shipping ungated, and it is the
+  kind of thing that works perfectly in every manual trial where you meant to
+  say yes.
+- Handing the engine the slider's index instead of the colour count breaks the
+  palette test. The control steps through a list, so its own value is an index
+  and the off-by-a-lookup is available at all times.
+
+Three of the fourteen failed on their first run, and all three were faults in
+the tests: `clear()` does not apply to a range input, and the preview's alt
+text names the window and the document rather than saying "preview". Worth
+recording because the eleven that passed immediately are the useful signal —
+the harness and the app agreed about the app without being made to.
+
 ## The supporting levels
 
 **Unit tests in `pattern-core`** cover the lattice, wrapping, palette resolution

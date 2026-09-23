@@ -1264,3 +1264,44 @@ edit.
 semantics in Rust — there is no fast-math — so the same seed gives the same
 bytes at any `opt-level`. CI compiles at the default and would notice if that
 were ever untrue.
+
+---
+
+## Component tests, and the versions they are pinned to
+
+**Decided.** Vitest with Testing Library and jsdom, mocking `app/src/api.ts`.
+Five dev-dependencies, exact pins, no carets: `vitest@4.1.11`,
+`@testing-library/react@16.3.3`, `@testing-library/dom@10.4.2`,
+`@testing-library/user-event@14.6.7`, `jsdom@30.0.1`. 83 packages with
+transitives; one has an install script, `fsevents`, which is the macOS
+file-watcher and is not installed on Linux at all.
+
+**Why this tier.** The command layer beneath the interface has 45 tests and
+cannot see which controls a layout shows, whether a warning appears, or whether
+a confirmation gates anything. Those are the parts that had been built and
+never driven.
+
+**Why not the newest versions of two of them**, which is the part worth
+recording:
+
+- **jsdom 30.0.1 rather than 30.1.1.** The current release had been published
+  the previous day, inside the 72-hour window the portfolio's rules flag for
+  explicit confirmation. 30.0.1 is what Ragtag has run for two months.
+- **Vitest 4.1.11 rather than 5.0.1.** Vitest 5.0.0 was three weeks old and
+  nothing else in the portfolio ran it. 4.1.11 declares support for Vite 8 and
+  is proven next door.
+
+This is the lesson this project already paid for once, with `vtracer`: prefer
+the version other people have actually run. Neither choice costs anything here
+— both do exactly what is needed — so the only thing being bought is the
+absence of being the first to find out.
+
+**Mocked at our own seam, not the framework's.** `api.ts` is the single module
+every command goes through, so a test overrides two or three exports and the
+rest stay real. Mocking Tauri's internals would have meant a much larger
+surface and a test that breaks when Tauri changes something we never touched.
+
+**What this tier still cannot do** is see a layout. Every control can be
+present, labelled and correctly enabled while sitting on top of its neighbour —
+the playbook has a scar from exactly that. An anchor-driven test proves
+behaviour; only a picture proves layout.

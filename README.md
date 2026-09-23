@@ -94,6 +94,7 @@ cargo test --workspace                  # includes the seamlessness tests
 cargo clippy --all-targets -- -D warnings
 cargo fmt --all
 python3 scripts/check-docs.py           # every documentation link resolves
+cd app && npm test                      # the interface, in a headless DOM
 cd app && npm run build                 # type-check and bundle the front end
 ```
 

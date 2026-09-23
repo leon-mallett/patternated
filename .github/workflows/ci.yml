@@ -102,9 +102,13 @@ jobs:
         working-directory: app
         run: npm ci
 
-      # The project's own build script, which type-checks and then bundles.
-      # CI running the same command a developer runs is one less thing that
-      # can be true in one place and not the other.
+      # The project's own scripts, which is what a developer runs. CI running
+      # the same commands is one less thing that can be true in one place and
+      # not the other.
+      - name: Component tests
+        working-directory: app
+        run: npm test
+
       - name: Build
         working-directory: app
         run: npm run build
