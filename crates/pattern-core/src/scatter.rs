@@ -1476,6 +1476,7 @@ mod tests {
             tile_size_mm: TILE,
             lattice,
             placements: scatter(&params(0.35, 6), TILE, &lattice),
+            bands: None,
             palette: Palette::new(vec![Color::new(250, 246, 238), Color::new(200, 30, 45)]),
             seed: 6,
         };

@@ -14,7 +14,8 @@
 use glam::Vec2;
 use motif_ingest::{matte, quantise, trim, MatteMethod, SourceImage};
 use pattern_core::{
-    scatter, Color, Lattice, Mirror, Motif, MotifWeight, Palette, Pattern, Placement, ScatterParams,
+    scatter, Bands, Color, Lattice, Mirror, Motif, MotifWeight, Palette, Pattern, Placement,
+    ScatterParams,
 };
 use pattern_render::MotifBank;
 use tiny_skia::{Paint, PathBuilder, Pixmap, Transform};
@@ -132,9 +133,25 @@ pub fn straddling_pattern(lattice: Lattice) -> Pattern {
             Placement::new("cherry", Vec2::new(2.0, 3.0)),
             Placement::new("cherry", Vec2::new(140.0, 95.0)),
         ],
+        bands: None,
         palette: palette(),
         seed: 20260920,
     }
+}
+
+/// A checked ground with motifs strewn over it.
+///
+/// Both halves on purpose: bands are laid between the ground and the motifs,
+/// so a fixture with only one of them would not exercise the ordering that
+/// decision exists for.
+///
+/// The band widths deliberately do not divide the tile — 17 mm of sequence
+/// into 240 and 180 — because the interesting question is whether the engine
+/// makes them close.
+pub fn checked_pattern(lattice: Lattice, seed: u64) -> Pattern {
+    let mut pattern = scattered_pattern(lattice, seed, 0.2);
+    pattern.bands = Some(Bands::check(9.0, 8.0, 1, 2));
+    pattern
 }
 
 /// A scattered pattern — what M2 actually produces, as opposed to the
@@ -171,6 +188,7 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
         tile_size_mm: TILE,
         lattice,
         placements: scatter(&params, TILE, &lattice),
+        bands: None,
         palette: palette(),
         seed,
     }
@@ -223,6 +241,7 @@ pub fn mirrored_pattern_with(
         tile_size_mm: TILE,
         lattice,
         placements: scatter(&params, TILE, &lattice),
+        bands: None,
         palette: palette(),
         seed,
     }

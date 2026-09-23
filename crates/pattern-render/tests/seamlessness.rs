@@ -11,7 +11,7 @@ mod support;
 
 use pattern_core::Lattice;
 use pattern_render::{render_field, render_field_direct, render_tile};
-use support::{bank, scattered_pattern, straddling_pattern, TILE};
+use support::{bank, checked_pattern, scattered_pattern, straddling_pattern, TILE};
 
 /// Positions where the two renders differ, and by how much at the worst.
 fn differences(a: &tiny_skia::Pixmap, b: &tiny_skia::Pixmap) -> (usize, u8) {
@@ -225,5 +225,108 @@ fn an_unsuitable_window_is_what_the_complaint_looked_like() {
     assert!(
         count > 1000,
         "expected an odd half-drop window not to repeat, but only {count} pixels differed"
+    );
+}
+
+#[test]
+fn a_checked_ground_tiles_with_no_seam() {
+    // Bands are the first thing in this engine that is not a placed motif, and
+    // they carry the same obligation: laid over the fabric and under the
+    // motifs, they still have to join.
+    //
+    // The fixture's sequence is 17 mm into a 240 x 180 mm tile, which divides
+    // neither. If the widths were used as written the last band at every tile
+    // edge would be the wrong width, and these two routes would disagree
+    // exactly there.
+    // Block only, and that is the finding rather than a convenience: a band
+    // sequence lives in the tile and repeats with it, so on a half-drop the
+    // neighbouring column arrives half a tile down and the stripes step at
+    // every join. `a_checked_ground_needs_a_block_lattice` holds the refusal.
+    let bank = bank();
+    for lattice in [Lattice::block(TILE)] {
+        for dpi in [96.0, 150.0] {
+            let pattern = checked_pattern(lattice, 7);
+            let tiled = render_field(&pattern, &bank, dpi, 3, 3).expect("field should render");
+            let direct =
+                render_field_direct(&pattern, &bank, dpi, 3, 3).expect("field should render");
+
+            let (count, worst) = differences(&tiled, &direct);
+            assert_eq!(
+                count, 0,
+                "{count} pixels differ (worst {worst}) on {lattice:?} at {dpi} DPI"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_sequence_that_did_not_close_is_what_the_hazard_looks_like() {
+    // Kept so the test above is known to be measuring something that can fail.
+    // Bands whose widths are used as written, rather than fitted, put a band of
+    // the wrong width at every tile edge.
+    //
+    // Built here by hand rather than by disabling the fitting, so the fixture
+    // and the engine stay independent: the tile is 240 mm and the sequence is
+    // 17, so the ninth repeat is cut after 6 mm.
+    let pattern = checked_pattern(Lattice::block(TILE), 7);
+    let bands = pattern.bands.as_ref().expect("the fixture has bands");
+    let period = pattern_core::Bands::period(&bands.vertical);
+    assert!(
+        (TILE.x / period - (TILE.x / period).round()).abs() > 0.1,
+        "the fixture's {period} mm sequence should not divide a {} mm tile",
+        TILE.x
+    );
+
+    let (fitted, (across, _)) = bands.fitted_to(TILE.x, TILE.y);
+    let closed = pattern_core::Bands::period(&fitted.vertical);
+    assert!(
+        (TILE.x / closed - (TILE.x / closed).round()).abs() < 1e-3,
+        "fitting should have made {closed} mm divide {} mm",
+        TILE.x
+    );
+    // Either direction: the nearest whole number of repeats may be more or
+    // fewer than the sequence asked for. 17 mm into 240 is 14.1, so fourteen
+    // repeats stretch it slightly rather than shrinking it.
+    assert!(
+        (across - 1.0).abs() > 1e-3,
+        "the fixture's sequence had to move to close, but the factor was {across}"
+    );
+}
+
+#[test]
+fn a_check_puts_three_tones_on_the_fabric() {
+    // The thing a motif cannot do, asserted on pixels: where two bands cross,
+    // a colour that neither band paints.
+    let pattern = checked_pattern(Lattice::block(TILE), 7);
+    let tile = render_tile(&pattern, &bank(), 96.0).expect("tile should render");
+
+    let palette = &pattern.palette;
+    let want = |slot: u8| {
+        let c = palette.resolve(slot).expect("slot is defined");
+        (c.r, c.g, c.b)
+    };
+    let mut seen = std::collections::HashSet::new();
+    for p in tile.pixels() {
+        let c = p.demultiply();
+        seen.insert((c.red(), c.green(), c.blue()));
+    }
+
+    for slot in [0u8, 1, 2] {
+        assert!(
+            seen.contains(&want(slot)),
+            "slot {slot} is not on the fabric; a check needs the ground, the \
+             band and the crossing"
+        );
+    }
+}
+
+#[test]
+fn a_checked_ground_needs_a_block_lattice() {
+    let mut pattern = checked_pattern(Lattice::block(TILE), 7);
+    pattern.lattice = Lattice::half_drop(TILE);
+    let err = render_tile(&pattern, &bank(), 96.0).expect_err("should be refused");
+    assert!(
+        err.to_string().contains("block lattice"),
+        "unhelpful message: {err}"
     );
 }

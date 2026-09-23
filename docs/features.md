@@ -186,6 +186,54 @@ still places *more* motifs overall, since the corridor stops being wasted.
 `examples/generated-motifs/bananas-damask.json` is `bananas.json` at full size
 with the share at 45%, which is the other way out of the corridor.
 
+## Stripes, checks and ginghams
+
+The first thing in this engine that is not a placed motif. A stripe is not a
+motif anywhere — it is the fabric being a different colour in bands — and
+expressing one as a very tall thin motif works right up until two of them
+cross.
+
+**The crossing is the whole reason bands are their own construct.** Where a
+vertical band meets a horizontal one the result is neither band's colour but a
+third, and a motif drawn over another motif cannot produce a colour that
+neither contains. That third tone is what makes a gingham a gingham: two
+colours, three tones. Crossings are a short list of "these two slots meet as
+this one" rather than a matrix, because a check uses one entry and a matrix of
+every slot against every other would be mostly empty and entirely
+hand-maintained. Without a matching entry the horizontal band wins, which is
+what drawing one over the other would have done anyway.
+
+**Bands sit between the ground and the motifs.** The fabric is filled, the
+bands are laid over it, the motifs go on top. That ordering is the design
+decision, and it is what makes a check with flowers tossed across it cost
+nothing — it is the two things it looks like rather than a special case.
+
+Slots throughout, never colours, so a check recolours with a colourway like
+everything else, and its slots are counted in what a printer would charge for.
+
+### Two constraints, both familiar
+
+**The sequence has to close over the tile.** A sequence that does not divide
+the tile is cut at its edge, and since the next tile starts the sequence again
+the join carries a band of the wrong width — down every repeat, on every
+metre. The widths are scaled to the nearest whole number of repeats rather than
+the tile being grown, because the repeat size is a decision about the print and
+a band width is a proportion nobody will miss half a millimetre of.
+
+**Bands need a block lattice**, and this one was found by the test rather than
+by reasoning. A band sequence lives in the tile and repeats with it, so on a
+half-drop the neighbouring column arrives half a tile down and the stripes step
+at every join. The combination is refused rather than rendered.
+
+That is now the third time the same shape has appeared: a rectangle of tiles
+has to be a repeating unit, a grid's cells have to close over the tile, and a
+band sequence has to as well. Worth naming as a family — **anything laid out
+inside the tile has to agree with how the tile repeats**, and an oblique
+lattice is what most often disagrees.
+
+`examples/generated-motifs/bananas-gingham.json` and `bananas-stripe.json` are
+both the banana artwork over a banded ground.
+
 ## Scatter placement
 
 Many motifs distributed across the tile to read as hand-strewn, by toroidal

@@ -51,6 +51,7 @@ pub fn render_tile(pattern: &Pattern, bank: &MotifBank, dpi: f32) -> Result<Pixm
     let pl = pixel_lattice_for(pattern, dpi)?;
     let mut target = new_pixmap(pl.tile_px)?;
     fill_ground(&mut target, pattern)?;
+    fill_bands(&mut target, pattern, &pl)?;
 
     for stamp in sprites(pattern, bank, dpi, &pl)? {
         for offset in pl.neighbour_offsets() {
@@ -102,6 +103,7 @@ pub fn render_field_direct(
     let size = IVec2::new(pl.tile_px.x * cols as i32, pl.tile_px.y * rows as i32);
     let mut target = new_pixmap(size)?;
     fill_ground(&mut target, pattern)?;
+    fill_bands(&mut target, pattern, &pl)?;
 
     let offsets = pl.offsets_covering(size.x, size.y);
     for stamp in sprites(pattern, bank, dpi, &pl)? {
@@ -488,6 +490,64 @@ fn fill_ground(target: &mut Pixmap, pattern: &Pattern) -> Result<(), RenderError
     let ground = PremultipliedColorU8::from_rgba(r, g, b, 255).ok_or(RenderError::NoGroundColor)?;
     for px in target.pixels_mut() {
         *px = ground;
+    }
+    Ok(())
+}
+
+/// Lay a striped or checked ground over the fabric.
+///
+/// Between the ground and the motifs, which is the whole reason bands are a
+/// property of the pattern rather than a kind of motif: a check with flowers
+/// tossed over it is then the two things it looks like rather than a special
+/// case.
+///
+/// Resolved per column and per row first and combined per pixel, because a
+/// band sequence is one-dimensional in each direction — walking the sequence
+/// for every pixel would do the same search a thousand times a row.
+fn fill_bands(
+    target: &mut Pixmap,
+    pattern: &Pattern,
+    pl: &PixelLattice,
+) -> Result<(), RenderError> {
+    let Some(bands) = &pattern.bands else {
+        return Ok(());
+    };
+    if bands.is_empty() {
+        return Ok(());
+    }
+
+    // Fitted to the tile, or the sequence is cut at the tile's edge and every
+    // join carries a band of the wrong width.
+    let (bands, _) = bands.fitted_to(pattern.tile_size_mm.x, pattern.tile_size_mm.y);
+    let (w, h) = (target.width(), target.height());
+    let scale = Vec2::new(
+        pattern.tile_size_mm.x / pl.tile_px.x.max(1) as f32,
+        pattern.tile_size_mm.y / pl.tile_px.y.max(1) as f32,
+    );
+
+    // Sampled at the middle of each pixel, so a band edge falling between two
+    // pixels lands on one of them rather than on neither.
+    let columns: Vec<Option<u8>> = (0..w)
+        .map(|x| bands.vertical_slot_at((x as f32 + 0.5) * scale.x))
+        .collect();
+    let rows: Vec<Option<u8>> = (0..h)
+        .map(|y| bands.horizontal_slot_at((y as f32 + 0.5) * scale.y))
+        .collect();
+
+    let pixels = target.pixels_mut();
+    for y in 0..h {
+        let row = rows[y as usize];
+        for x in 0..w {
+            let Some(slot) = bands.resolve(columns[x as usize], row) else {
+                continue;
+            };
+            let Some(Color { r, g, b }) = pattern.palette.resolve(slot) else {
+                continue;
+            };
+            if let Some(p) = PremultipliedColorU8::from_rgba(r, g, b, 255) {
+                pixels[(y * w + x) as usize] = p;
+            }
+        }
     }
     Ok(())
 }

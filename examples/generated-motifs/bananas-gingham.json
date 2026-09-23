@@ -1,0 +1,176 @@
+{
+  "motifs": [
+    {
+      "id": "peeled",
+      "file": "20-banana-peeled.png",
+      "natural_size_mm": [
+        40.0,
+        40.0
+      ],
+      "matte": "ExistingAlpha"
+    },
+    {
+      "id": "whole",
+      "file": "21-banana-whole.png",
+      "natural_size_mm": [
+        40.0,
+        40.0
+      ],
+      "matte": "ExistingAlpha"
+    },
+    {
+      "id": "bunch",
+      "file": "22-banana-bunch.png",
+      "natural_size_mm": [
+        40.0,
+        40.0
+      ],
+      "matte": "ExistingAlpha"
+    }
+  ],
+  "scatter": {
+    "density": 0.18,
+    "prevent_overlap": true,
+    "rotation_jitter_deg": 30.0,
+    "scale_range": [
+      0.85,
+      1.15
+    ],
+    "mix": [
+      {
+        "motif_id": "whole",
+        "weight": 3.0
+      },
+      {
+        "motif_id": "peeled",
+        "weight": 2.0
+      },
+      {
+        "motif_id": "bunch",
+        "weight": 1.5
+      }
+    ],
+    "seed": 20260922
+  },
+  "pattern": {
+    "tile_size_mm": [
+      300.0,
+      225.0
+    ],
+    "lattice": {
+      "u": [
+        300.0,
+        0.0
+      ],
+      "v": [
+        0.0,
+        225.0
+      ]
+    },
+    "placements": [],
+    "palette": {
+      "colors": [
+        {
+          "r": 250,
+          "g": 246,
+          "b": 238
+        },
+        {
+          "r": 9,
+          "g": 9,
+          "b": 7
+        },
+        {
+          "r": 19,
+          "g": 19,
+          "b": 14
+        },
+        {
+          "r": 33,
+          "g": 27,
+          "b": 12
+        },
+        {
+          "r": 111,
+          "g": 84,
+          "b": 20
+        },
+        {
+          "r": 187,
+          "g": 149,
+          "b": 9
+        },
+        {
+          "r": 223,
+          "g": 165,
+          "b": 1
+        },
+        {
+          "r": 227,
+          "g": 170,
+          "b": 3
+        },
+        {
+          "r": 245,
+          "g": 202,
+          "b": 28
+        },
+        {
+          "r": 247,
+          "g": 195,
+          "b": 5
+        },
+        {
+          "r": 248,
+          "g": 217,
+          "b": 88
+        },
+        {
+          "r": 248,
+          "g": 237,
+          "b": 188
+        },
+        {
+          "r": 120,
+          "g": 170,
+          "b": 205
+        },
+        {
+          "r": 60,
+          "g": 110,
+          "b": 150
+        }
+      ]
+    },
+    "seed": 0,
+    "bands": {
+      "vertical": [
+        {
+          "width_mm": 18.0,
+          "slot": 12
+        },
+        {
+          "width_mm": 18.0,
+          "slot": 0
+        }
+      ],
+      "horizontal": [
+        {
+          "width_mm": 18.0,
+          "slot": 12
+        },
+        {
+          "width_mm": 18.0,
+          "slot": 0
+        }
+      ],
+      "crossings": [
+        {
+          "a": 12,
+          "b": 12,
+          "slot": 13
+        }
+      ]
+    }
+  }
+}

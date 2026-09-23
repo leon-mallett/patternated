@@ -4,6 +4,7 @@
 //! I/O, no async, no logging and reads no clock. Everything here is expressed in
 //! millimetres — pixels appear only in the render and export layers.
 
+mod bands;
 mod colourway;
 mod error;
 mod grid;
@@ -16,6 +17,7 @@ mod placement;
 mod scatter;
 mod torus;
 
+pub use bands::{Band, Bands, Crossing};
 pub use colourway::{rotate_hue, shift_lightness, swap_ground, with_colour};
 pub use error::PatternError;
 pub use grid::{grid, grid_with_outcome, GridOutcome, GridParams};

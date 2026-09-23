@@ -852,6 +852,7 @@ pub fn new_from_images(
             tile_size_mm: tile,
             lattice: pattern_core::Lattice::half_drop(tile),
             placements: Vec::new(),
+            bands: None,
             palette,
             seed: 1,
         },

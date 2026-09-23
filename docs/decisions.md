@@ -1305,3 +1305,42 @@ surface and a test that breaks when Tauri changes something we never touched.
 present, labelled and correctly enabled while sitting on top of its neighbour —
 the playbook has a scar from exactly that. An anchor-driven test proves
 behaviour; only a picture proves layout.
+
+---
+
+## Bands are a ground treatment, not a kind of motif
+
+**Decided.** `Pattern` carries an optional `Bands` — two sequences of coloured
+bands and a list of crossings — rendered between the ground fill and the
+motifs.
+
+**Why not a motif.** A stripe can be faked as a tall thin motif on a grid, and
+that holds until two stripes cross. Where a vertical band meets a horizontal
+one the result is a third colour that neither band contains, and compositing
+one motif over another can only ever produce a colour one of them already had.
+Two colours giving three tones is what a gingham *is*.
+
+**Why between the ground and the motifs.** It makes "a check with flowers
+tossed over it" the two things it looks like rather than a third construct.
+Placements are untouched, export and mockups and colourways all work unchanged,
+and the band slots join the colour count a printer charges by.
+
+**Rejected.** A crossing matrix of every slot against every other. A check uses
+one entry; the matrix would be mostly empty and maintained by hand. A list of
+`(a, b) -> slot` with the horizontal band winning by default covers gingham,
+windowpane and tartan, and says what it does.
+
+**The constraint the tests found.** Bands need a block lattice. A sequence
+lives in the tile and repeats with it, so on a half-drop the neighbouring
+column arrives half a tile down and the stripes step at every join. The
+seamlessness test caught it immediately — a million pixels of disagreement
+between the two render routes, not a subtle seam — and it is refused rather
+than rendered.
+
+**The same shape, a third time.** A rectangle of tiles has to be a repeating
+unit; a grid's cells have to close over the tile; a band sequence has to as
+well. Anything laid out inside the tile has to agree with how the tile repeats,
+and an oblique lattice is what usually disagrees. Worth checking first the next
+time something new is laid out inside a tile.
+
+Described in [Features](./features.md#stripes-checks-and-ginghams).
