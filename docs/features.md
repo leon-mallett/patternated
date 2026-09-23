@@ -234,6 +234,26 @@ lattice is what most often disagrees.
 `examples/generated-motifs/bananas-gingham.json` and `bananas-stripe.json` are
 both the banana artwork over a banded ground.
 
+### In the app
+
+A **Ground** control offers plain, stripe, bands across, check and windowpane,
+with a band width and a gap. Two numbers cover the family, so a pinstripe is a
+stripe with a thin band rather than a style of its own; what actually differs
+between the named grounds is which directions are painted and what a crossing
+resolves to.
+
+The first ground asked for **borrows two palette slots**, shaded from the
+fabric's own colour rather than taken from a fixed list, so what appears first
+is a tone of the ground already chosen. They are ordinary slots — the swatch
+controls recolour them, a colourway carries them, and they count toward what a
+printer charges for — but their swatches sit beside the ground control rather
+than among the motif colours, where nobody would connect them to the stripes.
+
+Choosing a ground moves the repeat back to a block lattice, for the reason
+above. That is held in the parameter path rather than in the layout switch,
+because a document that places its motifs by hand never reaches the layout
+switch and can have a striped ground too.
+
 ## Scatter placement
 
 Many motifs distributed across the tile to read as hand-strewn, by toroidal

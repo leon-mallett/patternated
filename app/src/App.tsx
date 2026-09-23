@@ -30,6 +30,8 @@ import {
   type MockupView,
   LAYOUTS,
   COLOUR_COUNTS,
+  BAND_STYLES,
+  setBands,
   closeDocument,
   setPaletteSize,
   LAYOUT_GROUPS,
@@ -65,6 +67,10 @@ export default function App() {
   );
   const [motifs, setMotifs] = useState<MotifEntry[] | null>(null);
   const [dropped, setDropped] = useState<string[]>([]);
+  const [bandStyle, setBandStyle] = useState("none");
+  const [bandWidth, setBandWidth] = useState(18);
+  const [bandGap, setBandGap] = useState(18);
+  const [bandSlots, setBandSlots] = useState<number[]>([]);
   const [jitter, setJitter] = useState(20);
   const [scale, setScale] = useState<[number, number]>([0.85, 1.15]);
   const [seed, setSeed] = useState(1);
@@ -208,6 +214,10 @@ export default function App() {
     setMotifs(null);
     setDropped([]);
     setColourIndex(nearestColourIndex(opened.palette_colours));
+    setBandStyle(opened.band_style);
+    setBandWidth(opened.band_width_mm);
+    setBandGap(opened.band_gap_mm);
+    setBandSlots(opened.band_slots);
     setJitter(opened.rotation_jitter_deg);
     setScale(opened.scale_range);
     setSeed(opened.seed);
@@ -317,6 +327,31 @@ export default function App() {
       });
       setMotifs(sized.motifs);
       setDropped(sized.colourways_dropped);
+      setError(null);
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /// Put a striped or checked ground under the pattern.
+  ///
+  /// Its own path rather than `changePalette`, because a ground borrows two
+  /// palette slots the first time one is asked for, and can move the repeat
+  /// back onto a block lattice.
+  async function changeGround(style: string, width: number, gap: number) {
+    setBandStyle(style);
+    setBandWidth(width);
+    setBandGap(gap);
+    try {
+      const ground = await setBands(style, width, gap);
+      setBandSlots(ground.slots);
+      setPalette((p) => ({
+        palette: ground.palette,
+        colourways: p?.colourways ?? [],
+        active_colourway: p?.active_colourway ?? null,
+      }));
+      setLattice(ground.lattice === "block" ? "block" : lattice);
       setError(null);
       await refresh();
     } catch (e) {
@@ -849,9 +884,79 @@ export default function App() {
           })()}
         </Group>
 
+        <Group title="Ground">
+          <label>
+            Pattern
+            <select
+              data-testid="band-style"
+              value={bandStyle}
+              onChange={(e) => changeGround(e.target.value, bandWidth, bandGap)}
+            >
+              {BAND_STYLES.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {bandStyle !== "none" && (
+            <>
+              <Slider
+                label="Band"
+                testId="band-width"
+                value={bandWidth}
+                min={1}
+                max={60}
+                step={1}
+                format={(v) => `${v} mm`}
+                onChange={(v) => changeGround(bandStyle, v, bandGap)}
+              />
+              <Slider
+                label="Gap"
+                testId="band-gap"
+                value={bandGap}
+                min={0}
+                max={60}
+                step={1}
+                format={(v) => `${v} mm`}
+                onChange={(v) => changeGround(bandStyle, bandWidth, v)}
+              />
+              <div className="swatches" data-testid="band-swatches">
+                {bandSlots.map((slot) => (
+                  <label className="swatch-edit" key={slot}>
+                    <input
+                      type="color"
+                      value={(palette?.palette ?? doc.palette)[slot] ?? "#000000"}
+                      onChange={(e) =>
+                        changePalette(() => setSlotColour(slot, e.target.value))
+                      }
+                    />
+                    <span
+                      className="swatch"
+                      style={{
+                        background: (palette?.palette ?? doc.palette)[slot],
+                      }}
+                    />
+                  </label>
+                ))}
+              </div>
+              <p className="hint">
+                Stripes and checks are the fabric itself, laid under whatever is
+                strewn over it. A check's crossing is a third tone — two colours
+                give three — which is what no arrangement of motifs can do. The
+                sequence is scaled so it divides the repeat exactly, or every
+                join would carry a band of the wrong width.
+              </p>
+            </>
+          )}
+        </Group>
+
         <Group title="Motif colours">
-          <div className="swatches">
-            {(palette?.palette ?? doc.palette).slice(1).map((c, i) => (
+          <div className="swatches" data-testid="motif-swatches">
+            {(palette?.palette ?? doc.palette)
+              .map((c, i) => [c, i] as const)
+              .filter(([, i]) => i > 0 && !bandSlots.includes(i))
+              .map(([c, i]) => (
               <label
                 key={i + 1}
                 className="swatch-edit"

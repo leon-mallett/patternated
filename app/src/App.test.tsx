@@ -38,6 +38,8 @@ const engine = {
   applied: [] as unknown[],
   paletteSizes: [] as number[],
   closeCalls: [] as boolean[],
+  grounds: [] as Array<[string, number, number]>,
+  groundSlots: [3, 4],
 };
 
 vi.mock("./api", async (importOriginal) => {
@@ -64,6 +66,20 @@ vi.mock("./api", async (importOriginal) => {
       return discard
         ? { closed: true, never_saved: false, changed: false }
         : engine.closeOutcome;
+    },
+    setBands: async (style: string, widthMm: number, gapMm: number) => {
+      engine.grounds.push([style, widthMm, gapMm]);
+      const painted = style !== "none";
+      return {
+        style,
+        width_mm: widthMm,
+        gap_mm: gapMm,
+        slots: painted ? engine.groundSlots : [],
+        palette: painted
+          ? [...engine.opened.palette, "#9a8f7e", "#6b6154"]
+          : engine.opened.palette,
+        lattice: painted ? "block" : "half-drop",
+      };
     },
     setPaletteSize: async (colours: number) => {
       engine.paletteSizes.push(colours);
@@ -110,6 +126,8 @@ beforeEach(() => {
   engine.applied = [];
   engine.paletteSizes = [];
   engine.closeCalls = [];
+  engine.grounds = [];
+  engine.groundSlots = [3, 4];
   dialog.confirmed = true;
   dialog.chosen = "/patterns/cherries.json";
 });
@@ -256,5 +274,68 @@ describe("the preview", () => {
     const readout = await screen.findByTestId("readout-coverage");
     expect(readout.textContent).toContain("31%");
     expect(readout.textContent).toContain("asked 50%");
+  });
+});
+
+describe("the ground", () => {
+  it("shows its widths only once a pattern is chosen", async () => {
+    const user = await openApp();
+    expect(screen.queryByTestId("band-width")).toBeNull();
+
+    await user.selectOptions(screen.getByTestId("band-style"), "check");
+
+    await screen.findByTestId("band-width");
+    expect(screen.getByTestId("band-gap")).toBeTruthy();
+    expect(engine.grounds).toEqual([["check", 18, 18]]);
+  });
+
+  it("carries the widths through when only the style changes", async () => {
+    // The three controls are one command, so changing any of them has to send
+    // the other two as they stand rather than as they started.
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("band-style"), "stripe");
+    fireEvent.change(screen.getByTestId("band-width"), { target: { value: "7" } });
+    await waitFor(() => expect(engine.grounds.length).toBe(2));
+
+    await user.selectOptions(screen.getByTestId("band-style"), "windowpane");
+
+    await waitFor(() =>
+      expect(engine.grounds.at(-1)).toEqual(["windowpane", 7, 18]),
+    );
+  });
+
+  it("puts the ground's own colours beside it, not among the motif colours", async () => {
+    // A band slot is an ordinary palette slot, so it would otherwise appear in
+    // the motif swatches — where nobody would connect it to the stripes.
+    const user = await openApp();
+    const colours = (el: HTMLElement) =>
+      el.querySelectorAll('input[type="color"]').length;
+
+    // Three slots to start: the ground, and two the motifs use. The motif
+    // swatches show the two, since the ground has a control of its own.
+    expect(colours(screen.getByTestId("motif-swatches"))).toBe(2);
+
+    await user.selectOptions(screen.getByTestId("band-style"), "check");
+
+    // The engine appended two slots for the bands and reported them as 3 and
+    // 4. They belong beside the ground control...
+    const ground = await screen.findByTestId("band-swatches");
+    expect(colours(ground)).toBe(2);
+    // ...and not among the motif colours, where nobody would connect them to
+    // the stripes.
+    await waitFor(() =>
+      expect(colours(screen.getByTestId("motif-swatches"))).toBe(2),
+    );
+  });
+
+  it("takes the ground away again", async () => {
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("band-style"), "check");
+    await screen.findByTestId("band-width");
+
+    await user.selectOptions(screen.getByTestId("band-style"), "none");
+
+    await waitFor(() => expect(screen.queryByTestId("band-width")).toBeNull());
+    expect(engine.grounds.at(-1)?.[0]).toBe("none");
   });
 });

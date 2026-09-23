@@ -14,6 +14,10 @@ export interface Opened {
   palette: string[];
   /** Colours the design is quantised onto, ground included. */
   palette_colours: number;
+  band_style: string;
+  band_width_mm: number;
+  band_gap_mm: number;
+  band_slots: number[];
   colourways: string[];
   active_colourway: string | null;
   scattered: boolean;
@@ -135,6 +139,38 @@ export interface CloseOutcome {
  *  person can see it. Call again with `discard` to go through with it. */
 export const closeDocument = (discard: boolean) =>
   invoke<CloseOutcome>("close_document", { discard });
+
+/** The striped and checked grounds, as a designer names them.
+ *
+ *  Two numbers cover all of them — a band width and a gap — so a pinstripe is
+ *  a stripe with a thin band rather than a style of its own. What differs is
+ *  which directions are painted and what a crossing resolves to. */
+export const BAND_STYLES = [
+  { id: "none", label: "Plain" },
+  { id: "stripe", label: "Stripe" },
+  { id: "band", label: "Bands across" },
+  { id: "check", label: "Check" },
+  { id: "windowpane", label: "Windowpane" },
+] as const;
+
+/** The ground after a change. */
+export interface BandState {
+  style: string;
+  width_mm: number;
+  gap_mm: number;
+  /** The slots the bands paint with, so their swatches can sit beside the
+   *  control rather than lost among the motif colours. */
+  slots: number[];
+  palette: string[];
+  lattice: string;
+}
+
+/** Put a striped or checked ground under the pattern, or take it away.
+ *
+ *  Its own command because it can add colours to the palette, which `apply`
+ *  never does. */
+export const setBands = (style: string, widthMm: number, gapMm: number) =>
+  invoke<BandState>("set_bands", { style, widthMm, gapMm });
 
 export const openDocument = (path: string) =>
   invoke<Opened>("open_document", { path });
