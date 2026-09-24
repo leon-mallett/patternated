@@ -1505,3 +1505,62 @@ routes to the same field, and they take different paths to the same
 millimetre. Bands had carried the identical hazard from the start and had never
 been unlucky enough to show it. Taking the remainder in *pixels* is exact,
 because a field is always a whole number of tiles.
+
+---
+
+## A second generator that is all lattice
+
+**Decided.** Ornament: a grid of cells, each carrying a figure, three of which
+contain smaller copies of themselves. The second mathematical generator, and
+deliberately the opposite pole from reaction–diffusion rather than more of it.
+
+**Why this and not an L-system or an IFS.** An L-system's turtle needs
+headings, and headings need trigonometry, whose last bit is not guaranteed
+across platforms — the determinism invariant would have had to be weakened or
+worked around with stored constants. An IFS attractor does not tile: wrapping a
+chaos game into a torus destroys the structure that made it worth plotting. A
+grid of rule-drawn cells tiles by construction, needs no transcendental beyond
+`sqrt` (which IEEE 754 *does* require to be correctly rounded), and lands on
+the ornamental family — strapwork, clamshell, square fractals — that a repeat
+print actually uses.
+
+**An integer hash, not a stream.** The per-cell choices come from SplitMix64
+over the cell's coordinates rather than from `rand_chacha`. A stream answers
+"what is the next number"; this needs "what is the number *for this cell*",
+because sampling visits cells in whatever order a renderer walks pixels and a
+recursive figure visits the same cell once per level. A stream would have to be
+materialised into an array first. It is seeded, pure, and has no floating point
+in it, so it is if anything harder to make non-deterministic than the sampler.
+
+**What the tests found.** Two real defects, both from stating a property rather
+than looking at a picture. The Weave was drawn corner to corner, which meets
+the cell at its corners where a neighbour has nothing to meet it — the render
+looked like a plausible maze and was full of broken stubs. And `slot_at`
+divided a far-off coordinate by a cell size before reducing it into the tile,
+which is the same `f32` precision trap the renderer hit the day before, in a
+second place.
+
+---
+
+## A test that compares two render routes cannot see a broken rhythm
+
+**Decided.** The brick parity of a clamshell ground is guarded by a unit test
+on the grid, not by the seamlessness suite, and the suite's fixture says so.
+
+**Why.** Both render routes reduce a coordinate into the tile before sampling,
+so both ask the ground the same question — a ground that disagrees with its own
+repeat disagrees identically down both routes and the comparison sees nothing.
+That suite catches route-dependent faults: fitting, rounding, sampling,
+compositing order. It cannot catch a figure whose rhythm breaks at the join.
+
+**How this was found.** By mutation, not by reasoning: the even-row rounding was
+removed and the render test still passed. Worse, the first fixture had chosen a
+cell size whose row count came out even by luck, so even a test that *could*
+have discriminated would not have.
+
+**And the hazard test was vacuous too.** The first version compared the top
+sliver of the tile against the bottom sliver, which differ for a correct
+clamshell as much as for a broken one — it asserted something true either way.
+The replacement measures where the scallops of the first and last rows sit and
+requires them to be half a cell apart, which is exactly what the alternation is
+for.

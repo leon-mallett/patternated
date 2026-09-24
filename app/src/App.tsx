@@ -33,11 +33,16 @@ import {
   COLOUR_COUNTS,
   GROUND_PRESETS,
   GROWTHS,
+  FIGURES,
+  figureIs,
   DEFAULT_TEXTURE,
+  DEFAULT_ORNAMENT,
   setGround,
   type GroundBand,
   type GroundSpec,
   type TextureSpec,
+  type OrnamentSpec,
+  type FittedGrid,
   closeDocument,
   setPaletteSize,
   LAYOUT_GROUPS,
@@ -76,12 +81,14 @@ export default function App() {
   const [ground, setGroundState] = useState<GroundSpec>({
     kind: "bands",
     texture: DEFAULT_TEXTURE,
+    ornament: DEFAULT_ORNAMENT,
     bands: [],
     mirrored: false,
     direction: "both",
     crossings: "blend",
   });
   const [levelShares, setLevelShares] = useState<number[]>([]);
+  const [fittedGrid, setFittedGrid] = useState<FittedGrid | null>(null);
   const [bandSlots, setBandSlots] = useState<number[]>([]);
   const [groundColours, setGroundColours] = useState(0);
   const [jitter, setJitter] = useState(20);
@@ -396,6 +403,7 @@ export default function App() {
       setBandSlots(state.slots);
       setGroundColours(state.ground_colours);
       setLevelShares(state.level_shares);
+      setFittedGrid(state.grid);
       setPalette((p) => ({
         palette: state.palette,
         colourways: p?.colourways ?? [],
@@ -958,19 +966,26 @@ export default function App() {
               data-testid="ground-kind"
               value={ground.kind}
               onChange={(e) =>
-                changeGround(
-                  e.target.value === "texture"
-                    ? { ...ground, kind: "texture", bands: [] }
-                    : { ...ground, kind: "bands" },
-                )
+                changeGround({
+                  ...ground,
+                  kind: e.target.value as GroundSpec["kind"],
+                  bands: e.target.value === "bands" ? ground.bands : [],
+                })
               }
             >
               <option value="bands">Bands — stripes, checks, tartans</option>
               <option value="texture">Texture — grown, no lattice in it</option>
+              <option value="ornament">Ornament — drawn by rule on a grid</option>
             </select>
           </label>
 
-          {ground.kind === "texture" ? (
+          {ground.kind === "ornament" ? (
+            <OrnamentEditor
+              ornament={ground.ornament}
+              grid={fittedGrid}
+              onChange={(ornament) => changeGround({ ...ground, ornament })}
+            />
+          ) : ground.kind === "texture" ? (
             <TextureEditor
               texture={ground.texture}
               shares={levelShares}
@@ -1275,6 +1290,187 @@ function nearestColourIndex(colours: number): number {
     if (Math.abs(c - colours) < Math.abs(COLOUR_COUNTS[best] - colours)) best = i;
   });
   return best;
+}
+
+/// The ground drawn by rule: which figure, how big a cell, and in what.
+///
+/// Which controls appear depends on the figure, because for three of the six
+/// depth does nothing and for three of them a line width does. Showing a
+/// control that is ignored is worse than not showing it: a designer moves it,
+/// sees no change, and stops trusting the panel.
+function OrnamentEditor({
+  ornament,
+  grid,
+  onChange,
+}: {
+  ornament: OrnamentSpec;
+  /// What the engine actually fitted, which is rarely exactly what was asked
+  /// for — the grid has to close over the tile.
+  grid: FittedGrid | null;
+  onChange: (o: OrnamentSpec) => void;
+}) {
+  const figure = figureIs(ornament.figure);
+  const levels = ornament.levels;
+  const shown = figure.recurses ? Math.min(levels.length, ornament.depth) : 1;
+
+  return (
+    <>
+      <label>
+        Figure
+        <select
+          data-testid="ornament-figure"
+          value={ornament.figure}
+          onChange={(e) => onChange({ ...ornament, figure: e.target.value })}
+        >
+          {FIGURES.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <Slider
+        label="Cell"
+        testId="ornament-cell"
+        value={ornament.cell_mm}
+        min={4}
+        max={120}
+        step={1}
+        format={(v) => `${v} mm`}
+        ends={["Fine", "Large"]}
+        onChange={(cell_mm) => onChange({ ...ornament, cell_mm })}
+      />
+
+      {figure.stroked && (
+        <Slider
+          label="Line"
+          testId="ornament-stroke"
+          value={ornament.stroke_mm}
+          min={0.5}
+          max={Math.max(2, ornament.cell_mm / 2)}
+          step={0.5}
+          format={(v) => `${v} mm`}
+          ends={["Hairline", "Heavy"]}
+          onChange={(stroke_mm) => onChange({ ...ornament, stroke_mm })}
+        />
+      )}
+
+      {figure.recurses && (
+        <Slider
+          label="Depth"
+          testId="ornament-depth"
+          value={ornament.depth}
+          min={1}
+          max={5}
+          step={1}
+          format={(v) => (v === 1 ? "the figure itself" : `${v} levels`)}
+          ends={["Plain", "Fine"]}
+          onChange={(depth) => onChange({ ...ornament, depth })}
+        />
+      )}
+
+      <Slider
+        label="Variation"
+        testId="ornament-variation"
+        value={ornament.variation}
+        min={0}
+        max={0.6}
+        step={0.05}
+        format={(v) => (v === 0 ? "strict" : `${Math.round(v * 100)}%`)}
+        ends={["Strict", "Drawn"]}
+        onChange={(variation) => onChange({ ...ornament, variation })}
+      />
+
+      <div className="sequence" data-testid="ornament-levels">
+        {levels.slice(0, shown).map((colour, i) => (
+          <div className="sequence-row" key={i}>
+            <label className="swatch-edit">
+              <input
+                type="color"
+                data-testid={`figure-colour-${i}`}
+                value={colour ?? "#ffffff"}
+                disabled={colour === null}
+                onChange={(e) =>
+                  onChange({
+                    ...ornament,
+                    levels: levels.map((c, j) => (j === i ? e.target.value : c)),
+                  })
+                }
+              />
+              <span
+                className="swatch"
+                style={{
+                  background: colour ?? "transparent",
+                  borderStyle: colour === null ? "dashed" : "solid",
+                }}
+              />
+            </label>
+            <span className="hint">
+              {!figure.recurses
+                ? "The figure"
+                : i === 0
+                  ? "Outermost"
+                  : `Level ${i + 1}`}
+            </span>
+            <button
+              type="button"
+              data-testid={`figure-fabric-${i}`}
+              onClick={() =>
+                onChange({
+                  ...ornament,
+                  levels: levels.map((c, j) =>
+                    j === i ? (c === null ? "#3c78a0" : null) : c,
+                  ),
+                })
+              }
+            >
+              {colour === null ? "Ink" : "Fabric"}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {figure.recurses && levels.length < ornament.depth && (
+        <button
+          type="button"
+          data-testid="ornament-add-level"
+          onClick={() =>
+            onChange({ ...ornament, levels: [...levels, "#3c78a0"] })
+          }
+        >
+          Colour the next level
+        </button>
+      )}
+
+      <div className="row">
+        <button
+          type="button"
+          data-testid="ornament-reseed"
+          disabled={ornament.variation === 0}
+          onClick={() => onChange({ ...ornament, seed: ornament.seed + 1 })}
+        >
+          Draw another
+        </button>
+      </div>
+
+      {grid && (
+        <p className="hint" data-testid="ornament-grid">
+          Drawn as {grid.cols} x {grid.rows} cells of{" "}
+          {grid.cell_w_mm.toFixed(1)} x {grid.cell_h_mm.toFixed(1)} mm. The
+          grid has to close over the repeat, so the cell size you ask for is
+          rounded to the nearest one that does.
+        </p>
+      )}
+
+      <p className="hint">
+        Drawn by rule rather than grown, and the opposite of a texture in every
+        way: all lattice, no accident. The line figures meet each cell edge at
+        its middle, which is why neighbours join however they were turned — and
+        why the repeat joins too.
+      </p>
+    </>
+  );
 }
 
 /// The reaction-diffusion ground: what it grows, how big, and in what.

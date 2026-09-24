@@ -12,7 +12,8 @@ mod support;
 use pattern_core::Lattice;
 use pattern_render::{render_field, render_field_direct, render_tile};
 use support::{
-    bank, checked_pattern, scattered_pattern, straddling_pattern, textured_pattern, TILE,
+    bank, checked_pattern, ornamented_pattern, scattered_pattern, straddling_pattern,
+    textured_pattern, TILE,
 };
 
 /// Positions where the two renders differ, and by how much at the worst.
@@ -282,6 +283,59 @@ fn a_grown_ground_tiles_with_no_seam() {
         assert_eq!(
             count, 0,
             "{count} pixels differ (worst {worst}) at {dpi} DPI"
+        );
+    }
+}
+
+#[test]
+fn a_drawn_ground_tiles_with_no_seam() {
+    // Every figure, because each has its own way of failing to join: the line
+    // ones depend on meeting the cell edge at its middle, the bricked one on
+    // an even number of rows, and the recursive ones on the subdivision being
+    // taken in the cell's own coordinates rather than the tile's.
+    //
+    // 17 mm cells into a 240 x 180 mm tile divides neither, so the fitting is
+    // load-bearing here in the way the band fixture's 17 mm sequence is.
+    let bank = bank();
+    for figure in pattern_core::Figure::all() {
+        for dpi in [96.0, 150.0] {
+            let pattern = ornamented_pattern(Lattice::block(TILE), 4, figure);
+            let tiled = render_field(&pattern, &bank, dpi, 3, 3).expect("field should render");
+            let direct =
+                render_field_direct(&pattern, &bank, dpi, 3, 3).expect("field should render");
+
+            let (count, worst) = differences(&tiled, &direct);
+            assert_eq!(
+                count, 0,
+                "{figure:?}: {count} pixels differ (worst {worst}) at {dpi} DPI"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_drawn_ground_actually_put_something_on_the_fabric() {
+    // Kept for the same reason as its grown sibling: the test above passes
+    // trivially against a ground that painted nothing, and a figure whose mask
+    // or geometry is wrong can easily paint nothing at all.
+    let bank = bank();
+    for figure in pattern_core::Figure::all() {
+        let pattern = ornamented_pattern(Lattice::block(TILE), 4, figure);
+        let tile = render_tile(&pattern, &bank, 96.0).expect("tile should render");
+        let ground = pattern.palette.ground().expect("a fabric colour");
+        let painted = tile
+            .pixels()
+            .iter()
+            .filter(|p| {
+                let c = p.demultiply();
+                (c.red(), c.green(), c.blue()) != (ground.r, ground.g, ground.b)
+            })
+            .count();
+        let share = painted as f32 / tile.pixels().len() as f32;
+        assert!(
+            (0.05..0.99).contains(&share),
+            "{figure:?} left {:.1}% of the tile other than bare fabric",
+            share * 100.0
         );
     }
 }

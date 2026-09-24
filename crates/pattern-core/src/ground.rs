@@ -17,6 +17,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::bands::Bands;
+use crate::ornament::{Ornament, OrnamentField};
 use crate::texture::{SlotField, Texture};
 
 /// A generated layer between the fabric and the motifs.
@@ -30,6 +31,8 @@ pub enum Ground {
     Bands(Bands),
     /// Reaction–diffusion: spots, worms, mazes and coral.
     Texture(Texture),
+    /// Drawn by rule on a grid: Truchet curves, strapwork, square fractals.
+    Ornament(Ornament),
 }
 
 impl Ground {
@@ -53,6 +56,9 @@ impl Ground {
                 tile_width_mm,
                 tile_height_mm,
             },
+            Ground::Ornament(o) => {
+                LaidGround::Ornament(OrnamentField::new(o, tile_width_mm, tile_height_mm))
+            }
         }
     }
 
@@ -62,6 +68,7 @@ impl Ground {
         match self {
             Ground::Bands(b) => b.is_empty(),
             Ground::Texture(t) => t.is_empty(),
+            Ground::Ornament(o) => o.is_empty(),
         }
     }
 
@@ -71,6 +78,7 @@ impl Ground {
         match self {
             Ground::Bands(b) => b.slots_used(),
             Ground::Texture(t) => t.slots_used(),
+            Ground::Ornament(o) => o.slots_used(),
         }
     }
 
@@ -111,6 +119,11 @@ impl Ground {
                     renumber(level);
                 }
             }
+            Ground::Ornament(o) => {
+                for level in &mut o.levels {
+                    renumber(level);
+                }
+            }
         }
     }
 
@@ -123,7 +136,7 @@ impl Ground {
     pub fn as_bands(&self) -> Option<&Bands> {
         match self {
             Ground::Bands(b) => Some(b),
-            Ground::Texture(_) => None,
+            Ground::Texture(_) | Ground::Ornament(_) => None,
         }
     }
 
@@ -132,7 +145,7 @@ impl Ground {
     pub fn as_texture(&self) -> Option<&Texture> {
         match self {
             Ground::Texture(t) => Some(t),
-            Ground::Bands(_) => None,
+            Ground::Bands(_) | Ground::Ornament(_) => None,
         }
     }
 }
@@ -149,6 +162,7 @@ pub enum LaidGround {
         tile_width_mm: f32,
         tile_height_mm: f32,
     },
+    Ornament(OrnamentField),
 }
 
 impl LaidGround {
@@ -163,6 +177,7 @@ impl LaidGround {
                 tile_width_mm,
                 tile_height_mm,
             } => field.slot_at(x_mm, y_mm, *tile_width_mm, *tile_height_mm),
+            LaidGround::Ornament(o) => o.slot_at(x_mm, y_mm),
         }
     }
 
@@ -173,7 +188,7 @@ impl LaidGround {
     #[must_use]
     pub fn share_of(&self, slot: u8) -> Option<f32> {
         match self {
-            LaidGround::Bands(_) => None,
+            LaidGround::Bands(_) | LaidGround::Ornament(_) => None,
             LaidGround::Texture { field, .. } => Some(field.share_of(slot)),
         }
     }
@@ -188,6 +203,23 @@ impl From<Bands> for Ground {
 impl From<Texture> for Ground {
     fn from(texture: Texture) -> Self {
         Ground::Texture(texture)
+    }
+}
+
+impl From<Ornament> for Ground {
+    fn from(ornament: Ornament) -> Self {
+        Ground::Ornament(ornament)
+    }
+}
+
+impl Ground {
+    /// The ornament, when that is what this is.
+    #[must_use]
+    pub fn as_ornament(&self) -> Option<&Ornament> {
+        match self {
+            Ground::Ornament(o) => Some(o),
+            Ground::Bands(_) | Ground::Texture(_) => None,
+        }
     }
 }
 

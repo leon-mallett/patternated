@@ -356,6 +356,58 @@ the scale, the steps and the seed.
 `examples/generated-motifs/bananas-texture.json` is bananas tossed over a grown
 pebble ground — two layers, both repeating, one of them with no lattice in it.
 
+## Drawn grounds
+
+The opposite pole from a grown one. A texture has no lattice in it anywhere;
+this is all lattice — a cell size, a figure, and a rule for what a figure
+contains. Interlocking curves, strapwork, clamshell and the classical square
+fractals: the ornamental half of what a repeat print is made of, and the half
+reaction–diffusion cannot reach.
+
+**Six figures.** Truchet (two quarter arcs, corner to corner), Weave (the same
+two connections drawn straight), Scale (clamshell), and three that contain
+smaller copies of themselves — Carpet (Sierpinski), Dust (Cantor) and Cross
+(Vicsek). The recursive three answer to a depth; the drawn three do not, and
+the panel does not offer them a control that would do nothing.
+
+**Why it tiles.** The grid is fitted to the tile — a whole number of cells each
+way, by the arithmetic that fits a band sequence and for the same reason. Every
+cell is then evaluated in its own coordinates and knows nothing of its
+neighbours, so the tile's last column and its first are two ordinary cells that
+happen to meet.
+
+**Why the line work joins.** Every drawn figure meets the cell edge at the
+*middle of the edge and nowhere else*. Two neighbouring cells therefore join
+whatever they drew, which is Truchet's observation and the whole reason his
+tiles work — and it holds across the tile boundary as well, so the repeat joins
+without anything being done about it. A first attempt drew the Weave as a
+corner-to-corner diagonal, which meets the cell at its *corners*, and the lines
+broke at every edge whose two cells had turned opposite ways.
+
+**The bricked figure, and a fifth sighting of the same rule.** A scallop only
+reads as one when the row below breaks the joint of the row above, which is a
+brick offset — and the shift is decided by the row index's parity, so it closes
+over the tile only over an **even** number of rows. An odd count puts two
+unshifted rows against each other at the join: a doubled row, once down the
+fabric. This is the same obligation as a band sequence closing, a grid's cells
+closing, a preview window being a repeating unit and a mirror needing a block
+lattice. Anything laid out inside the tile has to agree with how the tile
+repeats.
+
+**Variation and the seed.** At zero every cell is the classical figure and the
+seed does nothing — a Sierpinski carpet is a Sierpinski carpet. Above it a
+block here and there is left whole instead of being divided, which is what
+turns a diagram into something that looks drawn. The interface disables *Draw
+another* while variation is zero rather than offering a control that cannot
+change anything.
+
+**The cell size is a wish.** The grid has to close over the repeat, so the
+request is rounded to the nearest size that does and the panel reports the grid
+it actually drew.
+
+`examples/generated-motifs/bananas-ornament.json` is bananas tossed over
+Truchet strapwork.
+
 ## Scatter placement
 
 Many motifs distributed across the tile to read as hand-strewn, by toroidal

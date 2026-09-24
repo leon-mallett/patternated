@@ -177,6 +177,55 @@ export interface TextureSpec {
   levels: Array<string | null>;
 }
 
+/** What fills one cell of an ornament.
+ *
+ *  The figures divide in two: the first three are drawn once at the cell's own
+ *  size, the last three contain smaller copies of themselves and answer to
+ *  `depth`. An interface should not offer depth for the first three, because
+ *  it does nothing there. */
+export const FIGURES = [
+  { id: "truchet", label: "Truchet", recurses: false, stroked: true },
+  { id: "weave", label: "Weave", recurses: false, stroked: true },
+  { id: "scale", label: "Scale", recurses: false, stroked: false },
+  { id: "carpet", label: "Carpet", recurses: true, stroked: false },
+  { id: "dust", label: "Dust", recurses: true, stroked: false },
+  { id: "cross", label: "Cross", recurses: true, stroked: false },
+] as const;
+
+export const figureIs = (id: string) =>
+  FIGURES.find((f) => f.id === id) ?? FIGURES[0];
+
+/** A ground drawn by rule on a grid of cells.
+ *
+ *  The opposite pole from a texture. That one grows and has no lattice in it
+ *  anywhere; this is all lattice — a cell size, a figure, and a rule for what
+ *  a figure contains. */
+export interface OrnamentSpec {
+  figure: string;
+  /** How big a cell wants to be. The grid is fitted to the tile, so what gets
+   *  drawn is the nearest whole number of cells to this — see `grid` on the
+   *  reply for what was actually used. */
+  cell_mm: number;
+  /** How many times a recursive figure divides. One is the figure itself. */
+  depth: number;
+  /** Line width, for the figures that are stroked. */
+  stroke_mm: number;
+  /** How often a cell departs from the strict figure, 0 to 1. At zero the
+   *  figure is the classical one and the seed does nothing. */
+  variation: number;
+  seed: number;
+  /** A colour per level, coarsest first. `null` is the fabric showing. */
+  levels: Array<string | null>;
+}
+
+/** The grid an ornament was actually fitted to. */
+export interface FittedGrid {
+  cols: number;
+  rows: number;
+  cell_w_mm: number;
+  cell_h_mm: number;
+}
+
 /** One band in the ground's sequence. */
 export interface GroundBand {
   width_mm: number;
@@ -193,8 +242,9 @@ export interface GroundBand {
  *  guess at — and guessing it wrong would double the reflection next edit. */
 export interface GroundSummary {
   /** Which editor this ground belongs to. */
-  kind: "bands" | "texture";
+  kind: "bands" | "texture" | "ornament";
   texture: TextureSpec;
+  ornament: OrnamentSpec;
   bands: GroundBand[];
   direction: "vertical" | "horizontal" | "both";
   /** What to paint where two bands cross.
@@ -235,6 +285,8 @@ export interface BandState extends GroundSummary {
    *  field may not reach between two of them, so a colour can be paid for and
    *  not printed. */
   level_shares: number[];
+  /** The grid an ornament was fitted to, when the ground is one. */
+  grid: FittedGrid | null;
 }
 
 /** Put a striped or checked ground under the pattern, or take it away.
@@ -257,6 +309,16 @@ export const DEFAULT_TEXTURE: TextureSpec = {
   levels: [null, "#1f3d3a"],
 };
 
+export const DEFAULT_ORNAMENT: OrnamentSpec = {
+  figure: "truchet",
+  cell_mm: 24,
+  depth: 3,
+  stroke_mm: 4,
+  variation: 0,
+  seed: 1,
+  levels: ["#1f3d3a"],
+};
+
 export const GROUND_PRESETS: Array<{
   id: string;
   label: string;
@@ -269,6 +331,7 @@ export const GROUND_PRESETS: Array<{
       bands: [],
       kind: "bands",
       texture: DEFAULT_TEXTURE,
+      ornament: DEFAULT_ORNAMENT,
       mirrored: false,
       direction: "both",
       crossings: "blend",
@@ -284,6 +347,7 @@ export const GROUND_PRESETS: Array<{
       ],
       kind: "bands",
       texture: DEFAULT_TEXTURE,
+      ornament: DEFAULT_ORNAMENT,
       mirrored: false,
       direction: "vertical",
       crossings: "blend",
@@ -299,6 +363,7 @@ export const GROUND_PRESETS: Array<{
       ],
       kind: "bands",
       texture: DEFAULT_TEXTURE,
+      ornament: DEFAULT_ORNAMENT,
       mirrored: false,
       direction: "vertical",
       crossings: "blend",
@@ -317,6 +382,7 @@ export const GROUND_PRESETS: Array<{
       ],
       kind: "bands",
       texture: DEFAULT_TEXTURE,
+      ornament: DEFAULT_ORNAMENT,
       mirrored: false,
       direction: "both",
       crossings: "blend",
@@ -332,6 +398,7 @@ export const GROUND_PRESETS: Array<{
       ],
       kind: "bands",
       texture: DEFAULT_TEXTURE,
+      ornament: DEFAULT_ORNAMENT,
       mirrored: false,
       direction: "both",
       crossings: "blend",
@@ -349,6 +416,7 @@ export const GROUND_PRESETS: Array<{
       ],
       kind: "bands",
       texture: DEFAULT_TEXTURE,
+      ornament: DEFAULT_ORNAMENT,
       mirrored: true,
       direction: "both",
       crossings: "blend",

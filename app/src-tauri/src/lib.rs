@@ -1229,6 +1229,40 @@ impl Default for TextureSpec {
     }
 }
 
+/// A ground drawn by rule, as its panel sends it.
+#[derive(Deserialize, Serialize, Clone)]
+struct OrnamentSpec {
+    /// One of [`pattern_core::Figure`], kebab-cased.
+    figure: String,
+    /// How big a cell wants to be. The grid is fitted to the tile, so what
+    /// comes back is the nearest whole number of cells to this.
+    cell_mm: f32,
+    /// How many times a recursive figure divides.
+    depth: u32,
+    /// Line width, for the figures that are stroked.
+    stroke_mm: f32,
+    /// How often a cell departs from the strict figure, 0 to 1.
+    variation: f32,
+    seed: u64,
+    /// A colour per level, coarsest first. `None` is the fabric showing.
+    levels: Vec<Option<String>>,
+}
+
+impl Default for OrnamentSpec {
+    fn default() -> Self {
+        let o = pattern_core::Ornament::default();
+        Self {
+            figure: "truchet".into(),
+            cell_mm: o.cell_mm,
+            depth: o.depth,
+            stroke_mm: o.stroke_mm,
+            variation: o.variation,
+            seed: o.seed,
+            levels: vec![Some("#1f3d3a".into())],
+        }
+    }
+}
+
 /// A whole ground, as its editor sends it.
 #[derive(Deserialize)]
 struct GroundSpec {
@@ -1238,6 +1272,8 @@ struct GroundSpec {
     kind: String,
     #[serde(default)]
     texture: TextureSpec,
+    #[serde(default)]
+    ornament: OrnamentSpec,
     #[serde(default)]
     bands: Vec<GroundBand>,
     /// Reflect the sequence about its end bands, which is how a tartan sett is
@@ -1277,6 +1313,7 @@ struct GroundSummary {
     direction: String,
     crossings: String,
     texture: TextureSpec,
+    ornament: OrnamentSpec,
 }
 
 fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
@@ -1286,7 +1323,20 @@ fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
         direction: "both".into(),
         crossings: blend(),
         texture: TextureSpec::default(),
+        ornament: OrnamentSpec::default(),
     };
+    if let Some(o) = pattern
+        .ground
+        .as_ref()
+        .filter(|g| !g.is_empty())
+        .and_then(pattern_core::Ground::as_ornament)
+    {
+        return GroundSummary {
+            kind: "ornament".into(),
+            ornament: ornament_spec(o, &pattern.palette),
+            ..blank()
+        };
+    }
     if let Some(t) = pattern
         .ground
         .as_ref()
@@ -1315,6 +1365,7 @@ fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
     GroundSummary {
         kind: bands_kind(),
         texture: TextureSpec::default(),
+        ornament: OrnamentSpec::default(),
         bands: sequence
             .iter()
             .map(|band| GroundBand {
@@ -1381,6 +1432,15 @@ fn ground_base(session: &Session) -> usize {
     session.document.pattern.palette.len().saturating_sub(used)
 }
 
+/// The grid an ornament was fitted to, for the interface to report.
+#[derive(Serialize, Clone, Copy)]
+struct FittedGrid {
+    cols: u32,
+    rows: u32,
+    cell_w_mm: f32,
+    cell_h_mm: f32,
+}
+
 /// What the ground looks like after a change.
 #[derive(Serialize)]
 struct BandState {
@@ -1401,6 +1461,9 @@ struct BandState {
     /// editor for what was stored rather than for what was last asked for.
     kind: String,
     texture: TextureSpec,
+    ornament: OrnamentSpec,
+    /// The grid an ornament was actually fitted to, when the ground is one.
+    grid: Option<FittedGrid>,
     /// The share of the tile each texture level actually covers.
     ///
     /// Reported rather than assumed because a reaction can leave a level
@@ -1447,6 +1510,47 @@ fn texture_spec(t: &pattern_core::Texture, palette: &pattern_core::Palette) -> T
     }
 }
 
+/// Read a stored ornament back as its panel describes it.
+fn ornament_spec(o: &pattern_core::Ornament, palette: &pattern_core::Palette) -> OrnamentSpec {
+    OrnamentSpec {
+        figure: figure_name(o.figure).into(),
+        cell_mm: o.cell_mm,
+        depth: o.depth,
+        stroke_mm: o.stroke_mm,
+        variation: o.variation,
+        seed: o.seed,
+        levels: o
+            .levels
+            .iter()
+            .map(|slot| {
+                (*slot != pattern_core::GROUND_SLOT)
+                    .then(|| palette.resolve(*slot).map(|c| hex(&c)))
+                    .flatten()
+            })
+            .collect(),
+    }
+}
+
+/// The wire name of a figure, and back. Spelled out for the same reason the
+/// growths are: the interface's vocabulary belongs here, not in a derive.
+fn figure_name(figure: pattern_core::Figure) -> &'static str {
+    use pattern_core::Figure::*;
+    match figure {
+        Truchet => "truchet",
+        Weave => "weave",
+        Scale => "scale",
+        Carpet => "carpet",
+        Dust => "dust",
+        Cross => "cross",
+    }
+}
+
+fn figure_named(name: &str) -> Option<pattern_core::Figure> {
+    pattern_core::Figure::all()
+        .into_iter()
+        .find(|f| figure_name(*f) == name)
+}
+
 /// The wire name of a growth, and back.
 ///
 /// Spelled out in both directions rather than round-tripped through serde, so
@@ -1479,6 +1583,9 @@ fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> 
 
     if spec.kind == "texture" {
         return apply_texture(session, &spec.texture, colors);
+    }
+    if spec.kind == "ornament" {
+        return apply_ornament(session, &spec.ornament, colors);
     }
 
     let painted: Vec<GroundBand> = spec
@@ -1587,29 +1694,12 @@ fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> 
 fn apply_texture(
     session: &mut Session,
     spec: &TextureSpec,
-    mut colors: Vec<pattern_core::Color>,
+    colors: Vec<pattern_core::Color>,
 ) -> anyhow::Result<()> {
     let growth = growth_named(&spec.growth)
         .ok_or_else(|| anyhow::anyhow!("'{}' is not a growth this engine has", spec.growth))?;
 
-    let mut slot_of: Vec<(String, u8)> = Vec::new();
-    let mut levels = Vec::with_capacity(spec.levels.len());
-    for level in &spec.levels {
-        let Some(hex) = level else {
-            levels.push(pattern_core::GROUND_SLOT);
-            continue;
-        };
-        if let Some((_, slot)) = slot_of.iter().find(|(c, _)| c == hex) {
-            levels.push(*slot);
-            continue;
-        }
-        let colour =
-            parse_hex(hex).ok_or_else(|| anyhow::anyhow!("'{hex}' is not a hex colour"))?;
-        let slot = colors.len() as u8;
-        colors.push(colour);
-        slot_of.push((hex.clone(), slot));
-        levels.push(slot);
-    }
+    let (colors, levels) = allocate_levels(colors, &spec.levels)?;
 
     let texture = pattern_core::Texture {
         growth,
@@ -1629,6 +1719,75 @@ fn apply_texture(
 
     session.document.pattern.validate()?;
     Ok(())
+}
+
+/// Draw an ornament under the pattern, allocating one slot per distinct level
+/// colour at the tail of the palette.
+///
+/// The same slot discipline as the other two grounds, and the palette arrives
+/// already truncated. The allocation itself is [`allocate_levels`], shared
+/// with the texture because both grounds name their colours the same way; what
+/// is not shared is what the levels then mean, which is the whole difference
+/// between the two.
+fn apply_ornament(
+    session: &mut Session,
+    spec: &OrnamentSpec,
+    colors: Vec<pattern_core::Color>,
+) -> anyhow::Result<()> {
+    let figure = figure_named(&spec.figure)
+        .ok_or_else(|| anyhow::anyhow!("'{}' is not a figure this engine draws", spec.figure))?;
+
+    let (colors, levels) = allocate_levels(colors, &spec.levels)?;
+
+    let ornament = pattern_core::Ornament {
+        figure,
+        cell_mm: spec.cell_mm.max(pattern_core::FINEST_CELL_MM),
+        depth: spec.depth.clamp(1, pattern_core::DEEPEST),
+        stroke_mm: spec.stroke_mm.max(0.0),
+        variation: spec.variation.clamp(0.0, 1.0),
+        seed: spec.seed,
+        levels,
+    };
+
+    session.document.pattern.palette = pattern_core::Palette::new(colors);
+    session.document.pattern.ground = (!ornament.is_empty()).then(|| ornament.into());
+
+    // The grid is fitted to the tile and repeats with it.
+    let tile = session.document.pattern.tile_size_mm;
+    session.document.pattern.lattice = Lattice::block(tile);
+
+    session.document.pattern.validate()?;
+    Ok(())
+}
+
+/// Turn a list of level colours into slots at the tail of the palette.
+///
+/// One slot per distinct colour, in the order the levels first use them, so
+/// the palette reads the way the editor does. `None` is the fabric and costs
+/// nothing.
+fn allocate_levels(
+    mut colors: Vec<pattern_core::Color>,
+    levels: &[Option<String>],
+) -> anyhow::Result<(Vec<pattern_core::Color>, Vec<u8>)> {
+    let mut slot_of: Vec<(String, u8)> = Vec::new();
+    let mut out = Vec::with_capacity(levels.len());
+    for level in levels {
+        let Some(hex) = level else {
+            out.push(pattern_core::GROUND_SLOT);
+            continue;
+        };
+        if let Some((_, slot)) = slot_of.iter().find(|(c, _)| c == hex) {
+            out.push(*slot);
+            continue;
+        }
+        let colour =
+            parse_hex(hex).ok_or_else(|| anyhow::anyhow!("'{hex}' is not a hex colour"))?;
+        let slot = colors.len() as u8;
+        colors.push(colour);
+        slot_of.push((hex.clone(), slot));
+        out.push(slot);
+    }
+    Ok((colors, out))
 }
 
 /// Describe the ground as it now stands.
@@ -1669,6 +1828,10 @@ fn ground_state(session: &Session, spec: &GroundSpec) -> Reply<BandState> {
         .ground
         .as_ref()
         .and_then(pattern_core::Ground::as_texture);
+    let ornament = pattern
+        .ground
+        .as_ref()
+        .and_then(pattern_core::Ground::as_ornament);
     let level_shares = texture.map_or_else(Vec::new, |t| {
         // Through the renderer's memo, not `Texture::grown`, so that looking
         // at the field costs nothing beyond the render that is about to use
@@ -1705,15 +1868,31 @@ fn ground_state(session: &Session, spec: &GroundSpec) -> Reply<BandState> {
         ground_colours: slots.len(),
         palette: pattern.palette.colors.iter().map(hex).collect(),
         lattice: lattice_name(&pattern.lattice, pattern.tile_size_mm),
-        kind: if texture.is_some() {
-            "texture".into()
-        } else {
-            spec.kind.clone()
+        kind: match (texture.is_some(), ornament.is_some()) {
+            (true, _) => "texture".into(),
+            (_, true) => "ornament".into(),
+            _ => spec.kind.clone(),
         },
         texture: texture.map_or_else(
             || spec.texture.clone(),
             |t| texture_spec(t, &pattern.palette),
         ),
+        ornament: ornament.map_or_else(
+            || spec.ornament.clone(),
+            |o| ornament_spec(o, &pattern.palette),
+        ),
+        // The cell size asked for is a wish and the grid is what was drawn, so
+        // the interface says which it got rather than echoing the request back
+        // as though it had been honoured.
+        grid: ornament.map(|o| {
+            let g = o.grid_on(pattern.tile_size_mm.x, pattern.tile_size_mm.y);
+            FittedGrid {
+                cols: g.cols,
+                rows: g.rows,
+                cell_w_mm: g.cell_w,
+                cell_h_mm: g.cell_h,
+            }
+        }),
         level_shares,
     })
 }
@@ -2122,6 +2301,7 @@ mod tests {
             crossings: blend(),
             kind: bands_kind(),
             texture: TextureSpec::default(),
+            ornament: OrnamentSpec::default(),
         }
     }
 
@@ -2137,6 +2317,192 @@ mod tests {
             },
             ..spec(&[], "both")
         }
+    }
+
+    fn ornament_spec_of(figure: &str, levels: &[Option<&str>]) -> GroundSpec {
+        GroundSpec {
+            kind: "ornament".into(),
+            ornament: OrnamentSpec {
+                figure: figure.into(),
+                cell_mm: 20.0,
+                depth: 3,
+                stroke_mm: 4.0,
+                variation: 0.2,
+                seed: 6,
+                levels: levels.iter().map(|c| c.map(str::to_string)).collect(),
+            },
+            ..spec(&[], "both")
+        }
+    }
+
+    #[test]
+    fn an_ornament_takes_slots_at_the_tail_like_any_other_ground() {
+        let mut s = session();
+        let before = s.document.pattern.palette.len();
+        apply_ground(&mut s, &ornament_spec_of("truchet", &[Some("#204080")])).expect("ornament");
+
+        let palette = &s.document.pattern.palette;
+        assert_eq!(palette.len(), before + 1);
+        assert_eq!(
+            palette.resolve(before as u8).map(|c| hex(&c)).as_deref(),
+            Some("#204080")
+        );
+
+        // Rebuilt, not accumulated.
+        apply_ground(&mut s, &ornament_spec_of("carpet", &[Some("#802040")])).expect("ornament");
+        assert_eq!(s.document.pattern.palette.len(), before + 1);
+    }
+
+    #[test]
+    fn an_ornament_comes_back_as_the_panel_sent_it() {
+        let mut s = session();
+        apply_ground(
+            &mut s,
+            &ornament_spec_of("cross", &[Some("#204080"), None, Some("#0b1020")]),
+        )
+        .expect("ornament");
+
+        let summary = ground_summary(&s.document.pattern);
+        assert_eq!(summary.kind, "ornament");
+        assert_eq!(summary.ornament.figure, "cross");
+        assert_eq!(summary.ornament.depth, 3);
+        assert_eq!(summary.ornament.seed, 6);
+        assert_eq!(
+            summary.ornament.levels,
+            vec![
+                Some("#204080".to_string()),
+                None,
+                Some("#0b1020".to_string())
+            ],
+            "the fabric comes back as absence, not as a colour"
+        );
+        assert!(summary.bands.is_empty());
+    }
+
+    #[test]
+    fn the_interface_is_told_the_grid_it_got_rather_than_the_one_it_asked_for() {
+        // The cell size is a wish: the grid is fitted to the tile, so a
+        // request that does not divide comes back as the nearest one that
+        // does. Echoing the request would let a designer believe a 7 mm cell
+        // was drawn when a 7.5 mm one was.
+        let mut s = session();
+        let mut request = ornament_spec_of("truchet", &[Some("#204080")]);
+        request.ornament.cell_mm = 7.0;
+        apply_ground(&mut s, &request).expect("ornament");
+
+        let state = ground_state(&s, &request).expect("state");
+        let grid = state.grid.expect("an ornament has a grid");
+        let tile = s.document.pattern.tile_size_mm;
+        assert!(
+            (grid.cols as f32 * grid.cell_w_mm - tile.x).abs() < 1e-3,
+            "{} cells of {} mm is not {} mm",
+            grid.cols,
+            grid.cell_w_mm,
+            tile.x
+        );
+        assert!((grid.rows as f32 * grid.cell_h_mm - tile.y).abs() < 1e-3);
+        assert_ne!(
+            grid.cell_w_mm, 7.0,
+            "7 mm does not divide this tile, so it should not have been drawn at 7 mm"
+        );
+    }
+
+    #[test]
+    fn a_bricked_figure_is_given_an_even_number_of_rows_through_the_app() {
+        // The constraint that only one figure has, checked where a designer
+        // would meet it rather than only in the engine.
+        let mut s = session();
+        let mut request = ornament_spec_of("scale", &[Some("#204080")]);
+        request.ornament.cell_mm = 26.0;
+        apply_ground(&mut s, &request).expect("ornament");
+
+        let grid = ground_state(&s, &request)
+            .expect("state")
+            .grid
+            .expect("a grid");
+        assert_eq!(grid.rows % 2, 0, "a clamshell got {} rows", grid.rows);
+    }
+
+    #[test]
+    fn an_unknown_figure_is_refused_rather_than_guessed() {
+        let mut s = session();
+        let e = apply_ground(&mut s, &ornament_spec_of("basketweave", &[Some("#204080")]))
+            .expect_err("should refuse");
+        assert!(e.to_string().contains("basketweave"), "{e}");
+    }
+
+    #[test]
+    fn switching_between_the_three_kinds_takes_the_other_two_away() {
+        // A pattern has one ground. Leaving the previous kind behind would
+        // have the palette paying for colours nothing draws.
+        let mut s = session();
+        let plain = s.document.pattern.palette.len();
+
+        for request in [
+            spec(&[(10.0, Some("#3c78a0")), (10.0, Some("#e8eef2"))], "both"),
+            texture_spec_of("spots", &[None, Some("#204080")]),
+            ornament_spec_of("truchet", &[Some("#204080")]),
+        ] {
+            apply_ground(&mut s, &request).expect("ground");
+        }
+
+        assert!(s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .unwrap()
+            .as_ornament()
+            .is_some());
+        assert!(s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .unwrap()
+            .as_bands()
+            .is_none());
+        assert!(s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .unwrap()
+            .as_texture()
+            .is_none());
+        assert_eq!(
+            s.document.pattern.palette.len(),
+            plain + 1,
+            "only the ornament's own colour should be left at the tail"
+        );
+    }
+
+    #[test]
+    fn an_ornament_survives_a_change_of_colour_count() {
+        // The third sibling of the resize tests. It passes because the
+        // renumbering lives on the enum: writing this one needed no change to
+        // `set_palette_size` at all.
+        let mut s = session();
+        apply_ground(&mut s, &ornament_spec_of("weave", &[Some("#3c78a0")])).expect("ornament");
+        let ink = s
+            .document
+            .pattern
+            .palette
+            .resolve(s.document.pattern.ground.as_ref().unwrap().slots_used()[0])
+            .expect("the ink");
+
+        s.document
+            .set_palette_size(16, &s.path)
+            .expect("should re-derive");
+        s.bank = s.document.load_motifs(&s.path).expect("re-quantise");
+
+        let after = s.document.pattern.ground.as_ref().expect("survived");
+        assert_eq!(
+            s.document.pattern.palette.resolve(after.slots_used()[0]),
+            Some(ink),
+            "the ornament kept its colour"
+        );
+        s.document.pattern.validate().expect("still renderable");
     }
 
     #[test]

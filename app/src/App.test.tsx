@@ -27,7 +27,7 @@ import {
 import userEvent from "@testing-library/user-event";
 
 import { makeMotif, makeOpened, makePreview } from "./test/factories";
-import { DEFAULT_TEXTURE } from "./api";
+import { DEFAULT_ORNAMENT, DEFAULT_TEXTURE } from "./api";
 import type { GroundSpec, Opened, PaletteSized, Preview } from "./api";
 
 /** What the fake engine will answer with, rewritten per test. */
@@ -42,6 +42,12 @@ const engine = {
   grounds: [] as GroundSpec[],
   groundSlots: [3, 4],
   levelShares: [0.7, 0.3],
+  fittedGrid: { cols: 10, rows: 8, cell_w_mm: 24, cell_h_mm: 22.5 } as {
+    cols: number;
+    rows: number;
+    cell_w_mm: number;
+    cell_h_mm: number;
+  } | null,
 };
 
 vi.mock("./api", async (importOriginal) => {
@@ -85,6 +91,7 @@ vi.mock("./api", async (importOriginal) => {
           : engine.opened.palette,
         lattice: "block",
         level_shares: engine.levelShares,
+        grid: engine.fittedGrid,
       };
     },
     setPaletteSize: async (colours: number) => {
@@ -135,6 +142,7 @@ beforeEach(() => {
   engine.grounds = [];
   engine.groundSlots = [3, 4];
   engine.levelShares = [0.7, 0.3];
+  engine.fittedGrid = { cols: 10, rows: 8, cell_w_mm: 24, cell_h_mm: 22.5 };
   dialog.confirmed = true;
   dialog.chosen = "/patterns/cherries.json";
 });
@@ -313,6 +321,100 @@ async function sentGround(): Promise<GroundSpec> {
   await waitFor(() => expect(engine.grounds.at(-1)).toBeTruthy());
   return engine.grounds.at(-1)!;
 }
+
+describe("a ground drawn by rule", () => {
+  /** Switch the ground panel to the ornament editor and wait for it. */
+  async function openOrnament() {
+    const user = await openApp();
+    await user.selectOptions(screen.getByTestId("ground-kind"), "ornament");
+    await screen.findByTestId("ornament-figure");
+    await waitFor(() => expect(engine.grounds.at(-1)?.kind).toBe("ornament"));
+    return user;
+  }
+
+  it("offers the ornament editor instead of the other two", async () => {
+    await openOrnament();
+    expect(screen.queryByTestId("ground-preset")).toBeNull();
+    expect(screen.queryByTestId("texture-growth")).toBeNull();
+    const sent = await sentGround();
+    expect(sent.kind).toBe("ornament");
+    expect(sent.bands).toEqual([]);
+  });
+
+  it("sends the whole ornament when one control changes", async () => {
+    const user = await openOrnament();
+    await user.selectOptions(screen.getByTestId("ornament-figure"), "carpet");
+
+    await waitFor(() => {
+      const last = engine.grounds.at(-1);
+      expect(last?.ornament.figure).toBe("carpet");
+      expect(last?.ornament.cell_mm).toBe(DEFAULT_ORNAMENT.cell_mm);
+      expect(last?.ornament.levels.length).toBeGreaterThan(0);
+    });
+  });
+
+  it("shows only the controls the chosen figure answers to", async () => {
+    // Three of the six figures ignore depth and three ignore a line width.
+    // A control that is shown and ignored is worse than one that is absent:
+    // it gets moved, nothing happens, and the panel stops being believed.
+    const user = await openOrnament();
+    expect(screen.getByTestId("ornament-stroke")).toBeTruthy();
+    expect(screen.queryByTestId("ornament-depth")).toBeNull();
+
+    await user.selectOptions(screen.getByTestId("ornament-figure"), "carpet");
+
+    await screen.findByTestId("ornament-depth");
+    expect(screen.queryByTestId("ornament-stroke")).toBeNull();
+  });
+
+  it("says what grid it drew, not the cell size that was asked for", async () => {
+    // The grid has to close over the repeat, so the request is a wish.
+    await openOrnament();
+    engine.fittedGrid = { cols: 9, rows: 8, cell_w_mm: 26.7, cell_h_mm: 22.5 };
+
+    fireEvent.change(screen.getByTestId("ornament-cell"), {
+      target: { value: "26" },
+    });
+
+    await waitFor(() => expect(engine.grounds.at(-1)?.ornament.cell_mm).toBe(26));
+    const note = await screen.findByTestId("ornament-grid");
+    expect(note.textContent).toContain("9 x 8");
+    expect(note.textContent).toContain("26.7");
+  });
+
+  it("will not offer another drawing of a strict figure", async () => {
+    // `variation` is what the seed is for. At zero the figure is the classical
+    // one and there is no other drawing of it to ask for.
+    const user = await openOrnament();
+    const reseed = screen.getByTestId("ornament-reseed") as HTMLButtonElement;
+    expect(reseed.disabled).toBe(true);
+
+    fireEvent.change(screen.getByTestId("ornament-variation"), {
+      target: { value: "0.3" },
+    });
+    await waitFor(() =>
+      expect(
+        (screen.getByTestId("ornament-reseed") as HTMLButtonElement).disabled,
+      ).toBe(false),
+    );
+
+    const before = engine.grounds.at(-1)!.ornament;
+    await user.click(screen.getByTestId("ornament-reseed"));
+    await waitFor(() => {
+      const after = engine.grounds.at(-1)!.ornament;
+      expect(after.seed).not.toBe(before.seed);
+      expect({ ...after, seed: 0 }).toEqual({ ...before, seed: 0 });
+    });
+  });
+
+  it("goes back to bands without carrying the ornament into them", async () => {
+    const user = await openOrnament();
+    await user.selectOptions(screen.getByTestId("ground-kind"), "bands");
+    await screen.findByTestId("ground-preset");
+    await waitFor(() => expect(engine.grounds.at(-1)?.kind).toBe("bands"));
+    expect(screen.queryByTestId("ornament-figure")).toBeNull();
+  });
+});
 
 describe("a grown ground", () => {
   /** Switch the ground panel to the texture editor and wait for it. */

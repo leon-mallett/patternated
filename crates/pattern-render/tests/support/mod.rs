@@ -14,8 +14,8 @@
 use glam::Vec2;
 use motif_ingest::{matte, quantise, trim, MatteMethod, SourceImage};
 use pattern_core::{
-    scatter, Bands, Color, Growth, Lattice, Mirror, Motif, MotifWeight, Palette, Pattern,
-    Placement, ScatterParams, Texture,
+    scatter, Bands, Color, Figure, Growth, Lattice, Mirror, Motif, MotifWeight, Ornament, Palette,
+    Pattern, Placement, ScatterParams, Texture,
 };
 use pattern_render::MotifBank;
 use tiny_skia::{Paint, PathBuilder, Pixmap, Transform};
@@ -151,6 +151,37 @@ pub fn straddling_pattern(lattice: Lattice) -> Pattern {
 pub fn checked_pattern(lattice: Lattice, seed: u64) -> Pattern {
     let mut pattern = scattered_pattern(lattice, seed, 0.2);
     pattern.ground = Some(Bands::check(9.0, 8.0, 1, 2).into());
+    pattern
+}
+
+/// The same scatter over a ground drawn by rule.
+///
+/// Note what this fixture does *not* cover. The two render routes both reduce
+/// a coordinate into the tile before sampling, so both ask the ground the same
+/// question and a ground that disagrees with its own repeat disagrees
+/// identically down both routes. This catches anything route-dependent — the
+/// fitting, the rounding, the sampling — and cannot catch a figure whose
+/// rhythm breaks at the join. `a_bricked_figure_gets_an_even_number_of_rows`
+/// in `pattern-core` is the one that catches that.
+pub fn ornamented_pattern(lattice: Lattice, seed: u64, figure: Figure) -> Pattern {
+    let mut pattern = scattered_pattern(lattice, seed, 0.2);
+    pattern.ground = Some(
+        Ornament {
+            figure,
+            // Chosen so the hazard is live rather than avoided by luck. 26 mm
+            // into 240 mm gives nine columns of 26.67, and 180 mm divided by
+            // that rounds to *seven* rows — odd, which is exactly what breaks
+            // a brick at the join. An earlier 17 mm happened to give ten, and
+            // the test passed with the rounding removed.
+            cell_mm: 26.0,
+            depth: 3,
+            stroke_mm: 3.0,
+            variation: 0.3,
+            seed,
+            levels: vec![1, 2],
+        }
+        .into(),
+    );
     pattern
 }
 

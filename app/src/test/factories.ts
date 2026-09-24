@@ -7,7 +7,7 @@
  * these are typed, so that drift is a compile error rather than a test
  * asserting something the app can no longer receive.
  */
-import { DEFAULT_TEXTURE } from "../api";
+import { DEFAULT_ORNAMENT, DEFAULT_TEXTURE } from "../api";
 import type { MotifEntry, Opened, Preview } from "../api";
 
 export function makeMotif(over: Partial<MotifEntry> = {}): MotifEntry {
@@ -37,6 +37,7 @@ export function makeOpened(over: Partial<Opened> = {}): Opened {
     ground: {
       kind: "bands",
       texture: DEFAULT_TEXTURE,
+      ornament: DEFAULT_ORNAMENT,
       bands: [],
       direction: "both",
       crossings: "blend",
