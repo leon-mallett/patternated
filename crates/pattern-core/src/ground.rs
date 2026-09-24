@@ -74,6 +74,46 @@ impl Ground {
         }
     }
 
+    /// Rewrite the slots this ground paints with.
+    ///
+    /// `moved` answers where a slot went, or `None` for one that did not move.
+    ///
+    /// It lives on the enum, and the match is exhaustive with no default arm,
+    /// because the caller cannot be trusted to remember. A palette resize
+    /// replaces the palette wholesale and carries the ground's colours to the
+    /// tail of the new one; a kind that was not renumbered keeps indices
+    /// pointing into the *motif* colours and comes back in somebody else's
+    /// colour. That is how a grown ground shipped rendering green, having been
+    /// asked for blue, the first time the colour count moved — the carrying
+    /// was general and the renumbering was written for bands only.
+    ///
+    /// [`GROUND_SLOT`](crate::GROUND_SLOT) is absence rather than a colour, so
+    /// it is never in the map and never moves.
+    pub fn renumber_slots(&mut self, moved: impl Fn(u8) -> Option<u8>) {
+        let renumber = |slot: &mut u8| {
+            if let Some(new) = moved(*slot) {
+                *slot = new;
+            }
+        };
+        match self {
+            Ground::Bands(b) => {
+                for band in b.vertical.iter_mut().chain(b.horizontal.iter_mut()) {
+                    renumber(&mut band.slot);
+                }
+                for crossing in &mut b.crossings {
+                    renumber(&mut crossing.a);
+                    renumber(&mut crossing.b);
+                    renumber(&mut crossing.slot);
+                }
+            }
+            Ground::Texture(t) => {
+                for level in &mut t.levels {
+                    renumber(level);
+                }
+            }
+        }
+    }
+
     /// The bands, when that is what this is.
     ///
     /// Present because the interface edits band sequences specifically, and a
@@ -155,6 +195,7 @@ impl From<Texture> for Ground {
 mod tests {
     use super::*;
     use crate::bands::Band;
+    use crate::texture::Texture;
 
     #[test]
     fn a_ground_answers_for_whatever_kind_it_is() {
@@ -187,6 +228,31 @@ mod tests {
         assert!(
             (repeats - repeats.round()).abs() < 1e-4,
             "{repeats} repeats of a {period} mm sequence"
+        );
+    }
+
+    #[test]
+    fn renumbering_reaches_every_slot_of_every_kind() {
+        // Slots are checked through `slots_used`, which is what a palette
+        // resize consults to decide what to carry — so a slot the renumbering
+        // missed is a slot the new palette has a colour for and the ground no
+        // longer points at.
+        let moved = |slot: u8| (slot != crate::GROUND_SLOT).then_some(slot + 100);
+
+        let mut bands = Ground::from(Bands::check(10.0, 10.0, 2, 3));
+        bands.renumber_slots(moved);
+        assert_eq!(bands.slots_used(), vec![102, 103], "crossings move too");
+
+        let mut texture = Ground::from(Texture {
+            levels: vec![crate::GROUND_SLOT, 4, 5],
+            ..Texture::default()
+        });
+        texture.renumber_slots(moved);
+        assert_eq!(texture.slots_used(), vec![104, 105]);
+        assert_eq!(
+            texture.as_texture().expect("texture").levels[0],
+            crate::GROUND_SLOT,
+            "the fabric is absence, not a colour that moved"
         );
     }
 

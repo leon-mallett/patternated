@@ -422,20 +422,8 @@ impl Document {
             moved.insert(old_slot, palette.colors.len() as u8);
             palette.colors.push(colour);
         }
-        if let Some(pattern_core::Ground::Bands(bands)) = self.pattern.ground.as_mut() {
-            let renumber = |slot: &mut u8| {
-                if let Some(new) = moved.get(slot) {
-                    *slot = *new;
-                }
-            };
-            for band in bands.vertical.iter_mut().chain(bands.horizontal.iter_mut()) {
-                renumber(&mut band.slot);
-            }
-            for crossing in &mut bands.crossings {
-                renumber(&mut crossing.a);
-                renumber(&mut crossing.b);
-                renumber(&mut crossing.slot);
-            }
+        if let Some(ground) = self.pattern.ground.as_mut() {
+            ground.renumber_slots(|slot| moved.get(&slot).copied());
         }
 
         self.pattern.palette = palette.clone();

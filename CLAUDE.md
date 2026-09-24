@@ -11,8 +11,9 @@ Two consumers share this engine:
 They share the engine and nothing visual. Full technical spec lives in
 `docs/pattern-engine-spec.md`.
 
-**Current milestone: M1** — bare engine, CLI-driven, block and half-drop lattices,
-PNG output.
+**Current milestone: past M5.** M1–M5 are complete and the spec directs a stop
+and reassessment there; `docs/roadmap.md` is the live statement of what is done,
+what is optional, and what is owed. Read it before assuming a thing is unbuilt.
 
 ## Invariants
 
@@ -86,13 +87,20 @@ never regenerate to make a failing test pass.
 
 ## Scope discipline
 
-The spec runs M1 to M7. We are on M1. Do not implement scatter placement,
-colourways, CMYK export, mockups, generation or style adapters ahead of their
-milestone, however tempting the adjacent code makes it. Partial implementations of
-later milestones are worse than none — they get forgotten and then trusted.
+The spec runs M1 to M7. M1–M5 are built; M6 is built but for corridor
+detection, and M7 is gated on things that do not exist yet. Do not implement
+generation or style adapters ahead of their milestone, however tempting the
+adjacent code makes it. Partial implementations of later milestones are worse
+than none — they get forgotten and then trusted.
+
+M7 is gated on a written style guide and reference artwork, and on a Peel Club
+range having gone to fabric and come back right. Those are the gates, not the
+calendar.
 
 Explicitly out of bounds right now:
 
 - Generative image calls (M7, and behind a trait when they arrive)
 - Any network I/O at all
 - Cloud sync, multi-user, hosted API
+- CMYK export, until a bureau supplies a profile — see
+  `docs/features.md#colour-management` for why shipping one would be a guess

@@ -2579,6 +2579,75 @@ mod tests {
             .expect("still renderable after the resize");
     }
 
+    #[test]
+    fn a_grown_ground_survives_a_change_of_colour_count_too() {
+        // The sibling of the test above, and the reason the renumbering lives
+        // on the enum rather than in one arm of a match: the colours are
+        // carried across for every kind of ground, so a kind that is not
+        // renumbered keeps indices pointing into the *motif* colours of the new
+        // palette and comes back in somebody else's colour.
+        let mut s = session();
+        apply_ground(
+            &mut s,
+            &GroundSpec {
+                kind: "texture".into(),
+                texture: TextureSpec {
+                    growth: "spots".into(),
+                    cells: 48,
+                    steps: 200,
+                    seed: 2,
+                    levels: vec![None, Some("#3c78a0".into())],
+                },
+                ..spec(&[], "both")
+            },
+        )
+        .expect("texture");
+
+        let before = s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .and_then(pattern_core::Ground::as_texture)
+            .cloned()
+            .expect("texture");
+        let ink = s
+            .document
+            .pattern
+            .palette
+            .resolve(before.slots_used()[0])
+            .expect("the ink");
+
+        s.document
+            .set_palette_size(16, &s.path)
+            .expect("should re-derive");
+        s.bank = s.document.load_motifs(&s.path).expect("re-quantise");
+
+        let after = s
+            .document
+            .pattern
+            .ground
+            .as_ref()
+            .and_then(pattern_core::Ground::as_texture)
+            .cloned()
+            .expect("texture survived");
+        assert_eq!(after.levels.len(), before.levels.len());
+        assert_eq!(
+            after.levels[0],
+            pattern_core::GROUND_SLOT,
+            "the fabric level is absence and does not move"
+        );
+        assert_eq!(
+            s.document.pattern.palette.resolve(after.slots_used()[0]),
+            Some(ink),
+            "the texture kept its colour"
+        );
+        s.document
+            .pattern
+            .validate()
+            .expect("still renderable after the resize");
+    }
+
     /// A document with no artwork, as the start screen now makes one.
     fn plain_session() -> Session {
         let mut s = Session {

@@ -93,13 +93,15 @@ Not milestones, but not forgotten.
   estimate is a plane, which models gradual falloff rather than a step, so the
   shadow survives as motif. Detected and warned about rather than silently
   wrong. Not on either brand's path today.
-- **The app's window is untested.** Eleven tests cover the layer beneath the
-  commands — what a slider actually does — but nothing drives the UI itself.
-  The app was built and run successfully; its window could not be inspected
-  from this environment because Screen Recording and Accessibility permissions
-  are not granted to the terminal. `~/Projects/AI_UI_TEST_AUTOMATION.md` and
-  `DESKTOP_APP_CONTROL.md` describe the house approach when that becomes worth
-  doing.
+- **The app's window is tested at the component tier, not the shipped one.**
+  Thirty-three component tests drive the real interface against a faked engine,
+  and sixty-odd Rust tests cover the layer beneath the commands. What is not
+  automated is the shipped window: the app has been driven by hand from this
+  environment — Screen Recording and Accessibility are granted to the terminal
+  now, so a screenshot-and-click pass is possible and was used to confirm the
+  grown ground end to end — but nothing does it repeatably.
+  `~/Projects/AI_UI_TEST_AUTOMATION.md` and `DESKTOP_APP_CONTROL.md` describe
+  the house approach when the full-stack tier becomes worth its upkeep.
 - **House palettes shared across documents.** Colourways live in one document,
   which covers a range; it does not yet cover several ranges agreeing with each
   other. Small, and worth doing when there is a second range.
