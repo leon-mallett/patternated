@@ -198,12 +198,52 @@ describe("the start screen", () => {
     expect(readout.textContent).toContain("Repeat");
   });
 
+  it("leads with the ground when the ground is the design", async () => {
+    // A panel that opens with the same controls whatever the document is asks
+    // the designer to skip past the half that cannot apply. Here the ground is
+    // the whole design, so it comes first — and the controls that only reduce
+    // or edit motif colours are not there at all, because there is no artwork
+    // to reduce and no motif slot to edit.
+    engine.opened = makeOpened({ motifs: [], scattered: false });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByTestId("new-plain"));
+    await screen.findByTestId("close");
+
+    expect(sections()[0]).toBe("Ground");
+
+    expect(screen.queryByTestId("palette-size")).toBeNull();
+    expect(screen.queryByTestId("motif-swatches")).toBeNull();
+    // But a ground has a palette like anything else, so the things that
+    // derive one from it stay.
+    expect(screen.getByTestId("derive-colourway")).toBeTruthy();
+  });
+
+  it("composes a whole panel for the workflow, not one panel for both", async () => {
+    // The composition itself, pinned. Each section here acts on a design made
+    // entirely of a ground; nothing in it is about arranging motifs, reducing
+    // their colours or editing them, because there are none to arrange.
+    engine.opened = makeOpened({ motifs: [], scattered: false });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByTestId("new-plain"));
+    await screen.findByTestId("close");
+
+    expect(sections()).toEqual(["Ground", "Repeat", "Background", "Colourways"]);
+    expect(screen.getByTestId("ground-is-the-design")).toBeTruthy();
+  });
+
   it("still offers them when there is artwork to arrange", async () => {
     // The other half, so the test above cannot be satisfied by hiding the
     // panel from everybody.
     await openApp();
     expect(screen.getByTestId("layout")).toBeTruthy();
     expect(screen.getByTestId("prevent-overlap")).toBeTruthy();
+    // And the ground sits under the background there, where it is what the
+    // motifs are strewn on rather than the design itself.
+    expect(sections().indexOf("Ground")).toBeGreaterThan(
+      sections().indexOf("Background"),
+    );
     expect((await screen.findByTestId("readout")).textContent).toContain("Coverage");
   });
 
@@ -352,6 +392,13 @@ async function sentGround(): Promise<GroundSpec> {
   await waitFor(() => expect(engine.grounds.length).toBeGreaterThan(before - 1));
   await waitFor(() => expect(engine.grounds.at(-1)).toBeTruthy());
   return engine.grounds.at(-1)!;
+}
+
+/** The panel's sections, in the order they are shown. */
+function sections(): string[] {
+  return Array.from(
+    document.querySelectorAll(".controls section h2, .controls section h3"),
+  ).map((h) => h.textContent ?? "");
 }
 
 describe("a ground drawn by rule", () => {

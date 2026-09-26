@@ -1620,6 +1620,36 @@ refused by the engine is the same fault with an error message attached.
 follows, where depth is shown only for the figures that recurse and a line
 width only for the ones that are stroked.
 
-**Not done.** Reordering the panel so the ground rises to the top when it is
-the whole design. It would help, and it is a layout decision rather than a
-correctness one, so it waits to be asked for.
+**And then the panel is composed per workflow, not filtered.** Hiding what
+cannot act was the first half and did not go far enough. A design made entirely
+of a ground and a design of motifs strewn over one are different jobs, and a
+panel that opens the same way for both asks the designer to skip past the half
+that does not apply. So:
+
+| | Ground-only | With artwork |
+|---|---|---|
+| | Ground | Layout |
+| | Repeat | Repeat |
+| | Background | Scatter · Seed · Motifs |
+| | Colourways | Colours |
+| | | Background |
+| | | Ground |
+| | | Motif colours |
+| | | Colourways |
+
+The ground leads when it *is* the design and sits under the background when it
+is what the motifs are strewn on, which reads as layering in one case and as
+priority in the other.
+
+**Three things this turned up.** The palette-size control re-derives colours
+from the artwork, so on a ground-only design asking for sixteen returns the two
+it had and changes nothing — the most confusing thing a control can do. A
+section headed "Motifs" carried the note explaining that there were none, which
+is the same fault as the panel it was explaining; that note now opens the ground
+panel, where it is both the first thing seen and the thing to do about it. And
+"Motif colours" held the colourway derivations — shift hue, swap ground — which
+have nothing to do with motifs: a tartan has a palette too. They moved to
+Colourways, where what they make is what the section is about.
+
+Both compositions are pinned by a test, because an ordering nobody asserts is
+an ordering that drifts back.

@@ -95,6 +95,10 @@ export default function App() {
   /// rather than from which editor is showing, because an editor can be open
   /// over a ground that is set to plain.
   const hasGround = bandSlots.length > 0;
+  /// Whether there is artwork to arrange at all. A pattern can be made
+  /// entirely of a ground, and then everything about placing motifs, reducing
+  /// their colours and editing those colours has nothing to act on.
+  const hasArtwork = doc !== null && doc.motifs.length > 0;
   const [jitter, setJitter] = useState(20);
   const [scale, setScale] = useState<[number, number]>([0.85, 1.15]);
   const [seed, setSeed] = useState(1);
@@ -533,6 +537,224 @@ export default function App() {
     );
   }
 
+  // Composed per workflow rather than in one fixed order. A pattern made
+  // entirely of a ground is a different job from a pattern of motifs strewn
+  // over one, and a panel that opens with the same controls for both asks the
+  // designer to skip past the half that cannot apply. So the ground leads when
+  // it *is* the design, and sits under the background when it is what the
+  // motifs are strewn on.
+  const groundPanel = (
+          <Group title="Ground">
+            {!hasArtwork && (
+              <p className="hint" data-testid="ground-is-the-design">
+                This pattern has no artwork in it, so the ground is the whole
+                design. Stripes, checks, tartans, grown textures and drawn
+                ornament are all made here.
+              </p>
+            )}
+            <label>
+              Made of
+              <select
+                data-testid="ground-kind"
+                value={ground.kind}
+                onChange={(e) =>
+                  changeGround({
+                    ...ground,
+                    kind: e.target.value as GroundSpec["kind"],
+                    bands: e.target.value === "bands" ? ground.bands : [],
+                  })
+                }
+              >
+                <option value="bands">Bands — stripes, checks, tartans</option>
+                <option value="texture">Texture — grown, no lattice in it</option>
+                <option value="ornament">Ornament — drawn by rule on a grid</option>
+              </select>
+            </label>
+
+            {ground.kind === "ornament" ? (
+              <OrnamentEditor
+                ornament={ground.ornament}
+                grid={fittedGrid}
+                onChange={(ornament) => changeGround({ ...ground, ornament })}
+              />
+            ) : ground.kind === "texture" ? (
+              <TextureEditor
+                texture={ground.texture}
+                shares={levelShares}
+                onChange={(texture) => changeGround({ ...ground, texture })}
+              />
+            ) : (
+            <>
+            <label>
+              Pattern
+              <select
+                data-testid="ground-preset"
+                value={ground.bands.length === 0 ? "none" : ""}
+                onChange={(e) => {
+                  const preset = GROUND_PRESETS.find((g) => g.id === e.target.value);
+                  if (preset) changeGround(preset.make("#3c78a0"));
+                }}
+              >
+                {ground.bands.length > 0 && <option value="">Custom</option>}
+                {GROUND_PRESETS.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {ground.bands.length > 0 && (
+              <>
+                <div className="sequence" data-testid="ground-sequence">
+                  {ground.bands.map((band, i) => (
+                    <div className="sequence-row" key={i}>
+                      <label className="swatch-edit">
+                        <input
+                          type="color"
+                          data-testid={`band-colour-${i}`}
+                          value={band.colour ?? "#ffffff"}
+                          disabled={band.colour === null}
+                          onChange={(e) => editBand(i, { colour: e.target.value })}
+                        />
+                        <span
+                          className="swatch"
+                          style={{
+                            background: band.colour ?? "transparent",
+                            backgroundImage: band.colour
+                              ? undefined
+                              : "repeating-linear-gradient(45deg, #0001 0 4px, #0000 4px 8px)",
+                          }}
+                        />
+                      </label>
+                      <input
+                        type="number"
+                        className="sequence-width"
+                        data-testid={`band-width-${i}`}
+                        value={band.width_mm}
+                        min={0.5}
+                        max={200}
+                        step={0.5}
+                        onChange={(e) =>
+                          editBand(i, { width_mm: Number(e.target.value) || 0.5 })
+                        }
+                      />
+                      <button
+                        className="ghost"
+                        data-testid={`band-gap-${i}`}
+                        title={band.colour === null ? "Give it a colour" : "Make it a gap"}
+                        onClick={() =>
+                          editBand(i, { colour: band.colour === null ? "#3c78a0" : null })
+                        }
+                      >
+                        {band.colour === null ? "gap" : "ink"}
+                      </button>
+                      <button
+                        className="ghost"
+                        data-testid={`band-remove-${i}`}
+                        title="Remove this band"
+                        onClick={() =>
+                          changeGround({
+                            ...ground,
+                            bands: ground.bands.filter((_, j) => j !== i),
+                          })
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  data-testid="band-add"
+                  onClick={() =>
+                    changeGround({
+                      ...ground,
+                      bands: [
+                        ...ground.bands,
+                        { width_mm: 12, colour: "#3c78a0" },
+                      ],
+                    })
+                  }
+                >
+                  Add a band
+                </button>
+
+                <label>
+                  Runs
+                  <select
+                    data-testid="ground-direction"
+                    value={ground.direction}
+                    onChange={(e) =>
+                      changeGround({
+                        ...ground,
+                        direction: e.target.value as GroundSpec["direction"],
+                      })
+                    }
+                  >
+                    <option value="vertical">Down the fabric</option>
+                    <option value="horizontal">Across the fabric</option>
+                    <option value="both">Both ways</option>
+                  </select>
+                </label>
+
+                <button
+                  data-testid="ground-mirror"
+                  disabled={ground.bands.length < 3}
+                  onClick={() => changeGround({ ...ground, mirrored: true })}
+                >
+                  Mirror the sequence
+                </button>
+                <p className="hint">
+                  How a tartan sett is written: the threadcount runs from one
+                  pivot to the other and the repeat reflects, without doubling
+                  either end band. This writes the reflected bands into the list
+                  rather than remembering a mode, so what you see is the repeat.
+                </p>
+
+                {ground.direction === "both" && (
+                  <>
+                    <label>
+                      Where bands cross
+                      <select
+                        data-testid="ground-crossings"
+                        value={ground.crossings}
+                        onChange={(e) =>
+                          changeGround({
+                            ...ground,
+                            crossings: e.target
+                              .value as GroundSpec["crossings"],
+                          })
+                        }
+                      >
+                        <option value="blend">Blend the two threads</option>
+                        <option value="overprint">Overprint, as ink does</option>
+                        <option value="across">Let the across-band win</option>
+                      </select>
+                    </label>
+                    <p className="hint">
+                      Blending is what cloth does: half the threads at a crossing
+                      are each colour, so two threads give a third tone and a
+                      thread crossing itself stays itself. Overprinting multiplies
+                      instead, which is what a second pass of ink does — right for
+                      a design built from overlapping bands, and much darker.
+                      Letting the across-band win adds no colours at all.
+                    </p>
+                  </>
+                )}
+
+                <p className="hint" data-testid="ground-colours">
+                  {groundColours} {groundColours === 1 ? "colour" : "colours"} in
+                  the ground, crossings included.
+                </p>
+              </>
+            )}
+            </>
+            )}
+          </Group>
+  );
+
   return (
     <main className="app">
       <section className="preview" ref={paneRef}>
@@ -659,6 +881,8 @@ export default function App() {
       </section>
 
       <aside className="controls">
+        {!hasArtwork && groundPanel}
+
         {/* Everything in Layout arranges motifs — where they sit, how many to
             a row, whether they may touch. A pattern with no artwork in it has
             none of that to decide, and a panel of controls that do nothing is
@@ -667,7 +891,7 @@ export default function App() {
 
             Reported from the app: the options at the top related only to
             motifs on a design that had none. */}
-        {doc.motifs.length > 0 && (
+        {hasArtwork && (
         <Group title="Layout">
           <label className="check">
             <input
@@ -921,15 +1145,26 @@ export default function App() {
             </Group>
           </>
         ) : (
-          <Group title="Motifs">
-            <p className="hint">
-              {doc.motifs.length === 0
-                ? "This pattern has no artwork in it — the ground is the whole design. Stripes, checks and tartans are made entirely in the Ground panel."
-                : "This document places its motifs by hand, so the scatter controls do not apply. Its placements are used exactly as written."}
-            </p>
-          </Group>
+          /* A section headed "Motifs" on a design that has none is the very
+             confusion this panel is meant to avoid. Where there is no artwork
+             the explanation belongs at the top of the ground panel, which is
+             both the first thing seen and the thing to do about it. */
+          hasArtwork && (
+            <Group title="Motifs">
+              <p className="hint">
+                This document places its motifs by hand, so the scatter
+                controls do not apply. Its placements are used exactly as
+                written.
+              </p>
+            </Group>
+          )
         )}
 
+        {/* The palette size re-reads the artwork and derives colours from it.
+            With no artwork there is nothing to read: asking for sixteen
+            returns the two it already had and changes nothing, which is the
+            most confusing thing a control can do. */}
+        {hasArtwork && (
         <Group title="Colours">
           <Slider
             label="Palette"
@@ -966,6 +1201,7 @@ export default function App() {
               </p>
             ))}
         </Group>
+        )}
 
         <Group title="Background">
           {(() => {
@@ -995,209 +1231,9 @@ export default function App() {
           })()}
         </Group>
 
-        <Group title="Ground">
-          <label>
-            Made of
-            <select
-              data-testid="ground-kind"
-              value={ground.kind}
-              onChange={(e) =>
-                changeGround({
-                  ...ground,
-                  kind: e.target.value as GroundSpec["kind"],
-                  bands: e.target.value === "bands" ? ground.bands : [],
-                })
-              }
-            >
-              <option value="bands">Bands — stripes, checks, tartans</option>
-              <option value="texture">Texture — grown, no lattice in it</option>
-              <option value="ornament">Ornament — drawn by rule on a grid</option>
-            </select>
-          </label>
+        {hasArtwork && groundPanel}
 
-          {ground.kind === "ornament" ? (
-            <OrnamentEditor
-              ornament={ground.ornament}
-              grid={fittedGrid}
-              onChange={(ornament) => changeGround({ ...ground, ornament })}
-            />
-          ) : ground.kind === "texture" ? (
-            <TextureEditor
-              texture={ground.texture}
-              shares={levelShares}
-              onChange={(texture) => changeGround({ ...ground, texture })}
-            />
-          ) : (
-          <>
-          <label>
-            Pattern
-            <select
-              data-testid="ground-preset"
-              value={ground.bands.length === 0 ? "none" : ""}
-              onChange={(e) => {
-                const preset = GROUND_PRESETS.find((g) => g.id === e.target.value);
-                if (preset) changeGround(preset.make("#3c78a0"));
-              }}
-            >
-              {ground.bands.length > 0 && <option value="">Custom</option>}
-              {GROUND_PRESETS.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {ground.bands.length > 0 && (
-            <>
-              <div className="sequence" data-testid="ground-sequence">
-                {ground.bands.map((band, i) => (
-                  <div className="sequence-row" key={i}>
-                    <label className="swatch-edit">
-                      <input
-                        type="color"
-                        data-testid={`band-colour-${i}`}
-                        value={band.colour ?? "#ffffff"}
-                        disabled={band.colour === null}
-                        onChange={(e) => editBand(i, { colour: e.target.value })}
-                      />
-                      <span
-                        className="swatch"
-                        style={{
-                          background: band.colour ?? "transparent",
-                          backgroundImage: band.colour
-                            ? undefined
-                            : "repeating-linear-gradient(45deg, #0001 0 4px, #0000 4px 8px)",
-                        }}
-                      />
-                    </label>
-                    <input
-                      type="number"
-                      className="sequence-width"
-                      data-testid={`band-width-${i}`}
-                      value={band.width_mm}
-                      min={0.5}
-                      max={200}
-                      step={0.5}
-                      onChange={(e) =>
-                        editBand(i, { width_mm: Number(e.target.value) || 0.5 })
-                      }
-                    />
-                    <button
-                      className="ghost"
-                      data-testid={`band-gap-${i}`}
-                      title={band.colour === null ? "Give it a colour" : "Make it a gap"}
-                      onClick={() =>
-                        editBand(i, { colour: band.colour === null ? "#3c78a0" : null })
-                      }
-                    >
-                      {band.colour === null ? "gap" : "ink"}
-                    </button>
-                    <button
-                      className="ghost"
-                      data-testid={`band-remove-${i}`}
-                      title="Remove this band"
-                      onClick={() =>
-                        changeGround({
-                          ...ground,
-                          bands: ground.bands.filter((_, j) => j !== i),
-                        })
-                      }
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                data-testid="band-add"
-                onClick={() =>
-                  changeGround({
-                    ...ground,
-                    bands: [
-                      ...ground.bands,
-                      { width_mm: 12, colour: "#3c78a0" },
-                    ],
-                  })
-                }
-              >
-                Add a band
-              </button>
-
-              <label>
-                Runs
-                <select
-                  data-testid="ground-direction"
-                  value={ground.direction}
-                  onChange={(e) =>
-                    changeGround({
-                      ...ground,
-                      direction: e.target.value as GroundSpec["direction"],
-                    })
-                  }
-                >
-                  <option value="vertical">Down the fabric</option>
-                  <option value="horizontal">Across the fabric</option>
-                  <option value="both">Both ways</option>
-                </select>
-              </label>
-
-              <button
-                data-testid="ground-mirror"
-                disabled={ground.bands.length < 3}
-                onClick={() => changeGround({ ...ground, mirrored: true })}
-              >
-                Mirror the sequence
-              </button>
-              <p className="hint">
-                How a tartan sett is written: the threadcount runs from one
-                pivot to the other and the repeat reflects, without doubling
-                either end band. This writes the reflected bands into the list
-                rather than remembering a mode, so what you see is the repeat.
-              </p>
-
-              {ground.direction === "both" && (
-                <>
-                  <label>
-                    Where bands cross
-                    <select
-                      data-testid="ground-crossings"
-                      value={ground.crossings}
-                      onChange={(e) =>
-                        changeGround({
-                          ...ground,
-                          crossings: e.target
-                            .value as GroundSpec["crossings"],
-                        })
-                      }
-                    >
-                      <option value="blend">Blend the two threads</option>
-                      <option value="overprint">Overprint, as ink does</option>
-                      <option value="across">Let the across-band win</option>
-                    </select>
-                  </label>
-                  <p className="hint">
-                    Blending is what cloth does: half the threads at a crossing
-                    are each colour, so two threads give a third tone and a
-                    thread crossing itself stays itself. Overprinting multiplies
-                    instead, which is what a second pass of ink does — right for
-                    a design built from overlapping bands, and much darker.
-                    Letting the across-band win adds no colours at all.
-                  </p>
-                </>
-              )}
-
-              <p className="hint" data-testid="ground-colours">
-                {groundColours} {groundColours === 1 ? "colour" : "colours"} in
-                the ground, crossings included.
-              </p>
-            </>
-          )}
-          </>
-          )}
-        </Group>
-
+        {hasArtwork && (
         <Group title="Motif colours">
           <div className="swatches" data-testid="motif-swatches">
             {(palette?.palette ?? doc.palette)
@@ -1224,8 +1260,15 @@ export default function App() {
             Motifs store slots, not colours, so changing one recolours every
             motif that uses it at once.
           </p>
+        </Group>
+        )}
 
-          <div className="derive">
+        <Group title="Colourways">
+          {/* These derive a whole palette from the one in hand, which has
+              nothing to do with motifs — a tartan or a Truchet has a palette
+              too. They lived under "Motif colours" and moved here, where what
+              they make is what the panel is about. */}
+          <div className="derive" data-testid="derive-colourway">
             <button onClick={() => changePalette(() => deriveColourway("hue", 40))}>
               Shift hue
             </button>
@@ -1243,9 +1286,7 @@ export default function App() {
             Candidates to pick from rather than answers. Everything moves
             together, so a palette that worked keeps its relationships.
           </p>
-        </Group>
 
-        <Group title="Colourways">
           {(palette?.colourways ?? []).length > 0 && (
             <div className="colourways">
               {(palette?.colourways ?? []).map((name) => (

@@ -431,6 +431,29 @@ count is a statement about the design's slots, not about how many distinct
 values end up in the file. A screen-printing separation would want the
 unsoftened mask, and that is noted where separations are.
 
+## The panel is composed for the workflow
+
+A pattern made entirely of a ground and a pattern of motifs strewn over one are
+different jobs. The controls are composed for whichever is in hand rather than
+filtered down from one fixed list:
+
+- **Ground-only** — Ground, Repeat, Background, Colourways. Nothing about
+  arranging motifs, reducing their colours or editing them, because there are
+  none.
+- **With artwork** — Layout, Repeat, the scatter controls, Colours, Background,
+  Ground, Motif colours, Colourways.
+
+The ground leads when it *is* the design and sits under the background when it
+is what motifs are strewn on. Within a panel the same rule applies: an ornament
+shows a depth only for the figures that recurse and a line width only for the
+ones that are stroked, and the repeat type stops offering the three oblique
+lattices once a ground is present, since a ground needs a block repeat and the
+engine would refuse them.
+
+The rule behind all of it: a control that cannot act is worse than a shorter
+panel, because it gets moved, nothing happens, and the rest of the interface
+stops being believed.
+
 ## Scatter placement
 
 Many motifs distributed across the tile to read as hand-strewn, by toroidal
