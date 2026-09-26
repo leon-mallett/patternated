@@ -91,6 +91,10 @@ export default function App() {
   const [fittedGrid, setFittedGrid] = useState<FittedGrid | null>(null);
   const [bandSlots, setBandSlots] = useState<number[]>([]);
   const [groundColours, setGroundColours] = useState(0);
+  /// Whether the ground paints anything. Read from the slots it was given
+  /// rather than from which editor is showing, because an editor can be open
+  /// over a ground that is set to plain.
+  const hasGround = bandSlots.length > 0;
   const [jitter, setJitter] = useState(20);
   const [scale, setScale] = useState<[number, number]>([0.85, 1.15]);
   const [seed, setSeed] = useState(1);
@@ -625,15 +629,19 @@ export default function App() {
         )}
 
         {preview && (
-          <dl className="readout">
+          <dl className="readout" data-testid="readout">
             <Readout label="Repeat" value={`${tile[0]} × ${tile[1]} mm`} />
-            <Readout label="Motifs" value={String(preview.placements)} />
-            <Readout
-              label="Coverage"
-              value={`${Math.round(preview.achieved_density * 100)}% (asked ${Math.round(
-                density * 100,
-              )}%)`}
-            />
+            {doc.motifs.length > 0 && (
+              <>
+                <Readout label="Motifs" value={String(preview.placements)} />
+                <Readout
+                  label="Coverage"
+                  value={`${Math.round(preview.achieved_density * 100)}% (asked ${Math.round(
+                    density * 100,
+                  )}%)`}
+                />
+              </>
+            )}
             <Readout
               label="Colours"
               value={String(preview.colours)}
@@ -651,6 +659,15 @@ export default function App() {
       </section>
 
       <aside className="controls">
+        {/* Everything in Layout arranges motifs — where they sit, how many to
+            a row, whether they may touch. A pattern with no artwork in it has
+            none of that to decide, and a panel of controls that do nothing is
+            worse than a shorter panel: they get moved, nothing happens, and
+            the rest of the interface stops being believed.
+
+            Reported from the app: the options at the top related only to
+            motifs on a design that had none. */}
+        {doc.motifs.length > 0 && (
         <Group title="Layout">
           <label className="check">
             <input
@@ -728,17 +745,36 @@ export default function App() {
             </>
           )}
         </Group>
+        )}
 
         <Group title="Repeat">
           <label>
             Type
             <select data-testid="repeat-type" value={lattice} onChange={(e) => setLattice(e.target.value)}>
-              <option value="half-drop">Half-drop</option>
+              {/* A ground lives in the tile and repeats with it, so it meets
+                  itself only where the lattice steps by whole tiles. Choosing
+                  an oblique one here used to be accepted by the control and
+                  then refused by the engine, which is a worse way to learn it
+                  than not being offered it. */}
+              <option value="half-drop" disabled={hasGround}>
+                Half-drop
+              </option>
               <option value="block">Block</option>
-              <option value="brick">Brick</option>
-              <option value="quarter-drop">Quarter-drop</option>
+              <option value="brick" disabled={hasGround}>
+                Brick
+              </option>
+              <option value="quarter-drop" disabled={hasGround}>
+                Quarter-drop
+              </option>
             </select>
           </label>
+          {hasGround && (
+            <p className="hint" data-testid="ground-needs-block">
+              A ground needs a block repeat. An oblique one steps it by part of
+              a tile at every join, so bands stop running straight and anything
+              drawn or grown meets an edge it was not made against.
+            </p>
+          )}
           <NumberField
             label="Width"
             testId="tile-width"

@@ -496,6 +496,15 @@ fn fill_ground(target: &mut Pixmap, pattern: &Pattern) -> Result<(), RenderError
     Ok(())
 }
 
+/// Samples per pixel along each axis when drawing a ground.
+///
+/// Four means sixteen per pixel and seventeen levels of coverage along an
+/// edge, which is past the point where a step is visible. It is a fixed cost
+/// rather than an adaptive one on purpose: an early-out that decided a pixel
+/// was uniform from a few samples would miss a feature finer than a pixel,
+/// and a hairline is exactly what a designer reaches for.
+const GROUND_SAMPLES: u8 = 4;
+
 /// Lay a striped or checked ground over the fabric.
 ///
 /// Between the ground and the motifs, which is the whole reason bands are a
@@ -527,8 +536,19 @@ fn fill_bands(
         pattern.tile_size_mm.y / pl.tile_px.y.max(1) as f32,
     );
 
-    // Sampled at the middle of each pixel, so a band edge falling between two
-    // pixels lands on one of them rather than on neither.
+    // Sampled several times per pixel and averaged, because a ground is not
+    // made of straight lines any more. One sample per pixel is right for a
+    // stripe, whose edges are axis-aligned, and puts a staircase along every
+    // curve of a Truchet arc or a grown blob — the more so beside the motifs,
+    // which tiny-skia draws with filtering, so the two layers of the same
+    // print did not look as though they had been made by the same tool.
+    //
+    // Reported from the app as the grounds looking "very pixelated", which is
+    // the right description.
+    //
+    // Averaged in sRGB rather than in a linear space, to match how the motif
+    // layer composites; the two blending differently would trade one visible
+    // inconsistency for a subtler one.
     //
     // In the tile's own coordinates, not the canvas's. A field of nine tiles is
     // 720 mm across where a tile is 240, and an `f32` carries about six decimal
@@ -541,19 +561,48 @@ fn fill_bands(
     // DPI. Bands had the same hazard and had never been unlucky enough to show
     // it.
     let tile_px = (pl.tile_px.x.max(1) as u32, pl.tile_px.y.max(1) as u32);
+    let step = 1.0 / f32::from(GROUND_SAMPLES);
+    let taken = f32::from(GROUND_SAMPLES) * f32::from(GROUND_SAMPLES);
+
     let pixels = target.pixels_mut();
     for y in 0..h {
-        let y_mm = ((y % tile_px.1) as f32 + 0.5) * scale.y;
         for x in 0..w {
-            let x_mm = ((x % tile_px.0) as f32 + 0.5) * scale.x;
-            let Some(slot) = ground.slot_at(x_mm, y_mm) else {
-                continue;
+            // Whatever is already here is what a sample landing on no part of
+            // the ground should contribute — the fabric, in every order this
+            // is called in today, and read rather than assumed so that it
+            // stays right if it is ever called in another.
+            let at = (y * w + x) as usize;
+            let under = pixels[at].demultiply();
+            let base = Color {
+                r: under.red(),
+                g: under.green(),
+                b: under.blue(),
             };
-            let Some(Color { r, g, b }) = pattern.palette.resolve(slot) else {
-                continue;
-            };
-            if let Some(p) = PremultipliedColorU8::from_rgba(r, g, b, 255) {
-                pixels[(y * w + x) as usize] = p;
+
+            let (px, py) = ((x % tile_px.0) as f32, (y % tile_px.1) as f32);
+            let mut sum = [0f32; 3];
+            for j in 0..GROUND_SAMPLES {
+                let y_mm = (py + (f32::from(j) + 0.5) * step) * scale.y;
+                for i in 0..GROUND_SAMPLES {
+                    let x_mm = (px + (f32::from(i) + 0.5) * step) * scale.x;
+                    let Color { r, g, b } = ground
+                        .slot_at(x_mm, y_mm)
+                        .and_then(|slot| pattern.palette.resolve(slot))
+                        .unwrap_or(base);
+                    sum[0] += f32::from(r);
+                    sum[1] += f32::from(g);
+                    sum[2] += f32::from(b);
+                }
+            }
+
+            let channel = |v: f32| (v / taken + 0.5) as u8;
+            if let Some(p) = PremultipliedColorU8::from_rgba(
+                channel(sum[0]),
+                channel(sum[1]),
+                channel(sum[2]),
+                255,
+            ) {
+                pixels[at] = p;
             }
         }
     }

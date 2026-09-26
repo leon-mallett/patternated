@@ -408,6 +408,29 @@ it actually drew.
 `examples/generated-motifs/bananas-ornament.json` is bananas tossed over
 Truchet strapwork.
 
+## A ground's edges are drawn, not decided
+
+Every kind of ground is sampled sixteen times per pixel and averaged. For the
+first three years of this engine's existence that would have been waste: a
+stripe's edges are axis-aligned and one sample per pixel puts them exactly
+where they belong. A Truchet arc and a grown blob are curves, and one sample
+per pixel puts a staircase along every one — the more visible for sitting
+beside motifs, which are drawn with filtering, so the two layers of the same
+print did not look as though they had been made by the same tool.
+
+Reported from the app as the grounds looking "very pixelated", which was the
+right description.
+
+Averaged in sRGB rather than in a linear space, to match how the motif layer
+composites. Two layers blending differently would trade one visible
+inconsistency for a subtler one.
+
+**What this does not change.** The palette. Intermediate tones along an edge
+are the same thing a motif's antialiased outline already produced; the colour
+count is a statement about the design's slots, not about how many distinct
+values end up in the file. A screen-printing separation would want the
+unsoftened mask, and that is noted where separations are.
+
 ## Scatter placement
 
 Many motifs distributed across the tile to read as hand-strewn, by toroidal

@@ -1564,3 +1564,62 @@ clamshell as much as for a broken one — it asserted something true either way.
 The replacement measures where the scallops of the first and last rows sit and
 requires them to be half a cell apart, which is exactly what the alternation is
 for.
+
+---
+
+## A ground is drawn, not decided per pixel
+
+**Decided.** Every ground is sampled sixteen times per pixel and averaged,
+rather than once and taken.
+
+**Why it was once.** Bands were the only ground for a long time, and a band's
+edges are axis-aligned: one sample per pixel is not an approximation there, it
+is exact. The cost only appeared when grounds gained curves.
+
+**What it looked like.** Reported from the app as "very pixelated". The give-
+away was the contrast within a single render: the motifs were smooth because
+tiny-skia filters them, and the ground beneath them stepped, so the two layers
+of one print looked like the work of two different tools.
+
+**Why a fixed sample count rather than an adaptive one.** An early-out that
+decided a pixel was uniform from a few probes would miss any feature finer than
+a pixel, and a hairline is exactly what a designer reaches for. Measured, the
+fixed cost does not dominate: a 300 DPI tile of a Truchet ground renders in
+1.8 seconds against 1.8 for a gingham, so the supersampling is lost behind
+motif drawing and PNG encoding.
+
+**Why sRGB.** To match how the motif layer composites. Blending the two layers
+in different spaces would trade a visible inconsistency for a subtler one.
+
+**What the test says.** Not a golden — a property. A two-colour ground whose
+pixels are only ever one of those two colours has decided each pixel rather
+than drawn it; and the count of *distinct* tones tells four samples from two,
+where the share of edge pixels cannot. The hazard test computes the same ground
+once per pixel and asserts it produces no intermediate tone at all.
+
+**A gap this exposed.** No golden image covers a ground of any kind — all three
+are motif-only — which is why a change to every ground's edges broke no golden.
+Recorded in the roadmap rather than fixed in passing.
+
+---
+
+## Controls that cannot act are not shown
+
+**Decided.** A pattern with no artwork in it does not get the Layout panel —
+arrangement, overlap guard, rows and columns — nor the readouts that count
+motifs and coverage. A pattern with a ground does not get offered the three
+oblique repeats, which the engine would refuse.
+
+**Why.** Reported from the app: a design made entirely of a ground still led
+with a panel of controls for placing motifs. A control that does nothing is
+worse than a shorter panel, because it gets moved, nothing happens, and the
+rest of the interface stops being believed. Offering a repeat that is then
+refused by the engine is the same fault with an error message attached.
+
+**The rule this is a case of.** It is the same one the ornament panel already
+follows, where depth is shown only for the figures that recurse and a line
+width only for the ones that are stroked.
+
+**Not done.** Reordering the panel so the ground rises to the top when it is
+the whole design. It would help, and it is a layout decision rather than a
+correctness one, so it waits to be asked for.

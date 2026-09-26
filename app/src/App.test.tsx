@@ -175,6 +175,38 @@ describe("the start screen", () => {
     expect(screen.getByText(/no artwork in it/)).toBeTruthy();
   });
 
+  it("offers nothing that only arranges motifs when there are none", async () => {
+    // Reported from the app: a pattern made entirely of a ground still led
+    // with a panel of controls for placing motifs — an arrangement, an
+    // overlap guard, rows and columns. None of them can do anything here, and
+    // a control that does nothing teaches a designer to distrust the rest.
+    engine.opened = makeOpened({ motifs: [], scattered: false });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByTestId("new-plain"));
+    await screen.findByTestId("close");
+
+    for (const id of ["layout", "prevent-overlap", "grid-rows", "grid-cols"]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    // Nor the two readouts that count them.
+    const readout = await screen.findByTestId("readout");
+    expect(readout.textContent).not.toContain("Coverage");
+    expect(readout.textContent).not.toContain("Motifs");
+    // What the design *is* made of is still there.
+    expect(screen.getByTestId("ground-kind")).toBeTruthy();
+    expect(readout.textContent).toContain("Repeat");
+  });
+
+  it("still offers them when there is artwork to arrange", async () => {
+    // The other half, so the test above cannot be satisfied by hiding the
+    // panel from everybody.
+    await openApp();
+    expect(screen.getByTestId("layout")).toBeTruthy();
+    expect(screen.getByTestId("prevent-overlap")).toBeTruthy();
+    expect((await screen.findByTestId("readout")).textContent).toContain("Coverage");
+  });
+
   it("is where closing puts you back", async () => {
     const user = await openApp();
     await user.click(screen.getByTestId("close"));
@@ -639,6 +671,27 @@ describe("the ground", () => {
     await waitFor(() =>
       expect(engine.grounds.some((g) => g.mirrored)).toBe(true),
     );
+  });
+
+  it("stops offering the repeats a ground cannot take", async () => {
+    // A ground repeats with the tile, so it meets itself only where the
+    // lattice steps by whole tiles. The engine refuses the others; the control
+    // used to offer them anyway and let a designer find out from an error.
+    const user = await openApp();
+    const type = () => screen.getByTestId("repeat-type") as HTMLSelectElement;
+    const option = (value: string) =>
+      Array.from(type().options).find((o) => o.value === value)!;
+
+    expect(option("half-drop").disabled).toBe(false);
+    expect(screen.queryByTestId("ground-needs-block")).toBeNull();
+
+    await user.selectOptions(screen.getByTestId("ground-preset"), "check");
+    await screen.findByTestId("ground-needs-block");
+
+    expect(option("half-drop").disabled).toBe(true);
+    expect(option("brick").disabled).toBe(true);
+    expect(option("quarter-drop").disabled).toBe(true);
+    expect(option("block").disabled).toBe(false);
   });
 
   it("says how many colours the ground costs", async () => {
