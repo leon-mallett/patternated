@@ -105,6 +105,43 @@ the log already records, arriving from the opposite direction: not a fixture
 that contains the signal too cleanly, but one that cannot contain it at all.
 These tests draw the same cherry at illustration resolution instead.
 
+## What a golden covers, and what it does not
+
+Seven images, and each is answerable for something the others are not.
+
+Three pin the motif layer: a block field, a half-drop field, and a scatter
+whose sampler would otherwise be free to drift between versions without any
+test in one process noticing.
+
+Four pin the ground layer, which until 2026-09-26 had none at all. That gap
+was found the hard way: the way *every* ground's edges are drawn was changed,
+and no golden moved, because all three covered patterns with no ground in them.
+Every ground test asserted a property — that it tiles, that its edges carry
+intermediate tones, that a level covers some of the tile — and a property that
+still holds can hold over a print that has changed completely.
+
+- `ground-check.png` — two threads and their crossing. The three tones no
+  arrangement of motifs can produce, and a check that band edges stay hard.
+- `ground-texture.png` — a grown field, quantised, sampled between its cells
+  and resolved through the palette.
+- `ground-ornament.png` — Truchet, which is made entirely of curves, so it is
+  where a change to edge softening or to a stroke width in millimetres shows
+  first.
+- `ground-under-motifs.png` — the composition. The fabric, then the ground
+  layer, then the motifs. Reversing those last two fails this image and
+  nothing else in the suite.
+
+**One per kind, not one per figure.** What a figure *is* is pinned exactly and
+far more cheaply by the digest in `pattern-core`'s ornament tests, which walks
+all six. What a golden adds is everything after that: millimetres to pixels,
+stroke widths, slots through the palette, and the softening of an edge.
+
+**A golden has to be legible.** The first version of `ground-under-motifs.png`
+reused a seamlessness fixture, which draws its ground in slot 1 — the cherries'
+own red — under motifs thick enough to cover most of it. Every property held
+and the picture was useless to review. A golden is looked at by a person, so a
+fixture chosen to stress the engine is usually the wrong one for it.
+
 ## Asserting that something was drawn
 
 An engine whose output is a picture has to assert on the picture. Until
@@ -281,11 +318,13 @@ Stated rather than left as silence, since silence reads as coverage.
   pixels were not.
 
   Since 2026-09-22, CI runs the whole suite on **Linux x86-64** while
-  development happens on **macOS arm64**. The three golden images were
-  generated on macOS and match on Linux — not approximately, but as identical
-  encoded PNG bytes, which is what the comparison actually does. One of them,
+  development happens on **macOS arm64**. The golden images are generated on
+  macOS and match on Linux — not approximately, but as identical encoded PNG
+  bytes, which is what the comparison actually does. One of them,
   `a_scattered_field_matches_its_golden`, is a scatter with 30 degrees of
-  rotation jitter, so the `sin_cos` path is exercised on every motif in it.
+  rotation jitter, so the `sin_cos` path is exercised on every motif in it;
+  another grows a Gray–Scott field, which is several million floating-point
+  steps whose last bit has to agree.
 
   Two architectures, two C libraries, two rasteriser builds, identical output.
   That is much stronger than the argument it replaces, and it is a *standing*

@@ -102,10 +102,6 @@ Not milestones, but not forgotten.
   grown ground end to end — but nothing does it repeatably.
   `~/Projects/AI_UI_TEST_AUTOMATION.md` and `DESKTOP_APP_CONTROL.md` describe
   the house approach when the full-stack tier becomes worth its upkeep.
-- **No golden image covers a ground.** All three goldens are motif-only, which
-  is why changing how every ground's edges are drawn broke none of them. The
-  ground layer is now three kinds and six figures and carries no pinned
-  picture; its properties are tested, its appearance is not.
 - **House palettes shared across documents.** Colourways live in one document,
   which covers a range; it does not yet cover several ranges agreeing with each
   other. Small, and worth doing when there is a second range.

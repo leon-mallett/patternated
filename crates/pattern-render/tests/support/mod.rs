@@ -87,6 +87,42 @@ pub fn palette() -> Palette {
     ])
 }
 
+/// A pattern that is nothing but its ground.
+///
+/// Isolating the layer on purpose. A golden or a measurement taken over a
+/// ground with motifs strewn on it cannot say which layer moved, and the
+/// ground is the one with three kinds and six figures in it.
+pub fn ground_only(ground: pattern_core::Ground, palette: Palette) -> Pattern {
+    Pattern {
+        tile_size_mm: TILE,
+        lattice: Lattice::block(TILE),
+        placements: Vec::new(),
+        ground: Some(ground),
+        palette,
+        seed: 1,
+    }
+}
+
+/// The fabric and however many inks are asked for, and nothing else.
+///
+/// Built from a fixed list rather than from [`palette`], so that a ground
+/// fixture does not quietly inherit the motif palette's colours and then read
+/// as though those colours meant something.
+pub fn inks(count: usize) -> Palette {
+    let mut colors = vec![Color::new(250, 246, 238)];
+    colors.extend(
+        [
+            Color::new(31, 61, 58),
+            Color::new(226, 222, 210),
+            Color::new(128, 141, 134),
+            Color::new(196, 132, 58),
+        ]
+        .into_iter()
+        .take(count),
+    );
+    Palette::new(colors)
+}
+
 /// The test cherry, put through the real ingest pipeline.
 ///
 /// Deliberately not a shortcut past ingest. Since M3 there is one motif

@@ -16,31 +16,12 @@
 mod support;
 
 use glam::Vec2;
-use pattern_core::{Figure, Growth, Lattice, Ornament, Palette, Pattern, Texture};
+use pattern_core::{Figure, Growth, Ornament, Pattern, Texture};
 use pattern_render::{render_tile, MotifBank};
-use support::palette;
+use support::{ground_only, inks};
 
 const TILE: Vec2 = Vec2::new(240.0, 180.0);
 const DPI: f32 = 96.0;
-
-/// Two colours and nothing else: the fabric, and one ink.
-fn two_tone() -> Palette {
-    let mut colors = palette().colors;
-    colors.truncate(1);
-    colors.push(pattern_core::Color::new(20, 60, 55));
-    Palette::new(colors)
-}
-
-fn ground_only(ground: pattern_core::Ground) -> Pattern {
-    Pattern {
-        tile_size_mm: TILE,
-        lattice: Lattice::block(TILE),
-        placements: Vec::new(),
-        ground: Some(ground),
-        palette: two_tone(),
-        seed: 1,
-    }
-}
 
 /// How the tile's pixels divide into the two named colours and everything else.
 ///
@@ -123,6 +104,7 @@ fn truchet() -> Pattern {
             ..Ornament::default()
         }
         .into(),
+        inks(1),
     )
 }
 
@@ -136,6 +118,7 @@ fn pebbles() -> Pattern {
             levels: vec![pattern_core::GROUND_SLOT, 1],
         }
         .into(),
+        inks(1),
     )
 }
 
@@ -208,7 +191,7 @@ fn a_straight_ground_is_left_alone() {
     // number of pixels at 96 DPI... except that 240 mm at 96 DPI is 907 px and
     // a 20 mm band is 75.6, so they do not. The assertion is therefore that
     // softening is confined to those edges rather than absent.
-    let stripe = ground_only(pattern_core::Bands::stripe(20.0, 20.0, 1).into());
+    let stripe = ground_only(pattern_core::Bands::stripe(20.0, 20.0, 1).into(), inks(1));
     let (flat, between, _) = tones(&stripe);
     assert!(
         between < 0.02,
