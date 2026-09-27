@@ -202,11 +202,53 @@ code {
 .check { flex-direction: row; align-items: center; gap: 8px; }
 .check input { accent-color: var(--accent); }
 
-.export {
-  border: 1px solid var(--line);
-  border-radius: 8px;
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(0 0 0 / 45%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal {
   background: var(--panel);
-  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgb(0 0 0 / 35%);
+  width: min(720px, 100%);
+  /* Tall enough to need scrolling on a short window: the export plan grows a
+     warning per thing that is wrong with it, and a dialogue that overflows the
+     window puts its own buttons out of reach. */
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.modal:focus { outline: none; }
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-head h2 { margin: 0; font-size: 15px; }
+.modal-head button {
+  background: none;
+  border: none;
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.export {
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;

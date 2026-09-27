@@ -1689,3 +1689,31 @@ with the layout.
 **The general rule.** A control whose effect is relative must display the
 relation, not the operand. A number on its own — a weight of 6 — is
 indistinguishable from an absolute one, and will be read as absolute.
+
+---
+
+## The export dialogue is a modal, and its button says Save as
+
+**Decided.** Exporting opens a modal over the window instead of unfolding a
+panel below the preview, and the button that writes the file is *Save as…*
+rather than *Choose a file…*.
+
+**Why a modal.** Exporting is a decision with a dozen settings and an end — a
+file written. Below the preview it pushed the image out of view exactly when a
+designer wanted to look at it, and read as one more panel of the same kind as
+the controls beside it, which are all live edits to the document. It is not one
+of those: nothing it does changes the pattern.
+
+**Why not the platform's `<dialog>`.** It would give the backdrop, the Escape
+key and a focus trap for nothing, and in the shipped WKWebView it is fully
+supported. But jsdom — which the component tests run in — still does not
+implement `showModal` at version 30, so a native dialogue could only be driven
+in a test behind a shim faking the very thing being claimed: the tests would
+pass over a dialogue that was never modal. Thirty lines of our own, all of it
+exercised — Escape, focus on open, focus returned to the opener on close, and
+Tab kept inside — was the better trade. Worth reconsidering when jsdom
+implements it; platform focus handling is better than anybody's.
+
+**Why the label.** *Choose a file* describes picking one of the files that
+exist. This names one that does not exist yet, which is what every platform
+calls Save as. The ellipsis stays because it opens a further dialogue.

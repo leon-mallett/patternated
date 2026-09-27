@@ -821,6 +821,7 @@ export default function App() {
         <div className={busy ? "canvas working" : "canvas"}>
           {preview ? (
             <img
+              data-testid="preview-image"
               src={`data:image/png;base64,${preview.png_base64}`}
               alt={`${preview.cols} by ${preview.rows} repeat of ${doc.name}`}
             />
@@ -830,17 +831,6 @@ export default function App() {
         </div>
 
         {error && <p className="error">{error}</p>}
-
-        {exporting && (
-          <ExportPanel
-            request={exp}
-            plan={plan}
-            onChange={setExp}
-            onCancel={() => setExporting(false)}
-            onExport={onExport}
-            onPickProfile={onPickProfile}
-          />
-        )}
 
         {preview && !preview.window_repeats && (
           <p className="hint">
@@ -879,6 +869,23 @@ export default function App() {
           </dl>
         )}
       </section>
+
+      {/* Over the whole window rather than under the preview. Exporting is a
+          decision with a dozen settings in it and an end — a file written —
+          and it was tucked below the image, where it pushed the preview out of
+          view and read as one more panel of the same kind as the others. */}
+      {exporting && (
+        <Modal title="Export" onClose={() => setExporting(false)}>
+          <ExportPanel
+            request={exp}
+            plan={plan}
+            onChange={setExp}
+            onCancel={() => setExporting(false)}
+            onExport={onExport}
+            onPickProfile={onPickProfile}
+          />
+        </Modal>
+      )}
 
       <aside className="controls">
         {!hasArtwork && groundPanel}
@@ -1863,6 +1870,93 @@ function MotifRow({
   );
 }
 
+/// A modal dialogue: content over the whole window, with the rest of it inert.
+///
+/// Built here rather than with the browser's own `<dialog>`, which would give
+/// the backdrop, the Escape key and a focus trap for nothing. The reason is
+/// that jsdom — which the component tests run in — still does not implement
+/// `showModal`, so a native dialogue could only be driven in a test behind a
+/// shim that fakes the very thing being claimed: the tests would pass over a
+/// dialogue that was never modal. Everything asserted here is really done.
+///
+/// Reconsider when jsdom implements it. This is thirty lines that the platform
+/// would otherwise own, and platform focus handling is better than anybody's.
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const panel = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Where focus was before this opened, so it can be put back. A dialogue
+    // that drops focus to the top of the document on close loses a keyboard
+    // user their place entirely.
+    const opener = document.activeElement as HTMLElement | null;
+    panel.current?.focus();
+    return () => opener?.focus?.();
+  }, []);
+
+  function focusable(): HTMLElement[] {
+    return Array.from(
+      panel.current?.querySelectorAll<HTMLElement>(
+        "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])",
+      ) ?? [],
+    ).filter((el) => !el.hasAttribute("disabled"));
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      onClose();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    // Keep Tab inside. Without this the next Tab leaves for the controls
+    // behind the backdrop, which are visible, unreachable by mouse, and still
+    // in the tab order — the worst of the three states.
+    const stops = focusable();
+    if (stops.length === 0) return;
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    const on = document.activeElement;
+    if (e.shiftKey && (on === first || on === panel.current)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && on === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  return (
+    <div className="backdrop" data-testid="modal-backdrop">
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        data-testid="modal"
+        tabIndex={-1}
+        ref={panel}
+        onKeyDown={onKeyDown}
+      >
+        <header className="modal-head">
+          <h2>{title}</h2>
+          <button data-testid="modal-close" aria-label="Close" onClick={onClose}>
+            ✕
+          </button>
+        </header>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function ExportPanel({
   request,
   plan,
@@ -2024,8 +2118,16 @@ function ExportPanel({
 
       <div className="export-actions">
         <button onClick={onCancel}>Cancel</button>
-        <button className="primary" onClick={onExport} disabled={!plan}>
-          Choose a file…
+        {/* Not "Choose a file": there is no file to choose. This names one
+            that does not exist yet, which is what every platform calls Save
+            as. */}
+        <button
+          className="primary"
+          data-testid="save-as"
+          onClick={onExport}
+          disabled={!plan}
+        >
+          Save as…
         </button>
       </div>
     </section>

@@ -28,7 +28,7 @@ import userEvent from "@testing-library/user-event";
 
 import { makeMotif, makeOpened, makePreview } from "./test/factories";
 import { DEFAULT_ORNAMENT, DEFAULT_TEXTURE } from "./api";
-import type { GroundSpec, Opened, PaletteSized, Preview } from "./api";
+import type { ExportPlan, GroundSpec, Opened, PaletteSized, Preview } from "./api";
 
 /** What the fake engine will answer with, rewritten per test. */
 const engine = {
@@ -42,6 +42,18 @@ const engine = {
   grounds: [] as GroundSpec[],
   groundSlots: [3, 4],
   levelShares: [0.7, 0.3],
+  plan: {
+    width_mm: 240,
+    height_mm: 180,
+    width_px: 2835,
+    height_px: 2126,
+    cols: 1,
+    rows: 1,
+    width_verdict: "fits",
+    megabytes: 24,
+    suggested_name: "cherries-tile-300dpi.tif",
+  } as ExportPlan,
+  exported: [] as string[],
   fittedGrid: { cols: 10, rows: 8, cell_w_mm: 24, cell_h_mm: 22.5 } as {
     cols: number;
     rows: number;
@@ -57,6 +69,11 @@ vi.mock("./api", async (importOriginal) => {
     openDocument: async () => engine.opened,
     newFromImages: async () => engine.opened,
     newPlain: async () => engine.opened,
+    exportPlan: async () => engine.plan,
+    exportFile: async (path: string) => {
+      engine.exported.push(path);
+      return path;
+    },
     apply: async (params: unknown) => {
       engine.applied.push(params);
       return engine.preview;
@@ -142,6 +159,7 @@ beforeEach(() => {
   engine.grounds = [];
   engine.groundSlots = [3, 4];
   engine.levelShares = [0.7, 0.3];
+  engine.exported = [];
   engine.fittedGrid = { cols: 10, rows: 8, cell_w_mm: 24, cell_h_mm: 22.5 };
   dialog.confirmed = true;
   dialog.chosen = "/patterns/cherries.json";
@@ -452,6 +470,102 @@ describe("the motif mix", () => {
         "Rows × Columns",
       ),
     );
+  });
+});
+
+describe("exporting", () => {
+  /** Open the export dialogue and wait for it. */
+  async function openExport() {
+    const user = await openApp();
+    await screen.findByTestId("preview-image");
+    await user.click(screen.getByTestId("export"));
+    await screen.findByTestId("modal");
+    return user;
+  }
+
+  it("opens over the window rather than under the preview", async () => {
+    // It was tucked below the image, where it pushed the preview out of view
+    // and read as one more panel of the same kind as the controls. Exporting
+    // is a decision with a dozen settings and an end — a file written.
+    await openExport();
+    const modal = screen.getByTestId("modal");
+    expect(modal.getAttribute("aria-modal")).toBe("true");
+    expect(modal.getAttribute("role")).toBe("dialog");
+    // The controls are inside it, and the preview is still on screen rather
+    // than pushed below a panel that grew under it.
+    expect(modal.contains(screen.getByTestId("save-as"))).toBe(true);
+    expect(modal.contains(screen.getByTestId("preview-image"))).toBe(false);
+  });
+
+  it("names a file that does not exist yet", async () => {
+    // "Choose a file" describes picking one of the files there are. This one
+    // names a new one, which is what every platform calls Save as.
+    await openExport();
+    expect(screen.getByTestId("save-as").textContent).toContain("Save as");
+  });
+
+  it("writes the file the save dialogue named, and then closes", async () => {
+    // The whole point of the button. It offers the plan's suggested name,
+    // which is where the format and resolution end up in the filename.
+    const user = await openExport();
+    dialog.chosen = "/prints/cherries-tile-300dpi.tif";
+
+    await user.click(screen.getByTestId("save-as"));
+
+    await waitFor(() =>
+      expect(engine.exported).toEqual(["/prints/cherries-tile-300dpi.tif"]),
+    );
+    await waitFor(() => expect(screen.queryByTestId("modal")).toBeNull());
+  });
+
+  it("writes nothing if the save dialogue is dismissed", async () => {
+    const user = await openExport();
+    dialog.chosen = null;
+
+    await user.click(screen.getByTestId("save-as"));
+
+    await waitFor(() => expect(screen.getByTestId("modal")).toBeTruthy());
+    expect(engine.exported).toEqual([]);
+  });
+
+  it("closes on Escape, on Cancel and on the close button", async () => {
+    for (const shut of [
+      async (user: ReturnType<typeof userEvent.setup>) =>
+        user.keyboard("{Escape}"),
+      async (user: ReturnType<typeof userEvent.setup>) =>
+        user.click(screen.getByText("Cancel")),
+      async (user: ReturnType<typeof userEvent.setup>) =>
+        user.click(screen.getByTestId("modal-close")),
+    ]) {
+      const user = await openExport();
+      await shut(user);
+      await waitFor(() => expect(screen.queryByTestId("modal")).toBeNull());
+      cleanup();
+    }
+  });
+
+  it("takes focus when it opens and gives it back when it closes", async () => {
+    // A dialogue that leaves focus behind it is unreachable from the keyboard,
+    // and one that drops focus to the top of the document on close loses a
+    // keyboard user their place.
+    const user = await openExport();
+    expect(screen.getByTestId("modal").contains(document.activeElement)).toBe(true);
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByTestId("export")),
+    );
+  });
+
+  it("keeps tabbing inside itself", async () => {
+    // The controls behind the backdrop are visible and unreachable by mouse.
+    // Leaving them in the tab order is the worst of the three states.
+    const user = await openExport();
+    const modal = screen.getByTestId("modal");
+    for (let i = 0; i < 24; i++) {
+      await user.tab();
+      expect(modal.contains(document.activeElement)).toBe(true);
+    }
   });
 });
 
