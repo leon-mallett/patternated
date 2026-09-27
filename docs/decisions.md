@@ -1717,3 +1717,44 @@ implements it; platform focus handling is better than anybody's.
 **Why the label.** *Choose a file* describes picking one of the files that
 exist. This names one that does not exist yet, which is what every platform
 calls Save as. The ellipsis stays because it opens a further dialogue.
+
+---
+
+## A drawing keeps its outlines; artwork keeps its pixels
+
+**Decided.** SVG motifs are held as outlines and rasterised per render at the
+resolution that render needs. Raster artwork goes on being sampled once, at
+import, as it always has.
+
+**Why not rasterise at import.** It was the smaller change by a long way, and
+it throws away the only reason the file was vector. Measured: a disc drawn from
+outlines has a soft rim over 0.0037 of its area at 600 DPI; the same disc
+sampled at import to 512 px and scaled up has 0.0185 — five times as much, and
+that is what a designer sees as a soft, slightly wrong edge on a large print.
+
+**How it fits without a second motif type downstream.** A vector motif is a
+*source*: the bank rasterises it into an ordinary `IndexedMotif` at the size
+each render wants, so the sprite cache, the mip chain, the overlap radius and
+the colourway all go on working on the one representation they always had. The
+bank also keeps one reference rasterisation for the measurements that are only
+ever asked in fractions — the coverage radius, the slots used — and that
+reference is never printed.
+
+**Why not resvg.** It was approved, and then not needed. Rendering an SVG
+faithfully is a different job from finding the shapes a press can put ink into:
+once every fill is quantised to a palette slot, what is left is geometry, which
+`usvg` parses and `tiny-skia` — already ours — fills. Taking the smaller
+dependency was the better trade, and it made the refusals explicit rather than
+silently rendering things that cannot be printed.
+
+**The `text` feature stays off, on determinism grounds.** It resolves type
+through the fonts installed on the machine doing the work. The same file would
+rasterise differently elsewhere, which would quietly retire the engine's
+central promise. Text must be outlined before import, and the app says so.
+
+**The slot of a pixel two shapes share** is the shape covering most of it, and
+its coverage is what both laid down. That keeps a flat interior exactly flat —
+what the split channels exist for — while an edge between two colours stays
+soft. Ties go to the later shape, because shapes arrive in painter's order; a
+test caught that being strictly-greater, which rendered a drawing with its
+layers reversed.

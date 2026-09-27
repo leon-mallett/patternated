@@ -9,6 +9,7 @@ publish.workspace = true
 pattern-core.workspace = true
 glam.workspace = true
 tiny-skia.workspace = true
+tiny-skia-path.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 

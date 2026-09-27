@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use pattern_core::{Motif, Palette, PatternError};
+use pattern_core::{Motif, Palette, PatternError, VectorMotif};
 use tiny_skia::{Pixmap, PremultipliedColorU8};
 
 /// Motifs available to a render, looked up by the `motif_id` on a placement.
@@ -15,6 +15,15 @@ use tiny_skia::{Pixmap, PremultipliedColorU8};
 #[derive(Debug, Default, Clone)]
 pub struct MotifBank {
     motifs: HashMap<String, Motif>,
+    /// The outlines behind a motif, where it came from a drawing rather than
+    /// from artwork.
+    ///
+    /// Held beside the pixels rather than instead of them. Everything that
+    /// only wants to *measure* a motif — how much of a circle it fills, which
+    /// slots it needs, whether it dissolves into the fabric — is answered from
+    /// a reference rasterisation, and the outlines are used where the answer
+    /// depends on resolution: making the sprite a render actually draws.
+    vectors: HashMap<String, VectorMotif>,
 }
 
 impl MotifBank {
@@ -24,7 +33,47 @@ impl MotifBank {
     }
 
     pub fn insert(&mut self, motif: Motif) {
+        // Any outlines under this id are no longer what it is. Replacing a
+        // drawing with artwork and leaving the outlines behind would render
+        // the old one at print resolution and the new one everywhere else.
+        self.vectors.remove(&motif.id);
         self.motifs.insert(motif.id.clone(), motif);
+    }
+
+    /// Put a drawing in the bank, keeping its outlines.
+    ///
+    /// Rasterises once at a reference size so that the measurements everything
+    /// else asks for have something to measure. That raster is never what gets
+    /// printed: a render makes its own at the size it needs, which is the
+    /// whole reason the outlines are kept.
+    ///
+    /// # Errors
+    ///
+    /// If the drawing cannot be rasterised at all.
+    pub fn insert_vector(
+        &mut self,
+        id: &str,
+        natural_size_mm: glam::Vec2,
+        vector: VectorMotif,
+    ) -> Result<(), crate::RasterError> {
+        let (w, h) = reference_size(&vector);
+        let indexed = crate::draw_vector(&vector, w, h)?;
+        self.motifs.insert(
+            id.to_string(),
+            Motif {
+                id: id.to_string(),
+                natural_size_mm,
+                indexed,
+            },
+        );
+        self.vectors.insert(id.to_string(), vector);
+        Ok(())
+    }
+
+    /// The outlines behind a motif, if it has any.
+    #[must_use]
+    pub fn vector(&self, id: &str) -> Option<&VectorMotif> {
+        self.vectors.get(id)
     }
 
     #[must_use]
@@ -100,4 +149,18 @@ pub fn resolve(motif: &Motif, palette: &Palette) -> Result<Pixmap, PatternError>
         });
     }
     Ok(pixmap)
+}
+
+/// The pixel size a drawing is rasterised at for measurement.
+///
+/// Large enough that a coverage radius or a slot list is not an artefact of
+/// the grid, small enough to cost nothing. Nothing printed comes from it.
+fn reference_size(vector: &VectorMotif) -> (u32, u32) {
+    const LONGEST: f32 = 512.0;
+    let (w, h) = (vector.view.width().max(1.0), vector.view.height().max(1.0));
+    let scale = LONGEST / w.max(h);
+    (
+        ((w * scale).round() as u32).max(1),
+        ((h * scale).round() as u32).max(1),
+    )
 }

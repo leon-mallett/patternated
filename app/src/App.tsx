@@ -322,7 +322,9 @@ export default function App() {
     const chosen = await openDialog({
       title: "Choose the artwork for this pattern",
       multiple: true,
-      filters: [{ name: "Artwork", extensions: ["png"] }],
+      // A drawing keeps its outlines and is rasterised at the size each
+      // render needs; artwork is sampled once. Both arrive the same way.
+      filters: [{ name: "Artwork or drawings", extensions: ["png", "svg"] }],
     });
     const files = Array.isArray(chosen) ? chosen : chosen ? [chosen] : [];
     if (files.length === 0) return;
@@ -517,10 +519,13 @@ export default function App() {
           </button>
         </div>
         <p className="hint start-hint">
-          Start with one or more PNG images, each showing a single motif. They
-          can have a transparent background or sit on plain paper — the
-          background is measured away either way. A palette is worked out from
-          the artwork itself.
+          Start with one or more images, each showing a single motif. A{" "}
+          <strong>PNG</strong> can have a transparent background or sit on
+          plain paper — the background is measured away either way. An{" "}
+          <strong>SVG</strong> keeps its outlines and is drawn afresh at
+          whatever size it is printed, so it stays sharp however far it is
+          scaled up; convert any text in it to outlines first. A palette is
+          worked out from the artwork itself.
         </p>
         <p className="hint start-hint">
           Or start from a <strong>plain ground</strong> and use no artwork at

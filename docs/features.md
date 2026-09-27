@@ -624,6 +624,40 @@ nothing warned, because the quantiser's own threshold looks for a motif that
 has vanished entirely rather than one with a hole in it. Widening the palette
 to ten dropped it to 2%.
 
+## Drawings, kept as drawings
+
+A motif can arrive as an SVG, and when it does its outlines are kept rather
+than sampled. Artwork is a picture of a thing and has one true resolution; a
+drawing is the thing a picture would be *of*, and sampling it once at import
+throws away the only reason it was vector. The same motif is sixty pixels
+across in a preview and six hundred in a print, and it is drawn afresh at both.
+
+**Slots, not colours, as everywhere else.** Each shape carries a palette slot,
+so a colourway recolours a drawing and a photograph by the same mechanism. It
+is cleaner here: a fill is one flat colour by construction, so the quantisation
+a photograph needs is a lookup. And because reading and quantising are separate
+steps, changing a document's colour count re-quantises a drawing from its own
+exact colours rather than from a rasterisation of them.
+
+**Strokes become outlines at import**, so that everything downstream is one
+kind of thing, and it stays exact at any resolution because it is done on
+geometry.
+
+**What is refused, and why by name.** A gradient or pattern fill has no single
+colour to become; an embedded bitmap is the wrong export; a filter, clip or
+mask means the shape drawn is not the shape described. Each is reported with
+what to do about it in the drawing program rather than as a parse failure.
+
+**Live text is refused, and that is a determinism decision.** Type would be
+resolved through the fonts installed on *this* machine, so the same file would
+print differently elsewhere — which is the one promise this engine cannot bend.
+Outlining text before export is one checkbox.
+
+**The declared size is honoured.** A drawing that says it is 46 × 62 mm arrives
+at those proportions, scaled so its longest edge is whatever was asked for.
+
+`examples/drawings/pears.json` is a drawing tossed as a half-drop repeat.
+
 ## Motif ingest
 
 One pipeline, whatever the artwork's origin: matte, trim, normalise, quantise,

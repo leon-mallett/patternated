@@ -1,0 +1,159 @@
+{
+  "motifs": [
+    {
+      "id": "pear",
+      "file": "pear.svg",
+      "natural_size_mm": [
+        34.129032,
+        46.0
+      ]
+    }
+  ],
+  "pattern": {
+    "tile_size_mm": [
+      200.0,
+      150.0
+    ],
+    "lattice": {
+      "u": [
+        200.0,
+        75.0
+      ],
+      "v": [
+        0.0,
+        150.0
+      ]
+    },
+    "placements": [
+      {
+        "motif_id": "pear",
+        "position_mm": [
+          28.000677,
+          23.669413
+        ],
+        "rotation_deg": -13.280428,
+        "scale": 0.9310268,
+        "flip_x": false,
+        "flip_y": false
+      },
+      {
+        "motif_id": "pear",
+        "position_mm": [
+          114.64258,
+          50.43617
+        ],
+        "rotation_deg": -5.625427,
+        "scale": 0.9226092,
+        "flip_x": false,
+        "flip_y": false
+      },
+      {
+        "motif_id": "pear",
+        "position_mm": [
+          163.39624,
+          116.00053
+        ],
+        "rotation_deg": -5.421436,
+        "scale": 0.9979865,
+        "flip_x": false,
+        "flip_y": false
+      },
+      {
+        "motif_id": "pear",
+        "position_mm": [
+          97.204575,
+          123.015495
+        ],
+        "rotation_deg": -7.88105,
+        "scale": 1.1441681,
+        "flip_x": false,
+        "flip_y": false
+      },
+      {
+        "motif_id": "pear",
+        "position_mm": [
+          6.958847,
+          101.05448
+        ],
+        "rotation_deg": -14.40119,
+        "scale": 0.9135439,
+        "flip_x": false,
+        "flip_y": false
+      }
+    ],
+    "palette": {
+      "colors": [
+        {
+          "r": 250,
+          "g": 246,
+          "b": 238
+        },
+        {
+          "r": 63,
+          "g": 125,
+          "b": 52
+        },
+        {
+          "r": 63,
+          "g": 125,
+          "b": 52
+        },
+        {
+          "r": 71,
+          "g": 104,
+          "b": 44
+        },
+        {
+          "r": 90,
+          "g": 61,
+          "b": 30
+        },
+        {
+          "r": 90,
+          "g": 61,
+          "b": 30
+        },
+        {
+          "r": 201,
+          "g": 214,
+          "b": 74
+        },
+        {
+          "r": 201,
+          "g": 214,
+          "b": 74
+        },
+        {
+          "r": 201,
+          "g": 214,
+          "b": 74
+        },
+        {
+          "r": 207,
+          "g": 219,
+          "b": 91
+        }
+      ]
+    },
+    "seed": 7
+  },
+  "scatter": {
+    "density": 0.22,
+    "prevent_overlap": true,
+    "mirror": "none",
+    "on_axis_share": 0.0,
+    "rotation_jitter_deg": 20.0,
+    "scale_range": [
+      0.85,
+      1.15
+    ],
+    "mix": [
+      {
+        "motif_id": "pear",
+        "weight": 1.0
+      }
+    ],
+    "seed": 7
+  },
+  "placements_are_generated": true
+}

@@ -622,6 +622,23 @@ impl Document {
         let mut bank = MotifBank::new();
         for m in &self.motifs {
             let motif = match &m.file {
+                Some(file) if is_drawing(file) => {
+                    // A drawing keeps its outlines: the bank rasterises it at
+                    // whatever size each render needs rather than at one size
+                    // chosen when it was imported.
+                    let path = base.join(file);
+                    let size = m.natural_size_mm.ok_or_else(|| {
+                        anyhow!("motif '{}' gives a file but no natural_size_mm", m.id)
+                    })?;
+                    let design = self
+                        .design_palette
+                        .as_ref()
+                        .unwrap_or(&self.pattern.palette);
+                    let art = read_drawing(&path)?;
+                    bank.insert_vector(&m.id, size, art.onto(design))
+                        .with_context(|| format!("drawing motif '{}'", m.id))?;
+                    continue;
+                }
                 Some(file) => {
                     let path = base.join(file);
                     let size = m.natural_size_mm.ok_or_else(|| {
@@ -663,6 +680,37 @@ impl Document {
         }
         Ok(bank)
     }
+}
+
+/// A motif's name, from its filename.
+fn motif_id(path: &Path, so_far: usize) -> String {
+    path.file_stem()
+        .map(|s| s.to_string_lossy().replace(['.', '/', '\\'], "-"))
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| format!("motif-{}", so_far + 1))
+}
+
+/// Whether a file is artwork to be sampled or a drawing to be kept as outlines.
+///
+/// By extension, which is what the file picker filters on and what a designer
+/// knows about their own export. Sniffing the contents would be no more
+/// certain and would read every file twice.
+#[must_use]
+pub fn is_drawing(path: &Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("svg"))
+}
+
+/// Read a drawing's outlines, saying which file it was if it cannot be read.
+pub fn read_drawing(path: &Path) -> Result<motif_ingest::SvgArt> {
+    let data = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let art =
+        motif_ingest::read_svg(&data).with_context(|| format!("reading {}", path.display()))?;
+    for kind in &art.refused {
+        eprintln!("  note: {} {}", path.display(), kind.advice());
+    }
+    Ok(art)
 }
 
 /// Decode a PNG into straight RGBA, ready for the ingest pipeline.
@@ -826,8 +874,18 @@ pub fn new_from_images(
         return Err(anyhow!("no images were chosen"));
     }
 
-    let mut sources = Vec::with_capacity(files.len());
-    for path in files {
+    // A drawing has no pixels to matte and no background to measure: its
+    // outlines are already the subject. What it does have is exact colours,
+    // and they go into the palette alongside the artwork's, each weighted by
+    // how much of its drawing it covers.
+    let drawings: Vec<(PathBuf, motif_ingest::SvgArt)> = files
+        .iter()
+        .filter(|p| is_drawing(p))
+        .map(|p| read_drawing(p).map(|art| (p.clone(), art)))
+        .collect::<Result<_>>()?;
+
+    let mut sources = Vec::new();
+    for path in files.iter().filter(|p| !is_drawing(p)) {
         sources.push((path.clone(), load_source(path)?));
     }
 
@@ -835,7 +893,8 @@ pub fn new_from_images(
         .iter()
         .map(|(_, image)| motif_ingest::matte(image, motif_ingest::method_for(image)))
         .collect();
-    let refs: Vec<&SourceImage> = matted.iter().collect();
+    let sampled: Vec<SourceImage> = drawings.iter().map(|(_, a)| a.palette_sample()).collect();
+    let refs: Vec<&SourceImage> = matted.iter().chain(sampled.iter()).collect();
 
     // Slot 0 is the ground and is a design decision rather than a property of
     // the artwork, so it is supplied. A warm off-white reads as unprinted
@@ -846,11 +905,7 @@ pub fn new_from_images(
     let mut motifs = Vec::with_capacity(files.len());
     let mut mix = Vec::with_capacity(files.len());
     for ((path, image), matted) in sources.iter().zip(&matted) {
-        let id = path
-            .file_stem()
-            .map(|s| s.to_string_lossy().replace(['.', '/', '\\'], "-"))
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| format!("motif-{}", motifs.len() + 1));
+        let id = motif_id(path, motifs.len());
 
         // Size from the trimmed subject, not the file, so a motif drawn small
         // on a big canvas is not scaled by its margins.
@@ -863,6 +918,25 @@ pub fn new_from_images(
             file: Some(path.clone()),
             natural_size_mm: Some(size),
             matte: Some(motif_ingest::method_for(image)),
+        });
+        mix.push(MixEntry {
+            motif_id: id,
+            weight: 1.0,
+        });
+    }
+
+    for (path, art) in &drawings {
+        let id = motif_id(path, motifs.len());
+        // The drawing's own declared size, scaled so its longest edge is what
+        // was asked for. A drawing that says it is 80 mm wide is not asked
+        // again; it is asked to agree with the others.
+        let (w, h) = art.declared_size_mm;
+        let longest = w.max(h).max(f32::EPSILON);
+        motifs.push(MotifRef {
+            id: id.clone(),
+            file: Some(path.clone()),
+            natural_size_mm: Some(Vec2::new(w, h) * (longest_edge_mm / longest)),
+            matte: None,
         });
         mix.push(MixEntry {
             motif_id: id,

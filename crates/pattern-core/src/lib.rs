@@ -19,6 +19,7 @@ mod placement;
 mod scatter;
 mod texture;
 mod torus;
+mod vector;
 
 pub use bands::{Band, Bands, Crossing};
 pub use colourway::{rotate_hue, shift_lightness, swap_ground, with_colour};
@@ -35,6 +36,7 @@ pub use placement::{wrap_into_tile, Placement};
 pub use scatter::{scatter, MotifWeight, ScatterParams};
 pub use texture::{Growth, SlotField, Texture, MOST_CELLS, MOST_STEPS};
 pub use torus::lattice_distance_sq;
+pub use vector::{Unprintable, VectorMotif, VectorShape};
 
 /// Millimetres per inch. The one constant tying physical units to output DPI.
 pub const MM_PER_INCH: f32 = 25.4;

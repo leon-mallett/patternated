@@ -7,6 +7,7 @@
 pub mod mockup;
 pub mod motif;
 mod pixel_lattice;
+mod raster;
 
 use std::sync::{Mutex, OnceLock};
 
@@ -23,6 +24,7 @@ pub use tiny_skia;
 pub use mockup::{render_mockup, Garment, Mockup};
 pub use motif::{resolve, MotifBank};
 pub use pixel_lattice::PixelLattice;
+pub use raster::{draw_vector, RasterError};
 
 /// Ways a render can fail.
 #[derive(Debug, Error)]
@@ -33,6 +35,8 @@ pub enum RenderError {
     #[error("placement {index} refers to motif '{motif_id}', which is not in the bank")]
     UnknownMotif { index: usize, motif_id: String },
 
+    #[error("a drawn motif could not be rasterised: {0}")]
+    Vector(String),
     #[error("palette has no ground colour; slot 0 must be defined")]
     NoGroundColor,
 
@@ -179,10 +183,41 @@ fn sprites(
             continue;
         }
         let motif = lookup(bank, pattern, &placement.motif_id)?;
-        resolved.insert(
-            placement.motif_id.as_str(),
-            mip_chain(motif::resolve(motif, &pattern.palette)?),
-        );
+
+        // A drawing is rasterised here, at the size this render will draw it,
+        // rather than having been sampled once when it was imported. That is
+        // the whole reason its outlines were kept: the same motif is sixty
+        // pixels across in a preview and six hundred in a print, and it should
+        // be exactly right in both rather than close in one of them.
+        //
+        // At the *largest* scale any copy of it uses, because the copies share
+        // one chain and reducing is lossless where enlarging is not.
+        let base = match bank.vector(&placement.motif_id) {
+            Some(vector) => {
+                let biggest = pattern
+                    .placements
+                    .iter()
+                    .filter(|p| p.motif_id == placement.motif_id)
+                    .fold(0.0f32, |most, p| most.max(p.scale));
+                let px = |mm: f32| ((mm * biggest * k).round() as u32).max(1);
+                let drawn = draw_vector(
+                    vector,
+                    px(motif.natural_size_mm.x),
+                    px(motif.natural_size_mm.y),
+                )
+                .map_err(|e| RenderError::Vector(e.to_string()))?;
+                motif::resolve(
+                    &Motif {
+                        id: motif.id.clone(),
+                        natural_size_mm: motif.natural_size_mm,
+                        indexed: drawn,
+                    },
+                    &pattern.palette,
+                )?
+            }
+            None => motif::resolve(motif, &pattern.palette)?,
+        };
+        resolved.insert(placement.motif_id.as_str(), mip_chain(base));
     }
 
     let mut out = Vec::with_capacity(pattern.placements.len());

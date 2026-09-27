@@ -13,6 +13,7 @@
 mod matte;
 mod quantise;
 mod source;
+mod svg;
 mod trim;
 mod vectorise;
 
@@ -22,5 +23,6 @@ pub use matte::{border_retained, luminance, matte, method_for, MatteMethod};
 pub use pattern_core::GROUND_SLOT;
 pub use quantise::{colour_distance_sq, derive_palette, quantise, QuantisationReport};
 pub use source::SourceImage;
+pub use svg::{read_svg, SvgArt, SvgError};
 pub use trim::{natural_size_mm, trim, TrimBounds};
 pub use vectorise::{vectorise, VectoriseOptions};
