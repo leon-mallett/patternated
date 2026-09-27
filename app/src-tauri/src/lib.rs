@@ -2035,6 +2035,69 @@ mod tests {
     }
 
     #[test]
+    fn a_motif_share_moves_the_mix_and_not_the_count() {
+        // What the share control does, and — just as important — what it does
+        // not. Reported from the app as the slider doing nothing: a designer
+        // raised it expecting more motifs on the fabric and the number did not
+        // move, because it never can. Coverage decides how many; this decides
+        // which.
+        let mut s = session();
+        let document = pattern_doc::new_from_images(&artwork(), 60.0, DEFAULT_COLOURS)
+            .expect("two motifs should ingest");
+        s.document = document;
+        s.bank = s.document.load_motifs(&s.path).expect("motifs");
+
+        let ids: Vec<String> = s.document.motifs.iter().map(|m| m.id.clone()).collect();
+        assert_eq!(ids.len(), 2, "this test needs two motifs to have a mix");
+
+        let counts = |s: &Session| {
+            ids.iter()
+                .map(|id| {
+                    s.document
+                        .pattern
+                        .placements
+                        .iter()
+                        .filter(|p| &p.motif_id == id)
+                        .count()
+                })
+                .collect::<Vec<_>>()
+        };
+        let even = |w: f32| ids.iter().map(|id| (id.clone(), w)).collect::<Vec<_>>();
+
+        let mut p = params(0.3, 1);
+        // Both the same size, so nothing but the mix can move the count.
+        p.sizes = ids.iter().map(|id| (id.clone(), 50.0)).collect();
+        p.weights = even(1.0);
+        write_params(&mut s, &p).expect("apply");
+        let balanced = counts(&s);
+        let total = s.document.pattern.placements.len();
+
+        // Raising every share by the same amount is no change at all: they are
+        // relative to each other and to nothing else.
+        p.weights = even(8.0);
+        write_params(&mut s, &p).expect("apply");
+        assert_eq!(
+            counts(&s),
+            balanced,
+            "raising every share together should change nothing"
+        );
+
+        // Raising one alone moves the mix, and leaves the total where it was.
+        p.weights = vec![(ids[0].clone(), 6.0), (ids[1].clone(), 1.0)];
+        write_params(&mut s, &p).expect("apply");
+        let skewed = counts(&s);
+        assert!(
+            skewed[0] > balanced[0] && skewed[1] < balanced[1],
+            "a six-to-one share gave {skewed:?} where even gave {balanced:?}"
+        );
+        assert_eq!(
+            s.document.pattern.placements.len(),
+            total,
+            "the share decides which motif, not how many"
+        );
+    }
+
+    #[test]
     fn motif_size_is_a_control_rather_than_a_property_of_the_file() {
         // The same drawing at 40 mm and 90 mm is two different prints, and
         // changing it must not mean ingesting the artwork again.

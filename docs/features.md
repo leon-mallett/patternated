@@ -454,6 +454,23 @@ The rule behind all of it: a control that cannot act is worse than a shorter
 panel, because it gets moved, nothing happens, and the rest of the interface
 stops being believed.
 
+## What sets how many motifs there are
+
+Not the same control in both layouts, which is why the panel says which.
+
+On a **scatter** it is coverage, a share of the fabric rather than a count — so
+shrinking a motif puts more of them down to cover the same area, and the
+coverage readout reports what was actually reached rather than what was asked
+for. On a **grid** it is rows times columns; the cells are fixed, so neither
+the size nor the mix can change the count.
+
+A motif's **share** is not part of that answer in either layout. It is relative
+— six against one is six times as common, and raising every share together
+changes nothing at all — so it decides *which* motif goes down, never how many.
+It is shown as a percentage of the mix, so that moving one slider visibly moves
+its neighbours' readouts, and it is not shown at all when a document has a
+single motif, which is the whole mix however the slider is set.
+
 ## Scatter placement
 
 Many motifs distributed across the tile to read as hand-strewn, by toroidal

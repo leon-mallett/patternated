@@ -1653,3 +1653,39 @@ Colourways, where what they make is what the section is about.
 
 Both compositions are pinned by a test, because an ordering nobody asserts is
 an ordering that drifts back.
+
+---
+
+## A relative control has to show what it is relative to
+
+**Decided.** The per-motif weight is labelled *Share*, reads out as a
+percentage of the mix, and is not shown at all when there is only one motif.
+The panel says, in context, what does set the number of motifs.
+
+**What was reported.** That the slider did nothing: a designer dropped a
+motif's size, raised how often it appeared, and the number on the fabric did
+not move.
+
+**It was doing exactly what it is for.** Measured through the app layer: with
+one motif, a weight of 1 and a weight of 8 both give eighteen placements, and
+they always will — the weight is a share of a mix and a single motif is the
+whole of it however the slider is set. With several, raising one takes from the
+others and the total holds. A test now pins both halves, including that raising
+every share together changes nothing.
+
+**So the fault was the label and the framing.** "How often" reads as a
+frequency, it sat beside a Size slider that does change the count, and the only
+explanation was a sentence below every row. A percentage that moves when its
+neighbours move says what kind of control it is without being read.
+
+**And the count is set somewhere else, differently per layout.** On a scatter
+it is Coverage — and motif size, because coverage is a share of the fabric
+rather than a count, so smaller motifs means more of them. On a grid it is rows
+times columns, and neither the size nor the share can move it. That is almost
+certainly the case reported: on a grid, both of the controls tried are inert
+for the purpose they were being tried for. The hint now says which, and changes
+with the layout.
+
+**The general rule.** A control whose effect is relative must display the
+relation, not the operand. A number on its own — a weight of 6 — is
+indistinguishable from an absolute one, and will be read as absolute.

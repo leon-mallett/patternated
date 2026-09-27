@@ -401,6 +401,60 @@ function sections(): string[] {
   ).map((h) => h.textContent ?? "");
 }
 
+describe("the motif mix", () => {
+  it("does not offer a share when there is only one motif", async () => {
+    // A single motif is the whole mix whatever the slider says. It was
+    // labelled "How often", sat beside Size, and was reported as doing
+    // nothing — which was true, and could not have been otherwise.
+    await openApp();
+    expect(screen.getByTestId("size-cherry")).toBeTruthy();
+    expect(screen.queryByTestId("share-cherry")).toBeNull();
+  });
+
+  it("shows a share as its share of the mix", async () => {
+    // A raw weight of 6 means nothing on its own. A percentage that moves when
+    // its neighbours move says what kind of control this is without a
+    // sentence of explanation.
+    await openApp({
+      motifs: [
+        makeMotif({ id: "cherry", weight: 1 }),
+        makeMotif({ id: "lemon", weight: 3 }),
+      ],
+    });
+
+    const row = (id: string) =>
+      screen.getByTestId(`share-${id}`).closest("label")!.textContent ?? "";
+    expect(row("cherry")).toContain("25%");
+    expect(row("lemon")).toContain("75%");
+
+    fireEvent.change(screen.getByTestId("share-cherry"), {
+      target: { value: "3" },
+    });
+    await waitFor(() => expect(row("cherry")).toContain("50%"));
+    // The neighbour's share moved without its slider being touched, which is
+    // the whole point of showing it this way.
+    expect(row("lemon")).toContain("50%");
+  });
+
+  it("says what does set the count, and it is not on this panel", async () => {
+    // Reported from the app: a designer dropped the motif size and raised how
+    // often it appeared, and the number on the fabric did not move. On a grid
+    // neither of those can move it — the count is rows times columns.
+    const user = await openApp();
+    expect((await screen.findByTestId("what-sets-the-count")).textContent).toContain(
+      "Coverage",
+    );
+
+    await user.selectOptions(screen.getByTestId("layout"), "square");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("what-sets-the-count").textContent).toContain(
+        "Rows × Columns",
+      ),
+    );
+  });
+});
+
 describe("a ground drawn by rule", () => {
   /** Switch the ground panel to the ornament editor and wait for it. */
   async function openOrnament() {

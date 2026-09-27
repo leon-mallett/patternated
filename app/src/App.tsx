@@ -1134,13 +1134,24 @@ export default function App() {
                   motif={m}
                   weight={weights[m.id] ?? 0}
                   size={sizes[m.id] ?? m.longest_edge_mm}
+                  total={(motifs ?? doc.motifs).reduce(
+                    (sum, o) => sum + (weights[o.id] ?? 0),
+                    0,
+                  )}
+                  mixes={(motifs ?? doc.motifs).length > 1}
                   onWeight={(w) => setWeights({ ...weights, [m.id]: w })}
                   onSize={(v) => setSizes({ ...sizes, [m.id]: v })}
                 />
               ))}
-              <p className="hint">
-                Relative, not percentages. Six against one is six times as
-                common. Zero leaves a motif out.
+              {/* What sets the number of motifs is not on this panel, and
+                  saying so here is the difference between a control that looks
+                  broken and one that is understood. */}
+              <p className="hint" data-testid="what-sets-the-count">
+                {(motifs ?? doc.motifs).length > 1 &&
+                  "Shares are relative to each other: six against one is six times as common, and raising them all together changes nothing. "}
+                {isScatterLayout(layout)
+                  ? "How many motifs there are is set by Coverage — and by their size, since coverage is a share of the fabric rather than a count, so smaller motifs means more of them."
+                  : "How many motifs there are is Rows × Columns. On a grid the cells are fixed, so neither the size nor the share changes the count."}
               </p>
             </Group>
           </>
@@ -1794,29 +1805,53 @@ function MotifRow({
   motif,
   weight,
   size,
+  total,
+  mixes,
   onWeight,
   onSize,
 }: {
   motif: MotifEntry;
   weight: number;
   size: number;
+  /// Every motif's weight added together, so a row can say what share of the
+  /// mix it is rather than a number that means nothing on its own.
+  total: number;
+  /// Whether there is a mix at all. One motif is always the whole of it.
+  mixes: boolean;
   onWeight: (w: number) => void;
   onSize: (v: number) => void;
 }) {
   return (
     <div className="motif">
       <div className="motif-name">{motif.id}</div>
-      <Slider
-        label="How often"
-        value={weight}
-        min={0}
-        max={8}
-        step={0.5}
-        format={(v) => (v === 0 ? "off" : v.toFixed(1))}
-        onChange={onWeight}
-      />
+      {/* Shown as the share it works out to, not as the raw weight. It was
+          labelled "How often", which reads as a frequency — and was reported
+          as doing nothing, because it is relative: raising it alone takes from
+          the others and raising them all together changes nothing at all.
+          A percentage that moves when its neighbours move says that by
+          itself. Hidden outright for a single motif, which is always the whole
+          mix however the slider is set. */}
+      {mixes && (
+        <Slider
+          label="Share"
+          testId={`share-${motif.id}`}
+          value={weight}
+          min={0}
+          max={8}
+          step={0.5}
+          format={(v) =>
+            v === 0
+              ? "off"
+              : total > 0
+                ? `${Math.round((v / total) * 100)}% of the mix`
+                : "—"
+          }
+          onChange={onWeight}
+        />
+      )}
       <Slider
         label="Size"
+        testId={`size-${motif.id}`}
         value={size}
         min={5}
         max={400}
