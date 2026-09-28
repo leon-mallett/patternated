@@ -165,6 +165,13 @@ struct Preview {
     placements: usize,
     colours: usize,
     achieved_density: f32,
+    /// How strongly the motifs' near neighbours line up.
+    ///
+    /// A ranking rather than a verdict: high is worth looking at, low is not a
+    /// guarantee. See `pattern_core::alignment`.
+    alignment: f32,
+    /// The score above which the interface says something.
+    alignment_warns_above: f32,
     dpi: f32,
     /// Tiles actually shown, which may exceed what was asked for.
     cols: u32,
@@ -669,6 +676,12 @@ fn render(session: &Session, params: &Params) -> anyhow::Result<Preview> {
         placements: pattern.placements.len(),
         colours: pattern_core::resolved_color_count(pattern, &motifs),
         achieved_density: pattern.placements.len() as f32 * mean_area / tile_area,
+        alignment: pattern_core::alignment(
+            &pattern.placements,
+            pattern.tile_size_mm,
+            &pattern.lattice,
+        ),
+        alignment_warns_above: pattern_core::WORTH_A_LOOK,
         dpi,
         cols,
         rows,

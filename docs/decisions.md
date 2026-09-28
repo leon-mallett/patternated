@@ -1820,3 +1820,77 @@ sequence back unreflected, so a tartan looked like four bands where the real
 engine returns six. No test had noticed, because none had asked. A mock that
 answers differently from the thing it stands for turns a component test into a
 test of the mock; it reflects now.
+
+---
+
+## Tracking detection, at the third attempt, as a ranking and not a gate
+
+**Decided.** The engine measures how strongly a scatter's near neighbours line
+up, and the app says "worth a look" above a calibrated score. It is **not** the
+blocking gate the spec asks for, and is not presented as one.
+
+**What it measures.** Every pair of motifs closer than 1.6 times the mean
+spacing contributes the shortest displacement between them *on the lattice*.
+What is asked of those directions is the strength of the **fourth harmonic** of
+their angular distribution.
+
+**Why the fourth and not the second.** The second harmonic — a single preferred
+axis — was written first and is blind here. A field of rivers has both
+along-river and across-river neighbours, at right angles, and doubling the
+angle maps those onto opposite points where they cancel. It scored a perfect
+square grid 1.4, barely above a clean scatter. Before that, a histogram's
+tallest bin was tried and measured mostly counting noise: a few hundred pairs
+over thirty-six bins is five to a bin, and Poisson scatter alone puts the peak
+two or three times the mean.
+
+**What it can and cannot do.** Calibrated on 600 scatters — three lattices,
+five densities, forty seeds — against the same patterns pulled toward parallel
+lines by a known amount:
+
+| Score above | Clean flagged | Blatant caught | At the level a designer rejects |
+| --- | --- | --- | --- |
+| 0.8 | 6.2% | 95% | 66% |
+| 1.2 | 0.8% | 89% | 38% |
+| 2.0 | 0.0% | 66% | 4% |
+
+The rejection level was established by rendering the corpus and looking: at 30%
+pull the banding is faint, at 50% there are clear rivers with empty lanes, at
+80% it is blatant.
+
+**The experiment that decided it, and that neither previous attempt ran.**
+Scoring a synthetic corridor proves only that a measure notices the
+construction that made it. So three hundred *unmodified* scatters were scored
+and the extremes rendered. The highest — 0.95, 0.95, 0.80 — visibly track, with
+lanes running through them. The lowest look evenly strewn. The measure's
+ranking agrees with the eye on output nobody interfered with, which is the
+claim the previous two could never make.
+
+**Why a ranking rather than a gate.** At the level where a person rejects a
+print it catches roughly two in three at best, and it is blind to faint
+tracking. An unattended gate built on it would pass most of the borderline
+cases, and the project's own rule — that a partial implementation is worse than
+none — applies to a gate that is trusted precisely because nobody can see it
+working. As a warning it is honest: a high score is reliably worth looking at.
+
+**The threshold is set low on purpose.** 0.8 flags about one scatter in
+sixteen. A threshold chosen for a near-zero false-alarm rate would have missed
+all three of the worst real patterns, which scored 0.95, 0.95 and 0.80.
+
+**Determinism, without the frequency domain.** The recorded next idea was a 2D
+power spectrum, which would have brought an FFT and its transcendentals, and a
+note that a score driving a *seed choice* must not be platform-dependent. This
+reaches the same question with square roots and multiplications: the doubled
+and quadrupled angles come from the double-angle identities on the
+displacement's own components, so there is no `atan2` and the score is as
+reproducible as the placements it measures.
+
+**A known weakness, left visible.** What the measure reports depends on which
+families of neighbour fall inside the reach. A 5×5 grid in a 240×180 tile puts
+its diagonals inside it as well as its rows and columns, and those partly
+cancel, so it scores 0.78 — below the warning threshold. The grid test is
+comparative rather than absolute, and says why.
+
+**What would make it a gate.** Carrying the *radial* dimension as well as the
+angular one — a corridor is regular spacing along a direction, not only a
+direction — and a labelled corpus of real patterns rather than synthetic pulls.
+Neither is needed for a warning.

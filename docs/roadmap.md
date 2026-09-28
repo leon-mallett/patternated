@@ -109,9 +109,10 @@ Not milestones, but not forgotten.
   [colour management](./features.md#colour-management). Until a bureau supplies
   one, a CMYK export cannot be produced at all, which is the honest state of
   affairs rather than a gap to paper over.
-- **Whether a scatter tracks is still judged by eye**, and after one serious
-  attempt it is not clear when that will change. Clumps and bald patches are
-  measurable and tested; corridors resisted two different measurements. See
-  [Decisions](./decisions.md#not-shipping-tracking-detection-having-built-it-twice).
-  Until something works, "no visible corridors" is an opinion and should be
-  described as one.
+- **Tracking is measured now, but as a ranking rather than a gate.** The third
+  attempt discriminates where two did not, and the app warns on the worst few
+  per cent; it catches roughly two in three at the level a person would reject
+  and is blind to faint tracking. Making it the blocking gate M7 needs means
+  carrying the radial dimension as well as the angular one, and a corpus of
+  real patterns labelled by eye rather than synthetic pulls. See
+  [Decisions](./decisions.md#tracking-detection-at-the-third-attempt-as-a-ranking-and-not-a-gate).

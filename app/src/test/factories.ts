@@ -67,6 +67,8 @@ export function makePreview(over: Partial<Preview> = {}): Preview {
     placements: 14,
     colours: 3,
     achieved_density: 0.28,
+    alignment: 0.2,
+    alignment_warns_above: 0.8,
     dpi: 64,
     size_limited_to: 1,
     grid_cells: [3, 3],

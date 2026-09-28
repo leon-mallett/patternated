@@ -429,6 +429,36 @@ function sections(): string[] {
   ).map((h) => h.textContent ?? "");
 }
 
+describe("tracking", () => {
+  it("says nothing about a scatter that does not track", async () => {
+    // The warning has to be rare to be read. Most scatters are fine, and a
+    // badge on all of them is a badge on none.
+    await openApp({}, { alignment: 0.2, alignment_warns_above: 0.8 });
+    expect((await screen.findByTestId("readout")).textContent).not.toContain(
+      "Tracking",
+    );
+  });
+
+  it("says a pattern is worth a look when its neighbours line up", async () => {
+    // A ranking rather than a verdict, and the wording says so: this catches
+    // the obvious cases and not the faint ones, so a low score is not a
+    // guarantee and the readout must not imply one.
+    await openApp({}, { alignment: 1.1, alignment_warns_above: 0.8 });
+    const readout = await screen.findByTestId("readout");
+    expect(readout.textContent).toContain("Tracking");
+    expect(readout.textContent).toContain("worth a look");
+  });
+
+  it("takes the threshold from the engine rather than holding its own", async () => {
+    // The number came out of a six-hundred-pattern calibration. An interface
+    // with its own copy would drift from it the first time it was retuned.
+    await openApp({}, { alignment: 1.1, alignment_warns_above: 2.0 });
+    expect((await screen.findByTestId("readout")).textContent).not.toContain(
+      "Tracking",
+    );
+  });
+});
+
 describe("the motif mix", () => {
   it("does not offer a share when there is only one motif", async () => {
     // A single motif is the whole mix whatever the slider says. It was

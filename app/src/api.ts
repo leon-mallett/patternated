@@ -108,6 +108,10 @@ export interface Preview {
   placements: number;
   colours: number;
   achieved_density: number;
+  /** How strongly the motifs' near neighbours line up — a ranking, not a
+   *  verdict. High is worth looking at; low is not a guarantee. */
+  alignment: number;
+  alignment_warns_above: number;
   dpi: number;
   /** Below 1 when a grid shrank its motifs to stop them intersecting. */
   size_limited_to: number;

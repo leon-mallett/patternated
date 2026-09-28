@@ -868,6 +868,13 @@ export default function App() {
               value={String(preview.colours)}
               hint="What a screen printer charges by"
             />
+            {preview.alignment > preview.alignment_warns_above && (
+              <Readout
+                label="Tracking"
+                value="worth a look"
+                hint="The motifs' near neighbours line up more than most scatters do, which is what makes corridors appear across a repeat. Look at the field before printing, and reroll the seed if you see lanes. A low score is not a guarantee — this catches the obvious cases, not the faint ones."
+              />
+            )}
             {preview.size_limited_to < 0.999 && (
               <Readout
                 label="Motif size"

@@ -549,6 +549,25 @@ allocating empty buckets than the scan saves, and a coarse one in a dense cell
 puts the quadratic back inside each bucket. A fixed cap of four thousand buckets
 made the forty-eight-thousand-motif case six times slower.
 
+## Tracking: a ranking, not a verdict
+
+Corridors — motifs falling into rivers with empty lanes between them — are the
+fault a designer looks for and the engine could not name. It now measures how
+strongly a scatter's near neighbours line up, and says *worth a look* above a
+calibrated score.
+
+Deliberately a ranking. At the level where a person would reject a print it
+catches roughly two in three, and it is blind to faint tracking, so a high
+score is reliably worth looking at and a low score is not a guarantee. The
+interface says exactly that rather than implying a verdict.
+
+It is the third attempt; the two before it did not discriminate at all and were
+removed. What settled this one was rendering three hundred *unmodified*
+scatters and checking that the measure's ranking agreed with the eye — the
+highest scorers track visibly, the lowest look evenly strewn. The numbers, the
+calibration and what it would take to become the blocking gate Dreamwoven needs
+are in [Decisions](./decisions.md#tracking-detection-at-the-third-attempt-as-a-ranking-and-not-a-gate).
+
 ## Reproducibility from a seed
 
 Placement generation contains no transcendental arithmetic — no sine, no cosine,
