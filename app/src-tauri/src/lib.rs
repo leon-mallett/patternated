@@ -2035,6 +2035,73 @@ mod tests {
     }
 
     #[test]
+    fn every_dialogue_the_interface_opens_is_one_it_is_allowed_to() {
+        // A gap between two layers that no test on either side can see. The
+        // component tests mock the dialog plugin, so they will happily drive a
+        // dialogue the shipped app is not permitted to open; the Rust tests
+        // never reach the front end at all. What is left is the manifest, and
+        // the manifest is the thing nobody remembers to edit.
+        //
+        // This was live: `confirm` arrived with the Close button and the
+        // capability file had not been touched since the shell was built, so
+        // closing a document with unsaved work failed with a permission error
+        // — and only with unsaved work, which is the path a designer meets
+        // exactly when they have something to lose.
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+        let manifest = std::fs::read_to_string(root.join("src-tauri/capabilities/default.json"))
+            .expect("the capability file should be readable");
+
+        let mut wanted: Vec<String> = Vec::new();
+        for entry in std::fs::read_dir(root.join("src")).expect("the front end") {
+            let path = entry.expect("entry").path();
+            let is_source = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| e == "ts" || e == "tsx");
+            let is_test = path.to_string_lossy().contains(".test.");
+            if !is_source || is_test {
+                continue;
+            }
+            let source = std::fs::read_to_string(&path).expect("readable");
+            wanted.extend(dialogs_used(&source));
+        }
+        assert!(
+            wanted.contains(&"confirm".to_string()),
+            "this test found no dialogue calls at all, so it is not reading the source it              thinks it is"
+        );
+
+        for api in &wanted {
+            let permission = format!("dialog:allow-{api}");
+            assert!(
+                manifest.contains(&permission),
+                "the interface opens a '{api}' dialogue and the capability file does not                  grant '{permission}'. In the shipped app that fails at the moment it is                  used, which no mocked test can reach."
+            );
+        }
+    }
+
+    /// Which dialogue APIs a source file imports from the Tauri plugin.
+    ///
+    /// Read from the import rather than from the call sites, because the names
+    /// are aliased where they would collide — `confirm as confirmDialog` — and
+    /// the import is where the true name survives.
+    fn dialogs_used(source: &str) -> Vec<String> {
+        const FROM: &str = "} from \"@tauri-apps/plugin-dialog\";";
+        let Some(end) = source.find(FROM) else {
+            return Vec::new();
+        };
+        let Some(start) = source[..end].rfind("import {") else {
+            return Vec::new();
+        };
+        source[start + "import {".len()..end]
+            .split(',')
+            .filter_map(|name| {
+                let first = name.split_whitespace().next()?;
+                (!first.is_empty()).then(|| first.to_string())
+            })
+            .collect()
+    }
+
+    #[test]
     fn a_motif_share_moves_the_mix_and_not_the_count() {
         // What the share control does, and — just as important — what it does
         // not. Reported from the app as the slider doing nothing: a designer

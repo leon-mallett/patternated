@@ -142,6 +142,21 @@ own red — under motifs thick enough to cover most of it. Every property held
 and the picture was useless to review. A golden is looked at by a person, so a
 fixture chosen to stress the engine is usually the wrong one for it.
 
+## Seams that neither side tests
+
+The component tests mock what the app sends to; the Rust tests never reach the
+interface. Anything that has to *agree* between them belongs to neither, and
+the capability manifest is the clearest case: the app imports a dialogue, Tauri
+grants dialogues by name, and nothing checks that the two lists match.
+
+`every_dialogue_the_interface_opens_is_one_it_is_allowed_to` reads both and
+compares them. It was written after `confirm` had been missing from the
+manifest since the Close button was built — and the failure showed only when a
+document had unsaved changes, which is the moment it costs most.
+
+A test like this is a dozen lines and needs no fixtures. Where two layers hold
+half a fact each, read both halves.
+
 ## Asserting that something was drawn
 
 An engine whose output is a picture has to assert on the picture. Until

@@ -1758,3 +1758,30 @@ what the split channels exist for — while an edge between two colours stays
 soft. Ties go to the later shape, because shapes arrive in painter's order; a
 test caught that being strictly-greater, which rendered a drawing with its
 layers reversed.
+
+---
+
+## The capability manifest is checked against the interface that uses it
+
+**Decided.** A test reads every dialogue API the front end imports and asserts
+the Tauri capability file grants each one.
+
+**The defect it was written for.** `confirm` arrived with the Close button, the
+capability file had not been touched since the shell was built, and closing a
+document with unsaved work failed with a permission error. It had been broken
+since the day the button was added.
+
+**Why nothing caught it.** The component tests mock the dialog plugin, so they
+drive dialogues the shipped app is not permitted to open and never notice; the
+Rust tests never reach the front end. The manifest sits between the two layers
+and is answerable to neither. It is also the file nobody remembers to edit,
+because adding an import is the visible act and granting a permission is not.
+
+**And the failure hid where it mattered.** Close works perfectly with nothing
+unsaved — the confirmation is only reached when there is something to lose, so
+the path that fails is exactly the path a designer meets at the worst moment.
+
+**The general shape.** A declared permission, capability or manifest that some
+*other* layer must agree with is a seam no test on either side covers. The
+cheap guard is to read both and compare them, which is a dozen lines and runs
+with everything else.
