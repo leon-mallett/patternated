@@ -32,6 +32,7 @@ import {
   LAYOUTS,
   COLOUR_COUNTS,
   GROUND_PRESETS,
+  presetOf,
   GROWTHS,
   FIGURES,
   figureIs,
@@ -594,13 +595,16 @@ export default function App() {
               Pattern
               <select
                 data-testid="ground-preset"
-                value={ground.bands.length === 0 ? "none" : ""}
+                value={presetOf(ground)}
                 onChange={(e) => {
                   const preset = GROUND_PRESETS.find((g) => g.id === e.target.value);
                   if (preset) changeGround(preset.make("#3c78a0"));
                 }}
               >
-                {ground.bands.length > 0 && <option value="">Custom</option>}
+                {/* Only offered once the sequence has actually been edited
+                    away from every preset. Showing it the moment a preset is
+                    chosen reads as though the choice did not take. */}
+                {presetOf(ground) === "" && <option value="">Custom</option>}
                 {GROUND_PRESETS.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.label}

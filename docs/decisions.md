@@ -1785,3 +1785,38 @@ the path that fails is exactly the path a designer meets at the worst moment.
 *other* layer must agree with is a seam no test on either side covers. The
 cheap guard is to read both and compare them, which is a dozen lines and runs
 with everything else.
+
+---
+
+## The preset menu names what the sequence *is*, not what was last clicked
+
+**Decided.** The ground's Pattern menu works out which preset the current
+sequence matches, by comparing it, rather than remembering a choice or reading
+"has any bands" as "has been edited".
+
+**What was reported.** Choosing Pinstripe showed *Custom* immediately, and so
+did every preset but Plain — an intentional choice looked as though it had not
+taken.
+
+**Why comparison rather than a remembered choice.** The same reasoning as
+detecting unsaved work by comparison: a flag has to be cleared by every edit
+that invalidates it and is wrong the moment one is forgotten, and it knows
+nothing about a document that was *opened* rather than built. A comparison
+names a reopened stripe correctly, and is right by construction.
+
+**What counts as the same.** The widths, the direction, whether each band is an
+ink or a gap, and — only where both directions paint — the crossing rule.
+Colours are deliberately excluded: a preset describes an arrangement, and
+recolouring a stripe leaves it a stripe. Whether a band is a gap *is* compared,
+because that is arrangement — a gingham is two threads where a stripe is a
+thread and a gap.
+
+**A tartan needed care.** Its preset names four bands and asks for a
+reflection; what the engine stores is the expanded six. The comparison expands
+the preset the same way before matching.
+
+**And it found a lying mock.** The component tests' fake engine echoed the
+sequence back unreflected, so a tartan looked like four bands where the real
+engine returns six. No test had noticed, because none had asked. A mock that
+answers differently from the thing it stands for turns a component test into a
+test of the mock; it reflects now.

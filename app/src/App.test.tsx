@@ -96,8 +96,18 @@ vi.mock("./api", async (importOriginal) => {
     setGround: async (spec: GroundSpec) => {
       engine.grounds.push(spec);
       const painted = spec.bands.some((b) => b.colour !== null);
+      // The engine applies a reflection once and returns the expanded
+      // sequence, and `mirrored` is an instruction rather than a stored mode.
+      // The fake has to do that too: a mock that answers differently from the
+      // thing it stands for turns a component test into a test of the mock.
+      const bands =
+        spec.mirrored && spec.bands.length >= 3
+          ? [...spec.bands, ...spec.bands.slice(1, -1).reverse()]
+          : spec.bands;
       return {
         ...spec,
+        bands,
+        mirrored: false,
         style: painted ? "check" : "none",
         width_mm: spec.bands[0]?.width_mm ?? 18,
         gap_mm: spec.bands[1]?.width_mm ?? 18,
@@ -871,6 +881,36 @@ describe("the ground", () => {
 
     await user.selectOptions(screen.getByTestId("ground-direction"), "both");
     expect(await screen.findByTestId("ground-crossings")).toBeTruthy();
+  });
+
+  it("shows the preset that was chosen, not Custom", async () => {
+    // Reported from the app: picking Pinstripe immediately showed Custom, so
+    // an intentional choice looked as though it had not taken. Every preset
+    // but Plain did it, because the menu read "has any bands" as "has been
+    // edited".
+    const user = await openApp();
+    const menu = () => screen.getByTestId("ground-preset") as HTMLSelectElement;
+
+    for (const id of ["stripe", "pinstripe", "check", "windowpane", "tartan"]) {
+      await user.selectOptions(menu(), id);
+      await waitFor(() => expect(menu().value).toBe(id));
+    }
+  });
+
+  it("says Custom only once the sequence has been edited away", async () => {
+    const user = await openApp();
+    const menu = () => screen.getByTestId("ground-preset") as HTMLSelectElement;
+    await user.selectOptions(menu(), "check");
+    await waitFor(() => expect(menu().value).toBe("check"));
+    // Not offered while the sequence still is a preset.
+    expect(
+      Array.from(menu().options).some((o) => o.value === ""),
+    ).toBe(false);
+
+    fireEvent.change(screen.getByTestId("band-width-0"), { target: { value: "5" } });
+
+    await waitFor(() => expect(menu().value).toBe(""));
+    expect(menu().selectedOptions[0].textContent).toBe("Custom");
   });
 
   it("does not lose a reflection to a quick second edit", async () => {

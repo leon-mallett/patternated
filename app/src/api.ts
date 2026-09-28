@@ -424,6 +424,57 @@ export const GROUND_PRESETS: Array<{
   },
 ];
 
+/// A sett reflected about its end bands, as `Bands::reflected` does it:
+/// `A B C D` becomes `A B C D C B`, with neither pivot doubled.
+function reflected(bands: GroundBand[]): GroundBand[] {
+  if (bands.length < 3) return bands;
+  return [...bands, ...bands.slice(1, -1).reverse()];
+}
+
+/** Which preset a ground's sequence is, if it is one of them.
+ *
+ *  Worked out by comparing the sequence rather than by remembering what was
+ *  last clicked, which is the same choice made for detecting unsaved work and
+ *  for the same reasons: a flag has to be cleared by every edit that
+ *  invalidates it and is wrong the moment one forgets, and it knows nothing
+ *  about a document that was opened rather than built.
+ *
+ *  Colours are deliberately not compared. A preset describes an arrangement —
+ *  a thread and a gap, four threads reflected — and recolouring a stripe
+ *  leaves it a stripe. Whether a band is an ink or a gap *is* compared,
+ *  because that is arrangement: a gingham is two threads where a stripe is a
+ *  thread and a gap.
+ *
+ *  Crossings are compared only where both directions paint, since a one-way
+ *  ground has no crossings to have a rule about. */
+export function presetOf(ground: {
+  bands: GroundBand[];
+  direction: string;
+  crossings: string;
+}): string {
+  if (ground.bands.length === 0) return "none";
+
+  for (const preset of GROUND_PRESETS) {
+    const want = preset.make("#3c78a0");
+    if (want.bands.length === 0) continue;
+    const sequence = want.mirrored ? reflected(want.bands) : want.bands;
+    if (
+      sequence.length !== ground.bands.length ||
+      want.direction !== ground.direction ||
+      (ground.direction === "both" && want.crossings !== ground.crossings)
+    ) {
+      continue;
+    }
+    const alike = sequence.every(
+      (band, i) =>
+        Math.abs(band.width_mm - ground.bands[i].width_mm) < 1e-4 &&
+        (band.colour === null) === (ground.bands[i].colour === null),
+    );
+    if (alike) return preset.id;
+  }
+  return "";
+}
+
 export const openDocument = (path: string) =>
   invoke<Opened>("open_document", { path });
 
