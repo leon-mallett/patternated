@@ -662,10 +662,22 @@ exact colours rather than from a rasterisation of them.
 kind of thing, and it stays exact at any resolution because it is done on
 geometry.
 
-**What is refused, and why by name.** A gradient or pattern fill has no single
-colour to become; an embedded bitmap is the wrong export; a filter, clip or
-mask means the shape drawn is not the shape described. Each is reported with
-what to do about it in the drawing program rather than as a parse failure.
+**A drawing that cannot be outlines is drawn instead.** A gradient has no
+single colour a palette slot could stand for, so it is rendered and quantised
+like any other artwork — which is exactly what exporting a PNG by hand would
+have achieved, done for you. The trade is stated: that motif is pixels from
+then on and will not sharpen when printed large.
+
+This also fires where a drawing *mostly* reads as outlines. One gradient among
+twenty flat shapes reads perfectly well and produces a motif with a shape
+silently missing, which is the wrong picture rather than a softer one — and
+only one of those is obvious on screen.
+
+**What is still refused, and why by name.** Live text needs a font, and an
+embedded bitmap needs a decoder this engine does not carry; rendering would
+drop both exactly as reading them did, having given up the drawing's sharpness
+for nothing. Each is reported with what to do about it in the drawing program
+rather than as a parse failure.
 
 **Live text is refused, and that is a determinism decision.** Type would be
 resolved through the fonts installed on *this* machine, so the same file would

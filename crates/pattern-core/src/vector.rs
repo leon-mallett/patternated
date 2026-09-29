@@ -129,6 +129,27 @@ pub enum Unprintable {
 }
 
 impl Unprintable {
+    /// Whether drawing the file instead of reading its outlines would recover
+    /// this.
+    ///
+    /// A gradient has no outline a palette slot can stand for, and a renderer
+    /// draws it perfectly well — so rasterising and quantising is a real
+    /// answer, and the same one a designer would reach by exporting a PNG.
+    ///
+    /// The other two are not answers. Live text needs a font, and the renderer
+    /// is built without font support on purpose, so rendering would drop it
+    /// exactly as reading it did — and would trade the whole drawing's
+    /// sharpness for nothing. An embedded bitmap is the same: this engine's
+    /// renderer cannot decode one either, so falling back would lose the
+    /// outlines and still not show the image.
+    #[must_use]
+    pub fn helped_by_rendering(self) -> bool {
+        matches!(
+            self,
+            Unprintable::NotAFlatColour | Unprintable::NotTheShapeDescribed
+        )
+    }
+
     /// What to tell a designer, in terms of the drawing rather than the file
     /// format.
     #[must_use]
@@ -199,6 +220,18 @@ mod tests {
         assert!(motif(vec![shape(GROUND_SLOT, 255)]).paints_on_the_fabric_slot());
         assert!(!motif(vec![shape(GROUND_SLOT, 0)]).paints_on_the_fabric_slot());
         assert!(!motif(vec![shape(3, 255)]).paints_on_the_fabric_slot());
+    }
+
+    #[test]
+    fn only_what_a_renderer_could_draw_is_worth_rendering_for() {
+        // Falling back to a rasterisation costs the drawing its sharpness, so
+        // it is only worth it where the renderer can actually recover what the
+        // outlines could not carry. Text and an embedded bitmap would come out
+        // just as missing, having given that up for nothing.
+        assert!(Unprintable::NotAFlatColour.helped_by_rendering());
+        assert!(Unprintable::NotTheShapeDescribed.helped_by_rendering());
+        assert!(!Unprintable::LiveText.helped_by_rendering());
+        assert!(!Unprintable::EmbeddedImage.helped_by_rendering());
     }
 
     #[test]

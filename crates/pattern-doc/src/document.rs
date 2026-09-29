@@ -670,7 +670,8 @@ impl Document {
                 Some(file) if is_drawing(file) => {
                     // A drawing keeps its outlines: the bank rasterises it at
                     // whatever size each render needs rather than at one size
-                    // chosen when it was imported.
+                    // chosen when it was imported. Unless it cannot — see
+                    // `drawing_or_artwork`.
                     let path = base.join(file);
                     let size = m.natural_size_mm.ok_or_else(|| {
                         anyhow!("motif '{}' gives a file but no natural_size_mm", m.id)
@@ -679,9 +680,15 @@ impl Document {
                         .design_palette
                         .as_ref()
                         .unwrap_or(&self.pattern.palette);
-                    let art = read_drawing(&path, notes)?;
-                    bank.insert_vector(&m.id, size, art.onto(design))
-                        .with_context(|| format!("drawing motif '{}'", m.id))?;
+                    match drawing_or_artwork(&path, &m.id, notes)? {
+                        Drawn::Outlines(art) => {
+                            bank.insert_vector(&m.id, size, art.onto(design))
+                                .with_context(|| format!("drawing motif '{}'", m.id))?
+                        }
+                        Drawn::Rendered(source) => {
+                            bank.insert(ingest_source(source, &m.id, size, None, design, notes)?);
+                        }
+                    }
                     continue;
                 }
                 Some(file) => {
@@ -745,6 +752,68 @@ pub fn is_drawing(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .is_some_and(|e| e.eq_ignore_ascii_case("svg"))
+}
+
+/// What became of a drawing: its outlines, or a picture of it.
+pub enum Drawn {
+    Outlines(motif_ingest::SvgArt),
+    Rendered(SourceImage),
+}
+
+/// Take a drawing as outlines where that is honest, and as artwork where it is
+/// not.
+///
+/// Outlines are what makes an SVG worth having: the motif is drawn afresh at
+/// whatever size it is printed. But a gradient has no outline a palette slot
+/// could stand for, and reading one as outlines quietly leaves the shape out —
+/// a motif missing a piece, which is worse than a motif that will not sharpen.
+///
+/// So where something was left out that a renderer *would* have drawn, the
+/// drawing is rendered and quantised like any other artwork. That is exactly
+/// what a designer would otherwise do by hand, and the note says what was
+/// traded for it.
+///
+/// # Errors
+///
+/// If the file can be neither read nor drawn.
+pub fn drawing_or_artwork(path: &Path, id: &str, notes: &mut Vec<Note>) -> Result<Drawn> {
+    let data = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+
+    let refusal = match motif_ingest::read_svg(&data) {
+        Ok(art) if !art.needs_rendering() => {
+            notes.extend(
+                art.refused
+                    .iter()
+                    .map(|kind| Note::new(id, format!("This drawing {}", kind.advice()))),
+            );
+            return Ok(Drawn::Outlines(art));
+        }
+        // Something a renderer can draw was left out, so draw it.
+        Ok(_) => None,
+        // Nothing survived at all. Worth trying to draw before giving up, and
+        // the original refusal is what to report if that fails too.
+        Err(e) => Some(e),
+    };
+
+    match motif_ingest::rasterise_svg(&data) {
+        Ok(source) => {
+            notes.push(Note::new(
+                id,
+                "This drawing uses something no outline can carry — a gradient, or a filter — \
+                 so it was drawn and its colours read from the picture, as artwork is. It will \
+                 not sharpen any further when printed large; flat shapes would."
+                    .to_string(),
+            ));
+            Ok(Drawn::Rendered(source))
+        }
+        Err(drawing) => Err(match refusal {
+            // The refusal explains what to do about it; the drawing failure is
+            // only that the second attempt did not help either.
+            Some(read) => anyhow::Error::new(read),
+            None => anyhow::Error::new(drawing),
+        })
+        .with_context(|| format!("reading {}", path.display())),
+    }
 }
 
 /// Read a drawing's outlines, saying which file it was if it cannot be read.
@@ -854,7 +923,25 @@ fn ingest_file(
     palette: &Palette,
     notes: &mut Vec<Note>,
 ) -> Result<Motif> {
-    let source = load_source(path)?;
+    ingest_source(
+        load_source(path)?,
+        id,
+        natural_size_mm,
+        method,
+        palette,
+        notes,
+    )
+}
+
+/// The same, for artwork already in hand — a rendered drawing, say.
+fn ingest_source(
+    source: SourceImage,
+    id: &str,
+    natural_size_mm: Vec2,
+    method: Option<MatteMethod>,
+    palette: &Palette,
+    notes: &mut Vec<Note>,
+) -> Result<Motif> {
     let matted = matte(&source, method.unwrap_or(MatteMethod::ExistingAlpha));
     note_if_background_kept(id, &matted, notes);
     let (cropped, _) = trim(&matted, 8)
@@ -994,6 +1081,20 @@ pub fn new_from_images(
     longest_edge_mm: f32,
     colours: usize,
 ) -> Result<Document> {
+    new_from_images_noting(files, longest_edge_mm, colours, &mut Vec::new())
+}
+
+/// As [`new_from_images`], collecting anything worth telling a person.
+///
+/// # Errors
+///
+/// As [`new_from_images`].
+pub fn new_from_images_noting(
+    files: &[PathBuf],
+    longest_edge_mm: f32,
+    colours: usize,
+    notes: &mut Vec<Note>,
+) -> Result<Document> {
     if files.is_empty() {
         return Err(anyhow!("no images were chosen"));
     }
@@ -1002,15 +1103,19 @@ pub fn new_from_images(
     // outlines are already the subject. What it does have is exact colours,
     // and they go into the palette alongside the artwork's, each weighted by
     // how much of its drawing it covers.
-    let drawings: Vec<(PathBuf, motif_ingest::SvgArt)> = files
-        .iter()
-        .filter(|p| is_drawing(p))
-        .map(|p| read_drawing(p, &mut Vec::new()).map(|art| (p.clone(), art)))
-        .collect::<Result<_>>()?;
-
+    let mut drawings: Vec<(PathBuf, motif_ingest::SvgArt)> = Vec::new();
     let mut sources = Vec::new();
-    for path in files.iter().filter(|p| !is_drawing(p)) {
-        sources.push((path.clone(), load_source(path)?));
+    for path in files {
+        if is_drawing(path) {
+            // A drawing that carries a gradient joins the artwork instead: it
+            // is rendered, and from there it is a picture like any other.
+            match drawing_or_artwork(path, &motif_id(path, 0), notes)? {
+                Drawn::Outlines(art) => drawings.push((path.clone(), art)),
+                Drawn::Rendered(source) => sources.push((path.clone(), source)),
+            }
+        } else {
+            sources.push((path.clone(), load_source(path)?));
+        }
     }
 
     let matted: Vec<SourceImage> = sources

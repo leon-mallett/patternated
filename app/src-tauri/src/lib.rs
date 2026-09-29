@@ -469,8 +469,17 @@ fn new_plain(app: State<'_, App>) -> Reply<Opened> {
 #[tauri::command]
 fn new_from_images(app: State<'_, App>, files: Vec<String>, longest_edge_mm: f32) -> Reply<Opened> {
     let paths: Vec<PathBuf> = files.into_iter().map(PathBuf::from).collect();
-    let document = pattern_doc::new_from_images(&paths, longest_edge_mm.max(2.0), DEFAULT_COLOURS)
-        .map_err(|e| fail("could not start a pattern from those images", e))?;
+    // Noting, because bringing artwork in is where most of what a designer
+    // needs to hear about it gets discovered — a drawing that had to be
+    // rendered, a motif that dissolved into the fabric colour.
+    let mut notes = Vec::new();
+    let document = pattern_doc::new_from_images_noting(
+        &paths,
+        longest_edge_mm.max(2.0),
+        DEFAULT_COLOURS,
+        &mut notes,
+    )
+    .map_err(|e| fail("could not start a pattern from those images", e))?;
 
     // An unsaved document has no path of its own yet; the first save asks.
     let anchor = paths
@@ -488,14 +497,20 @@ fn new_from_images(app: State<'_, App>, files: Vec<String>, longest_edge_mm: f32
     };
     session.bank = session
         .document
-        .load_motifs(&anchor)
+        .load_motifs_noting(&anchor, &mut notes)
         .map_err(|e| fail("could not read those images", e))?;
     session
         .document
         .apply_scatter_public(&session.bank)
         .map_err(|e| fail("could not scatter those motifs", e))?;
 
-    let opened = describe(&anchor, &session.document, &session.bank);
+    // Each file is read once for the document and once for the bank, so the
+    // same thing is worth saying only once.
+    notes.dedup_by(|a, b| a.about == b.about && a.says == b.says);
+    let opened = Opened {
+        notes,
+        ..describe(&anchor, &session.document, &session.bank)
+    };
     *app.session.lock().map_err(|e| fail("state", e))? = Some(session);
     Ok(opened)
 }

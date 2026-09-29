@@ -215,7 +215,78 @@ fn outline(path: &tiny_skia_path::Path, stroke: &usvg::Stroke) -> Option<tiny_sk
     PathStroker::new().stroke(path, &props, 1.0)
 }
 
+/// The longest edge, in pixels, a drawing is rasterised at when it cannot be
+/// kept as outlines.
+///
+/// Generous, because this is the one representation the motif will have from
+/// then on and the quantiser wants detail to work from. It is also the moment
+/// the resolution independence is given up, so it is worth being obvious about
+/// where the number is.
+pub const FALLBACK_PX: u32 = 1024;
+
+/// Draw an SVG as artwork, for the things outlines cannot carry.
+///
+/// A gradient has no single colour, so no palette slot can stand for it and
+/// [`read_svg`] refuses it. Rendering it and quantising the pixels is exactly
+/// what happens to a photograph, and what a designer would otherwise do by
+/// hand — export a PNG and come back — so the tool does it instead.
+///
+/// The cost is the whole reason SVG was worth reading as geometry: this motif
+/// is pixels from here on and will not sharpen when it is printed large. That
+/// is a trade a caller should make deliberately, which is why it is a separate
+/// function rather than something [`read_svg`] falls back to on its own.
+///
+/// # Errors
+///
+/// If the file cannot be parsed, or has no area to draw.
+pub fn rasterise_svg(data: &[u8]) -> Result<SourceImage, SvgError> {
+    let options = usvg::Options {
+        dpi: CSS_DPI,
+        ..usvg::Options::default()
+    };
+    let tree =
+        usvg::Tree::from_data(data, &options).map_err(|e| SvgError::Unreadable(e.to_string()))?;
+
+    let size = tree.size();
+    let (w, h) = (size.width(), size.height());
+    if !(w > 0.0 && h > 0.0) {
+        return Err(SvgError::NoSize);
+    }
+    let scale = FALLBACK_PX as f32 / w.max(h);
+    let (px, py) = (
+        ((w * scale).round() as u32).max(1),
+        ((h * scale).round() as u32).max(1),
+    );
+
+    let mut canvas = tiny_skia::Pixmap::new(px, py).ok_or(SvgError::NoSize)?;
+    resvg::render(
+        &tree,
+        tiny_skia::Transform::from_scale(scale, scale),
+        &mut canvas.as_mut(),
+    );
+
+    // Straight RGBA, because ingest reasons about colour independently of
+    // coverage and a premultiplied edge would drag every rim toward black.
+    let mut rgba = Vec::with_capacity(canvas.pixels().len() * 4);
+    for p in canvas.pixels() {
+        let c = p.demultiply();
+        rgba.extend_from_slice(&[c.red(), c.green(), c.blue(), c.alpha()]);
+    }
+    SourceImage::new(px, py, rgba).ok_or(SvgError::NoSize)
+}
+
 impl SvgArt {
+    /// Whether this drawing is better rendered than read as outlines.
+    ///
+    /// True when something was left out that a renderer would have drawn. A
+    /// drawing with one gradient among twenty flat shapes reads as outlines
+    /// perfectly well and is *wrong*: the gradient shape is simply missing,
+    /// which is a worse failure than a motif that will not sharpen.
+    #[must_use]
+    pub fn needs_rendering(&self) -> bool {
+        self.refused.iter().any(|k| k.helped_by_rendering())
+    }
+
     /// Put this drawing onto a palette.
     ///
     /// Every colour goes to its nearest slot, by the comparison the bitmap
@@ -342,6 +413,56 @@ mod tests {
             r##"<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="60mm" viewBox="0 0 160 120">{body}</svg>"##
         )
         .into_bytes()
+    }
+
+    #[test]
+    fn a_gradient_that_has_no_outline_can_still_be_drawn() {
+        // The fallback's whole job. Reading this as outlines gives nothing —
+        // a gradient has no single colour a palette slot could stand for — and
+        // drawing it gives a picture that quantises like any other artwork.
+        let data = svg(
+            r##"<defs><linearGradient id="g"><stop stop-color="#c8202d"/>
+                  <stop offset="1" stop-color="#3c7837"/></linearGradient></defs>
+                <rect x="20" y="20" width="120" height="80" fill="url(#g)"/>"##,
+        );
+        assert!(read_svg(&data).is_err(), "nothing here is an outline");
+
+        let drawn = rasterise_svg(&data).expect("but it can be drawn");
+        assert_eq!(drawn.width.max(drawn.height), FALLBACK_PX);
+
+        // The rectangle is three quarters of the drawing's width and two
+        // thirds of its height, so about half of it should be opaque.
+        let covered = (0..drawn.pixel_count())
+            .filter(|i| drawn.pixels[i * 4 + 3] > 127)
+            .count() as f32
+            / drawn.pixel_count() as f32;
+        assert!(
+            (0.4..0.6).contains(&covered),
+            "the drawing came out {:.0}% opaque",
+            covered * 100.0
+        );
+
+        // And it is a gradient rather than a flat fill: the two ends differ.
+        let at = |x: u32, y: u32| {
+            let i = (y * drawn.width + x) as usize * 4;
+            (drawn.pixels[i], drawn.pixels[i + 1], drawn.pixels[i + 2])
+        };
+        let (left, right) = (
+            at(drawn.width / 4, drawn.height / 2),
+            at(drawn.width * 3 / 4, drawn.height / 2),
+        );
+        assert_ne!(left, right, "the gradient was drawn as one colour");
+    }
+
+    #[test]
+    fn what_is_not_a_drawing_is_refused_by_both_routes() {
+        // The fallback must not turn an unreadable file into a blank motif.
+        // An empty `<svg>` is *not* the case to test here — `usvg` gives one a
+        // nominal size and it draws as nothing, which is a drawing of nothing
+        // rather than a failure.
+        let rubbish = b"this is not a drawing";
+        assert!(read_svg(rubbish).is_err());
+        assert!(rasterise_svg(rubbish).is_err());
     }
 
     #[test]

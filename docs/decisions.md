@@ -2039,3 +2039,42 @@ put into words by hand.
 
 **Not a logging decision.** These are what the app *shows*, and the more
 carefully an error is worded further down, the more there is to lose.
+
+---
+
+## A drawing that cannot be outlines is drawn, not refused
+
+**Decided.** Where an SVG carries something no palette slot can stand for, it
+is rendered with `resvg` and quantised like any other artwork.
+
+**Reported from the app.** A logo whose only path is filled with a linear
+gradient. The engine refused it correctly and told the designer to export a PNG
+and come back, which is work the tool can do itself.
+
+**Reversing an earlier decision, with the reason.** `resvg` was approved and
+then declined on the grounds that once every fill is a palette slot, what is
+left is geometry. That holds for reading outlines and does not cover this: a
+gradient is not geometry, and the fallback is *rendering* SVG, which is what
+`resvg` is for. Two new crates — `resvg` and `rgb` — because `usvg` was already
+carrying the rest.
+
+**`text` stays off**, so live text is still refused rather than rendered. Type
+resolved through installed fonts would rasterise differently on another
+machine, and that is the one promise this engine cannot bend. An embedded
+bitmap is refused for a duller reason: without the raster-image features there
+is no decoder, so rendering would drop it too.
+
+**Which is the rule for when to fall back.** Only where rendering would
+actually recover what the outlines could not carry. Falling back for live text
+would trade the whole drawing's sharpness and still show no text.
+
+**The subtler half.** It fires when a drawing *mostly* reads as outlines too. A
+gradient among flat shapes reads perfectly well and yields a motif with a shape
+missing — the wrong picture rather than a softer one, and only one of those is
+visible on screen. Both halves are mutation-checked; the first version of the
+test only covered the drawing that failed outright, and removing the partial
+case's guard broke nothing.
+
+**What it costs.** Resolution independence, for that motif, stated in a note
+the app shows. Rendered at 1024 px on the longest edge, which is where the
+trade is made and is named as a constant so it is obvious where.

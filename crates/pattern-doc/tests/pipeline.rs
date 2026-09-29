@@ -190,3 +190,168 @@ mod garment_scale {
         assert!(d.drawn_for.is_none(), "a refused cut records nothing");
     }
 }
+
+/// A drawing that cannot be outlines is drawn instead.
+mod rendered_drawings {
+    use std::path::PathBuf;
+
+    fn gradient() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/drawings/gradient-mark.svg")
+    }
+
+    fn pear() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples/drawings/pear.svg")
+    }
+
+    #[test]
+    fn a_gradient_mark_starts_a_pattern_rather_than_refusing() {
+        // The reported case. This is a real logo, one path, filled with a
+        // linear gradient — which no palette slot can stand for, so reading it
+        // as outlines leaves nothing at all. It is drawn and quantised, which
+        // is exactly what exporting a PNG by hand would have achieved.
+        let mut notes = Vec::new();
+        let document = pattern_doc::new_from_images_noting(&[gradient()], 60.0, 10, &mut notes)
+            .expect("a gradient mark should still make a pattern");
+
+        assert_eq!(document.motifs.len(), 1);
+        assert!(
+            notes.iter().any(|n| n.says.contains("not sharpen")),
+            "nobody was told what was traded: {notes:?}"
+        );
+    }
+
+    #[test]
+    fn the_drawn_mark_comes_out_as_a_ramp_and_not_one_flat_tone() {
+        // What a gradient has to become on cloth. Flattened to a single colour
+        // it would be a different logo; quantised, it is a ramp of flat tones
+        // — which is what a screen print of a gradient is anyway.
+        //
+        // Not asserted as "both ends of the gradient survive": median cut
+        // allocates by population and the extreme ends of a ramp are its least
+        // populous parts, so the far end lands near rather than on. Measured,
+        // the palette runs from (245, 115, 144) to (254, 133, 243) — most of
+        // the way along a gradient whose ends are (255, 136, 255) and
+        // (242, 107, 103).
+        let mut notes = Vec::new();
+        let document = pattern_doc::new_from_images_noting(&[gradient()], 60.0, 10, &mut notes)
+            .expect("document");
+
+        // Everything but the fabric, which is slot 0 and supplied rather than
+        // derived.
+        let inks = &document.pattern.palette.colors[1..];
+        assert!(inks.len() >= 4, "a ramp needs steps: {inks:?}");
+
+        let spread = inks
+            .iter()
+            .flat_map(|a| {
+                inks.iter()
+                    .map(move |b| motif_ingest::colour_distance_sq(*a, *b))
+            })
+            .fold(0.0f32, f32::max);
+        assert!(
+            spread > 4000.0,
+            "the mark came out as one tone in several shades ({spread:.0})"
+        );
+    }
+
+    #[test]
+    fn it_renders_at_print_resolution_from_the_document() {
+        let mut notes = Vec::new();
+        let mut document = pattern_doc::new_from_images_noting(&[gradient()], 60.0, 10, &mut notes)
+            .expect("document");
+        document.motifs[0].file = Some(PathBuf::from("gradient-mark.svg"));
+        let bank = document
+            .load_motifs(&gradient())
+            .expect("the drawing should load from beside the document");
+        assert!(!bank.is_empty());
+        // Drawn, not kept as outlines — which is the trade the note describes.
+        assert!(
+            bank.vector(&document.motifs[0].id).is_none(),
+            "a rendered drawing should be artwork, not outlines"
+        );
+    }
+
+    /// A drawing that mostly reads as outlines but has one gradient in it.
+    fn mixed() -> PathBuf {
+        let dir = std::env::temp_dir().join("pattern-engine-mixed-drawing");
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let path = dir.join("mixed.svg");
+        std::fs::write(
+            &path,
+            r##"<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 80 80">
+                 <defs><linearGradient id="g"><stop stop-color="#c8202d"/>
+                   <stop offset="1" stop-color="#3c7837"/></linearGradient></defs>
+                 <rect x="0" y="0" width="80" height="40" fill="#1b2a4a"/>
+                 <rect x="0" y="40" width="40" height="40" fill="#c8a020"/>
+                 <rect x="40" y="40" width="40" height="40" fill="url(#g)"/>
+               </svg>"##,
+        )
+        .expect("write");
+        path
+    }
+
+    #[test]
+    fn a_drawing_that_mostly_reads_as_outlines_is_still_drawn_if_a_shape_would_be_lost() {
+        // The subtler half, and the more dangerous one. This reads as outlines
+        // perfectly well — two of its three shapes are flat — and the result is
+        // a motif with a quarter of it simply missing. A motif that will not
+        // sharpen is a worse picture; a motif missing a piece is the wrong
+        // picture, and only one of those is obvious on screen.
+        let mut notes = Vec::new();
+        let mut document =
+            pattern_doc::new_from_images_noting(&[mixed()], 40.0, 8, &mut notes).expect("document");
+        assert!(
+            notes.iter().any(|n| n.says.contains("not sharpen")),
+            "it was kept as outlines with a shape missing: {notes:?}"
+        );
+
+        document.motifs[0].file = Some(PathBuf::from("mixed.svg"));
+        let bank = document.load_motifs(&mixed()).expect("load");
+        assert!(
+            bank.vector(&document.motifs[0].id).is_none(),
+            "kept as outlines, so the gradient square is not in the motif"
+        );
+    }
+
+    #[test]
+    fn a_drawing_that_needs_no_rendering_still_keeps_its_outlines() {
+        // The fallback must not swallow the ordinary case. The pear is flat
+        // shapes and a stroke, and stays vector.
+        let mut notes = Vec::new();
+        let mut document =
+            pattern_doc::new_from_images_noting(&[pear()], 50.0, 8, &mut notes).expect("document");
+        document.motifs[0].file = Some(PathBuf::from("pear.svg"));
+        let bank = document.load_motifs(&pear()).expect("load");
+        assert!(
+            bank.vector("pear").is_some(),
+            "a drawing that reads as outlines should stay outlines"
+        );
+        assert!(notes.is_empty(), "nothing to report: {notes:?}");
+    }
+}
+
+#[test]
+#[ignore = "writes a picture; run with --ignored"]
+fn render_the_reported_mark() {
+    use std::path::PathBuf;
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let src = root.join("examples/drawings/gradient-mark.svg");
+    let mut notes = Vec::new();
+    let mut document =
+        pattern_doc::new_from_images_noting(&[src], 42.0, 10, &mut notes).expect("document");
+    document.pattern.tile_size_mm = glam::Vec2::new(180.0, 135.0);
+    document.pattern.lattice = pattern_core::Lattice::half_drop(document.pattern.tile_size_mm);
+    if let Some(s) = document.scatter.as_mut() {
+        s.density = 0.20;
+        s.seed = 4;
+    }
+    document.motifs[0].file = Some(PathBuf::from("gradient-mark.svg"));
+    let out = root.join("examples/drawings/gradient-mark.json");
+    let bank = document.load_motifs(&out).expect("load");
+    document.reseed(4, &bank).expect("scatter");
+    std::fs::write(&out, serde_json::to_string_pretty(&document).expect("json") + "\n")
+        .expect("write");
+    for n in &notes {
+        eprintln!("NOTE: {} — {}", n.about, n.says);
+    }
+}
