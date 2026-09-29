@@ -78,6 +78,13 @@ struct Opened {
     /// The garment this repeat's measurements were chosen against, if it has
     /// ever been told. Absent means no opinion, not "adult".
     drawn_for: Option<String>,
+    /// Anything worth telling a person about the artwork that still came in.
+    ///
+    /// These used to go to stderr from inside the library, where this app
+    /// could not see them at all — so a designer never learned that most of a
+    /// motif had dissolved into the fabric colour, or that a shadow had been
+    /// kept as ink.
+    notes: Vec<pattern_doc::Note>,
     band_slots: Vec<u8>,
     colourways: Vec<String>,
     active_colourway: Option<String>,
@@ -206,10 +213,20 @@ fn fail(context: &str, e: impl std::fmt::Display) -> String {
 #[tauri::command]
 fn open_document(app: State<'_, App>, path: String) -> Reply<Opened> {
     let path = PathBuf::from(path);
-    let (document, bank) =
+    let (document, _) =
         Document::load(&path).map_err(|e| fail("could not open that document", e))?;
 
-    let opened = describe(&path, &document, &bank);
+    // Loaded again through the noting path, so anything the ingest wanted to
+    // say reaches the interface instead of a stderr nobody reads.
+    let mut notes = Vec::new();
+    let bank = document
+        .load_motifs_noting(&path, &mut notes)
+        .map_err(|e| fail("could not read this document's artwork", e))?;
+
+    let opened = Opened {
+        notes,
+        ..describe(&path, &document, &bank)
+    };
     let mut session = Session {
         path,
         document,
@@ -244,6 +261,7 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
         palette_colours: p.palette.len(),
         ground: ground_summary(p),
         drawn_for: document.drawn_for.as_ref().map(|d| d.garment.clone()),
+        notes: Vec::new(),
         band_slots: p
             .ground
             .as_ref()

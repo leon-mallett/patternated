@@ -19,6 +19,12 @@ export interface Opened {
   ground: GroundSummary;
   /** The garment this repeat was cut for, if it has ever been told. */
   drawn_for: string | null;
+  /** Anything worth telling a person about artwork that still came in.
+   *
+   *  These used to go to stderr from inside the engine, where this app could
+   *  not see them — so nobody learned that most of a motif had dissolved into
+   *  the fabric colour, or that a shadow had been kept as ink. */
+  notes: Note[];
   band_slots: number[];
   colourways: string[];
   active_colourway: string | null;
@@ -230,6 +236,13 @@ export interface FittedGrid {
   rows: number;
   cell_w_mm: number;
   cell_h_mm: number;
+}
+
+/** Something the engine wants a person to know about their artwork. */
+export interface Note {
+  /** The motif or file it concerns. */
+  about: string;
+  says: string;
 }
 
 /** One band in the ground's sequence. */

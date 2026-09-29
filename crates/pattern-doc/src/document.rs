@@ -637,6 +637,24 @@ impl Document {
 
     /// Resolve every motif this document names into slot-indexed form.
     pub fn load_motifs(&self, document_path: &Path) -> Result<MotifBank> {
+        self.load_motifs_noting(document_path, &mut Vec::new())
+    }
+
+    /// As [`Self::load_motifs`], collecting anything worth telling a person.
+    ///
+    /// Two methods rather than one changed signature, because most callers
+    /// genuinely have nobody to tell — a render, a test, an export — and
+    /// making all fifteen of them thread an empty vector through would be
+    /// ceremony for the two that do.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::load_motifs`].
+    pub fn load_motifs_noting(
+        &self,
+        document_path: &Path,
+        notes: &mut Vec<Note>,
+    ) -> Result<MotifBank> {
         let base = document_path.parent().unwrap_or(Path::new("."));
         let library = match &self.library {
             Some(path) => Some(
@@ -661,7 +679,7 @@ impl Document {
                         .design_palette
                         .as_ref()
                         .unwrap_or(&self.pattern.palette);
-                    let art = read_drawing(&path)?;
+                    let art = read_drawing(&path, notes)?;
                     bank.insert_vector(&m.id, size, art.onto(design))
                         .with_context(|| format!("drawing motif '{}'", m.id))?;
                     continue;
@@ -683,7 +701,7 @@ impl Document {
                             self.pattern.palette.len()
                         ));
                     }
-                    ingest_file(&path, &m.id, size, m.matte, design)?
+                    ingest_file(&path, &m.id, size, m.matte, design, notes)?
                 }
                 None => {
                     let library = library.as_ref().ok_or_else(|| {
@@ -730,13 +748,16 @@ pub fn is_drawing(path: &Path) -> bool {
 }
 
 /// Read a drawing's outlines, saying which file it was if it cannot be read.
-pub fn read_drawing(path: &Path) -> Result<motif_ingest::SvgArt> {
+pub fn read_drawing(path: &Path, notes: &mut Vec<Note>) -> Result<motif_ingest::SvgArt> {
     let data = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     let art =
         motif_ingest::read_svg(&data).with_context(|| format!("reading {}", path.display()))?;
-    for kind in &art.refused {
-        eprintln!("  note: {} {}", path.display(), kind.advice());
-    }
+    let name = path.display().to_string();
+    notes.extend(
+        art.refused
+            .iter()
+            .map(|kind| Note::new(&name, format!("This drawing {}", kind.advice()))),
+    );
     Ok(art)
 }
 
@@ -801,6 +822,29 @@ impl Document {
     }
 }
 
+/// Something worth telling a person about artwork that still came in.
+///
+/// Returned rather than printed, which is the whole point of it existing. A
+/// library that writes to stderr has decided that its caller is a terminal:
+/// the desktop app could not show these at all, so a designer never learned
+/// that most of a motif had dissolved into the fabric colour or that a shadow
+/// had been kept as ink — the two faults most likely to reach a printer.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Note {
+    /// The motif or file it concerns, so a list of them can be read.
+    pub about: String,
+    pub says: String,
+}
+
+impl Note {
+    fn new(about: &str, says: String) -> Self {
+        Self {
+            about: about.to_string(),
+            says,
+        }
+    }
+}
+
 /// Run one loose file through the pipeline, without storing it in a library.
 fn ingest_file(
     path: &Path,
@@ -808,27 +852,34 @@ fn ingest_file(
     natural_size_mm: Vec2,
     method: Option<MatteMethod>,
     palette: &Palette,
+    notes: &mut Vec<Note>,
 ) -> Result<Motif> {
     let source = load_source(path)?;
     let matted = matte(&source, method.unwrap_or(MatteMethod::ExistingAlpha));
-    warn_if_background_kept(id, &matted);
+    note_if_background_kept(id, &matted, notes);
     let (cropped, _) = trim(&matted, 8)
         .ok_or_else(|| anyhow!("motif '{id}' is entirely transparent after matting"))?;
     let (indexed, report) =
         quantise(&cropped, palette).with_context(|| format!("quantising motif '{id}'"))?;
 
     if report.dissolves_into_ground() {
-        eprintln!(
-            "warning: {:.0}% of motif '{id}' became the ground colour and it will barely show. \
-             The palette has no colour for what this mostly is.",
-            report.ground_share * 100.0
-        );
+        notes.push(Note::new(
+            id,
+            format!(
+                "{:.0}% of this motif became the ground colour and it will barely show. The \
+                 palette has no colour for what it mostly is — try more colours.",
+                report.ground_share * 100.0
+            ),
+        ));
     } else if report.is_poor_fit() {
-        eprintln!(
-            "warning: motif '{id}' fits this palette poorly (mean error {:.2}, worst {:.2}). \
-             Its colours may not be represented.",
-            report.mean_error, report.max_error
-        );
+        notes.push(Note::new(
+            id,
+            format!(
+                "This motif fits the palette poorly (mean error {:.2}, worst {:.2}). Its \
+                 colours may not be represented.",
+                report.mean_error, report.max_error
+            ),
+        ));
     }
     Ok(Motif {
         id: id.to_string(),
@@ -913,16 +964,18 @@ pub fn derive_palette_from(
 }
 
 /// Say so when matting has plainly kept background.
-fn warn_if_background_kept(id: &str, matted: &SourceImage) {
+fn note_if_background_kept(id: &str, matted: &SourceImage, notes: &mut Vec<Note>) {
     let retained = motif_ingest::border_retained(matted, 8);
     if retained > 0.15 {
-        eprintln!(
-            "warning: {:.0}% of the frame edge survived matting for '{id}'. Background has been \
-             kept as motif — usually a hard shadow across the paper, which the illumination \
-             estimate cannot model. Re-shoot with even light, or cut the subject out first and \
-             ingest without --from-paper.",
-            retained * 100.0
-        );
+        notes.push(Note::new(
+            id,
+            format!(
+                "{:.0}% of the frame edge survived matting. Background has been kept as motif — \
+                 usually a hard shadow across the paper, which the illumination estimate cannot \
+                 model. Re-shoot with even light, or cut the subject out first.",
+                retained * 100.0
+            ),
+        ));
     }
 }
 
@@ -952,7 +1005,7 @@ pub fn new_from_images(
     let drawings: Vec<(PathBuf, motif_ingest::SvgArt)> = files
         .iter()
         .filter(|p| is_drawing(p))
-        .map(|p| read_drawing(p).map(|art| (p.clone(), art)))
+        .map(|p| read_drawing(p, &mut Vec::new()).map(|art| (p.clone(), art)))
         .collect::<Result<_>>()?;
 
     let mut sources = Vec::new();

@@ -1947,3 +1947,32 @@ silently resize somebody's work the first time they opened the control.
 changing it. One is a lens and the other is a decision, so they are different
 controls in different places — the preview in the header, the cut beside the
 millimetres it changes.
+
+---
+
+## A library returns what it wants to say, it does not print it
+
+**Decided.** `pattern-doc` no longer writes warnings to stderr. Ingest collects
+them as `Note`s and the caller decides what to do with them; the desktop app
+shows them above the preview, dismissible.
+
+**What this was actually costing.** These are the two faults most likely to
+reach a printer unnoticed — most of a motif dissolving into the fabric colour,
+and a shadow kept as ink — and the desktop app could not see either. A library
+that writes to stderr has decided its caller is a terminal. Ours mostly is not.
+
+**Two methods rather than one changed signature.** `load_motifs` keeps its
+shape and delegates; `load_motifs_noting` takes a sink. Of fifteen callers,
+thirteen genuinely have nobody to tell — a render, a test, an export — and
+making all of them thread an empty vector through would be ceremony for the two
+that do.
+
+**Dismissible on purpose.** These are notes about artwork that *did* come in,
+not refusals. A warning that cannot be put away is one that gets ignored,
+including on the day it matters.
+
+**Not a logging framework.** A facade would have satisfied the same readiness
+criterion and left the app no better off: a subscriber writing to a terminal
+nobody is watching is the same failure with more machinery. Returned data is
+what an interface can show, a test can assert on, and a caller can ignore
+deliberately.

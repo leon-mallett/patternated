@@ -22,6 +22,7 @@ import {
   setSlotColour,
   useColourway,
   type MotifEntry,
+  type Note,
   type Opened,
   type Params,
   type Preview,
@@ -113,6 +114,7 @@ export default function App() {
 
   const [wearing, setWearing] = useState<string | null>(null);
   const [drawnFor, setDrawnFor] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [garmentList, setGarmentList] = useState<GarmentOption[]>([]);
   const [worn, setWorn] = useState<MockupView | null>(null);
 
@@ -253,6 +255,7 @@ export default function App() {
     setScale(opened.scale_range);
     setSeed(opened.seed);
     setDrawnFor(opened.drawn_for);
+    setNotes(opened.notes);
     setWeights(Object.fromEntries(opened.motifs.map((m) => [m.id, m.weight])));
     setSizes(
       Object.fromEntries(opened.motifs.map((m) => [m.id, m.longest_edge_mm])),
@@ -564,6 +567,23 @@ export default function App() {
           examples under <code>examples/</code> in the project folder.
         </p>
         {error && <p className="error">{error}</p>}
+
+        {/* What the ingest wanted to say. It used to say it to stderr from
+            inside the engine, where nothing could show it. Dismissible
+            because it is about artwork that *did* come in — a warning that
+            cannot be put away is one that gets ignored. */}
+        {notes.length > 0 && (
+          <div className="notes" data-testid="ingest-notes">
+            {notes.map((note, i) => (
+              <p className="hint warn" key={i}>
+                <strong>{note.about}</strong> — {note.says}
+              </p>
+            ))}
+            <button data-testid="dismiss-notes" onClick={() => setNotes([])}>
+              Dismiss
+            </button>
+          </div>
+        )}
       </main>
     );
   }
@@ -865,6 +885,22 @@ export default function App() {
         </div>
 
         {error && <p className="error">{error}</p>}
+        {/* What the ingest wanted to say. It used to say it to stderr from
+            inside the engine, where nothing could show it. Dismissible
+            because it is about artwork that *did* come in — a warning that
+            cannot be put away is one that gets ignored. */}
+        {notes.length > 0 && (
+          <div className="notes" data-testid="ingest-notes">
+            {notes.map((note, i) => (
+              <p className="hint warn" key={i}>
+                <strong>{note.about}</strong> — {note.says}
+              </p>
+            ))}
+            <button data-testid="dismiss-notes" onClick={() => setNotes([])}>
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {preview && !preview.window_repeats && (
           <p className="hint">

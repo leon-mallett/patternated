@@ -447,6 +447,37 @@ function sections(): string[] {
   ).map((h) => h.textContent ?? "");
 }
 
+describe("what the ingest wants to say", () => {
+  it("shows what the engine noticed about the artwork", async () => {
+    // These warnings existed all along and went to stderr from inside the
+    // engine, where this app could not see them. The two they most often
+    // carry — a motif dissolving into the fabric colour, a shadow kept as ink
+    // — are the faults most likely to reach a printer unnoticed.
+    await openApp({
+      notes: [
+        { about: "cherry", says: "18% of this motif became the ground colour." },
+      ],
+    });
+    const shown = await screen.findByTestId("ingest-notes");
+    expect(shown.textContent).toContain("cherry");
+    expect(shown.textContent).toContain("became the ground colour");
+  });
+
+  it("says nothing when there is nothing to say", async () => {
+    await openApp({ notes: [] });
+    expect(screen.queryByTestId("ingest-notes")).toBeNull();
+  });
+
+  it("can be put away, because the artwork did come in", async () => {
+    // A warning that cannot be dismissed is one that gets ignored.
+    const user = await openApp({
+      notes: [{ about: "cherry", says: "A shadow was kept as ink." }],
+    });
+    await user.click(screen.getByTestId("dismiss-notes"));
+    await waitFor(() => expect(screen.queryByTestId("ingest-notes")).toBeNull());
+  });
+});
+
 describe("cutting for a garment", () => {
   it("records the size when there is nothing to scale from", async () => {
     // A document that has never been told has no factor: there is no ratio

@@ -677,6 +677,19 @@ at those proportions, scaled so its longest edge is whatever was asked for.
 
 `examples/drawings/pears.json` is a drawing tossed as a half-drop repeat.
 
+## What the ingest wants to say
+
+Bringing artwork in can succeed and still be worth remarking on: most of a
+motif dissolving into the fabric colour, a shadow kept as ink where matting
+could not model it, a drawing carrying something no press can print. These are
+returned as notes rather than printed, and the app shows them above the
+preview — dismissible, because the artwork did come in and a warning that
+cannot be put away is one that gets ignored.
+
+They used to go to stderr from inside the engine, where the desktop app could
+not see them at all. The two most common are also the two most likely to reach
+a printer unnoticed.
+
 ## Motif ingest
 
 One pipeline, whatever the artwork's origin: matte, trim, normalise, quantise,

@@ -43,6 +43,7 @@ export function makeOpened(over: Partial<Opened> = {}): Opened {
       crossings: "blend",
     },
     drawn_for: null,
+    notes: [],
     band_slots: [],
     colourways: [],
     active_colourway: null,
