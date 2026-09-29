@@ -22,6 +22,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Weekly, because the audit below asks a question whose answer changes
+  # without the code changing. An advisory published against a dependency we
+  # have not touched is exactly the case a push-triggered run never sees.
+  schedule:
+    - cron: "17 6 * * 1"
 
 env:
   CARGO_TERM_COLOR: always
@@ -108,6 +113,63 @@ jobs:
       - name: Component tests
         working-directory: app
         run: npm test
+
+  # Known vulnerabilities in what we depend on, which is a different question
+  # from whether our own code is right and has a different half-life: this job
+  # can go red on a morning when nothing was committed.
+  audit:
+    name: Advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # `cargo-audit` is built from source rather than fetched through a
+      # third-party action, for the reason at the top of this file: an action
+      # with access to the build is the supply-chain risk the audit exists to
+      # look for. `--locked` so the tool itself is built from its own lockfile.
+      - name: Cache the audit tool
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-${{ runner.os }}-v1
+
+      - name: Install cargo-audit
+        run: |
+          if ! command -v cargo-audit >/dev/null; then
+            cargo install cargo-audit --locked
+          fi
+          cargo audit --version
+
+      # Vulnerabilities fail the job; unmaintained and unsound crates are
+      # printed and do not. That is not laxity — measured on 2026-09-29 the
+      # tree carries seven such warnings and every one of them is inside
+      # Tauri's own transitive dependencies: glib, proc-macro-error, the unic
+      # family. Failing on them would put the job permanently red for
+      # something this project cannot fix, and a permanently red job is one
+      # nobody reads on the morning it turns red for a real reason.
+      #
+      # `cargo audit` already exits non-zero on an actual vulnerability, so
+      # this is the default and the reasoning is the thing worth writing down.
+      - name: Rust advisories
+        run: cargo audit
+
+      - name: Install the app's dependencies
+        working-directory: app
+        run: npm ci
+
+      # Production dependencies only. A development-only advisory is worth
+      # knowing about and is not a reason to fail a build that ships none of
+      # it; `npm audit` without this fails on the test tooling's transitive
+      # tree and teaches everyone to ignore the job.
+      - name: Front-end advisories
+        working-directory: app
+        run: npm audit --omit=dev --audit-level=moderate
 
       - name: Build
         working-directory: app
