@@ -349,8 +349,11 @@ fn render_the_reported_mark() {
     let out = root.join("examples/drawings/gradient-mark.json");
     let bank = document.load_motifs(&out).expect("load");
     document.reseed(4, &bank).expect("scatter");
-    std::fs::write(&out, serde_json::to_string_pretty(&document).expect("json") + "\n")
-        .expect("write");
+    std::fs::write(
+        &out,
+        serde_json::to_string_pretty(&document).expect("json") + "\n",
+    )
+    .expect("write");
     for n in &notes {
         eprintln!("NOTE: {} — {}", n.about, n.says);
     }

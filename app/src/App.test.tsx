@@ -610,6 +610,22 @@ describe("exporting", () => {
     return user;
   }
 
+  it("says how many tiles are on screen, not what size the repeat is", async () => {
+    // "4×3 repeat" read as though the design were a 4×3 repeat. The repeat's
+    // real size is in the readout; this counts what is being looked at.
+    await openApp({}, { cols: 4, rows: 3 });
+    // The header carries a placeholder until the first preview lands, so this
+    // has to wait for the real count rather than read whatever is there.
+    await waitFor(() =>
+      expect(screen.getByTestId("tiles-shown").textContent).toContain(
+        "showing 4×3 tiles",
+      ),
+    );
+    expect((await screen.findByTestId("readout")).textContent).toContain(
+      "240 × 180 mm",
+    );
+  });
+
   it("opens over the window rather than under the preview", async () => {
     // It was tucked below the image, where it pushed the preview out of view
     // and read as one more panel of the same kind as the controls. Exporting
@@ -622,6 +638,26 @@ describe("exporting", () => {
     // than pushed below a panel that grew under it.
     expect(modal.contains(screen.getByTestId("save-as"))).toBe(true);
     expect(modal.contains(screen.getByTestId("preview-image"))).toBe(false);
+  });
+
+  it("says a tile export will look emptier than the preview", async () => {
+    // Reported as a curiosity: an exported tile looked like a cropped
+    // preview. It was not — the preview shows several tiles and the export
+    // wrote one, at the same size on the cloth. Both were right and neither
+    // said so.
+    await openExport();
+    const note = screen.getByTestId("one-tile-note").textContent ?? "";
+    expect(note).toContain("emptier than the preview");
+    expect(note).toContain("same size on the cloth");
+  });
+
+  it("drops that note once a sheet is being written", async () => {
+    const user = await openExport();
+    await user.selectOptions(
+      screen.getByText("One tile — the printer repeats it").closest("select")!,
+      "sheet",
+    );
+    await waitFor(() => expect(screen.queryByTestId("one-tile-note")).toBeNull());
   });
 
   it("names a file that does not exist yet", async () => {

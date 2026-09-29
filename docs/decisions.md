@@ -2078,3 +2078,30 @@ case's guard broke nothing.
 **What it costs.** Resolution independence, for that motif, stated in a note
 the app shows. Rendered at 1024 px on the longest edge, which is where the
 trade is made and is named as a constant so it is obvious where.
+
+---
+
+## The preview counts tiles; the export writes what was asked for
+
+**Reported as a curiosity.** An exported file looked like a much smaller
+viewport than the preview — the same motifs, three or four times the size,
+far fewer of them.
+
+**Nothing was wrong.** The preview shows a field of tiles, four by three here,
+so that tracking can be judged; the export's default writes **one tile**,
+because that is what a printer repeats. Checked rather than assumed: at 150 DPI
+the same document renders 1063 × 798 px as a tile and 4252 × 2394 as a four-by-
+three field — exactly four and exactly three times, so a motif is the same
+number of pixels and the same millimetres in both.
+
+**But the interface said neither thing clearly.** The header read
+*"untitled · 4×3 repeat"*, which parses as though the design were a 4×3 repeat
+rather than as a count of what is on screen — and the repeat's real size,
+240 × 180 mm, was in a readout below. So an export of one tile looked like a
+crop. It says *"showing 4×3 tiles"* now.
+
+**And the export says what a tile will look like.** Choosing *One tile* now
+carries a line: that it is seamless on all four sides, that the printer lays it
+edge to edge, and that it will look far emptier than the preview — same size on
+the cloth, fewer of them in the picture. The control's own wording was already
+accurate; what was missing was the comparison the eye was about to make.

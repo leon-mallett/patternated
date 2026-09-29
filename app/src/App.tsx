@@ -815,9 +815,15 @@ export default function App() {
         <header>
           <div>
             <strong>{doc.name}</strong>
-            <span className="muted">
+            {/* "4×3 repeat" read as though the design were a 4×3 repeat,
+                rather than as a count of how many are on screen — and then an
+                export of one tile looked like a cropped preview. The repeat's
+                actual size is in the readout below; this says what is being
+                looked at. */}
+            <span className="muted" data-testid="tiles-shown">
               {" "}
-              · {preview ? `${preview.cols}×${preview.rows}` : `${FIELD}×${FIELD}`} repeat
+              · showing{" "}
+              {preview ? `${preview.cols}×${preview.rows}` : `${FIELD}×${FIELD}`} tiles
             </span>
           </div>
           <div className="actions">
@@ -2111,6 +2117,15 @@ function ExportPanel({
             <option value="sheet">A repeated sheet — ready to print</option>
           </select>
         </label>
+
+        {request.shape === "tile" && (
+          <p className="hint" data-testid="one-tile-note">
+            One tile is the whole design: it is seamless on all four sides, and
+            the printer lays it edge to edge. It will look far emptier than the
+            preview, which shows several side by side — same size on the cloth,
+            fewer of them in the picture.
+          </p>
+        )}
 
         {request.shape === "sheet" && (
           <>
