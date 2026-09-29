@@ -206,8 +206,20 @@ fn guard_on() -> bool {
 type Reply<T> = Result<T, String>;
 
 /// Errors cross to the UI as sentences, because that is what they become.
+/// Put a failure into words for the interface.
+///
+/// `{e:#}` rather than `{e}`, which is the whole difference between a message
+/// a designer can act on and one they cannot. An `anyhow::Error` carries a
+/// chain — each layer adding what it was trying to do — and its plain `Display`
+/// prints only the outermost link. Loading an SVG full of gradients reported
+/// "reading <path>" and stopped there, throwing away the sentence that said it
+/// was a gradient and what to do about it.
+///
+/// The alternate form prints the chain. Types that are not `anyhow` ignore the
+/// flag, so this is safe for the plain strings and lock errors also passed
+/// here.
 fn fail(context: &str, e: impl std::fmt::Display) -> String {
-    format!("{context}: {e}")
+    format!("{context}: {e:#}")
 }
 
 #[tauri::command]
@@ -2183,6 +2195,38 @@ mod tests {
                 (!first.is_empty()).then(|| first.to_string())
             })
             .collect()
+    }
+
+    #[test]
+    fn a_failure_reaches_the_interface_with_its_cause_attached() {
+        // Reported from the app: loading an SVG of gradients said only
+        // "reading <path>" and stopped there. The sentence that said it was a
+        // gradient, and what to do about it, was the innermost link of an
+        // `anyhow` chain — and plain `Display` prints only the outermost.
+        //
+        // The difference is between a message a designer can act on and one
+        // that tells them a file exists.
+        let deep = anyhow::anyhow!("it uses a gradient, which has no single colour")
+            .context("reading the drawing")
+            .context("ingesting the artwork");
+
+        let said = fail("could not start a pattern", deep);
+        assert!(
+            said.contains("gradient"),
+            "the cause was dropped on the way out: {said}"
+        );
+        assert!(said.contains("could not start a pattern"), "{said}");
+        assert!(said.contains("reading the drawing"), "{said}");
+    }
+
+    #[test]
+    fn a_message_with_no_chain_is_not_decorated() {
+        // The same formatter carries plain strings and lock failures, which
+        // must come through as themselves.
+        assert_eq!(
+            fail("state", "the lock was poisoned"),
+            "state: the lock was poisoned"
+        );
     }
 
     #[test]

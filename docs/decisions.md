@@ -2015,3 +2015,27 @@ fill theirs exactly.
 **And the reach is worked out in one place.** The extent and the outline each
 computed the sleeve separately and could disagree; a silhouette drawn wider
 than the frame it was measured for is clipped without anything failing.
+
+---
+
+## An error reaches the interface with its cause attached
+
+**Decided.** The app formats failures with `{e:#}`, `anyhow`'s alternate
+`Display`, which prints the whole chain.
+
+**What it cost to get wrong.** Loading an SVG of gradients reported *"could not
+start a pattern from those images: reading &lt;path&gt;"* and stopped there. The
+sentence that said it was a gradient, and what to do about it, was the
+innermost link and plain `Display` prints only the outermost. The engine had
+the right answer, in words chosen for a designer, and threw it away one layer
+from the screen.
+
+**Why it hid.** Every layer added context correctly and the chain was built
+properly. Nothing was missing until the last format string, and a single `#`
+was the whole difference between a message somebody can act on and one that
+tells them a file exists. The command line was never affected — `anyhow`'s
+`Termination` prints the chain — so the fault lived only where the errors were
+put into words by hand.
+
+**Not a logging decision.** These are what the app *shows*, and the more
+carefully an error is worded further down, the more there is to lose.
