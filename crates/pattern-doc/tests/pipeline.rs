@@ -96,3 +96,97 @@ fn write_the_drawing_example() {
     .expect("write");
     eprintln!("wrote {}", out.display());
 }
+
+/// Cutting the same design for a different garment.
+mod garment_scale {
+    use std::path::PathBuf;
+
+    fn artwork() -> Vec<PathBuf> {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+        vec![root.join("generated-motifs/01-cherries.png")]
+    }
+
+    fn document() -> pattern_doc::Document {
+        pattern_doc::new_from_images(&artwork(), 60.0, 8).expect("document")
+    }
+
+    #[test]
+    fn a_document_that_has_never_been_told_is_told_and_not_resized() {
+        // There is no factor without two sizes. Guessing that an untold
+        // document meant "adult" would silently resize somebody's work the
+        // first time they opened the control.
+        let mut d = document();
+        let before = d.pattern.tile_size_mm;
+        let factor = d.cut_for("T-shirt, adult M", 510.0).expect("should record");
+        assert_eq!(factor, 1.0);
+        assert_eq!(d.pattern.tile_size_mm, before);
+        assert_eq!(d.drawn_for.as_ref().expect("recorded").chest_mm, 510.0);
+    }
+
+    #[test]
+    fn cutting_smaller_shrinks_the_repeat_and_the_motifs_together() {
+        // The spec's requirement, and the failure it names: a size chart sets
+        // a factor on both the tile and the motifs within it, or a small
+        // garment ships with one enormous dinosaur and a great deal of
+        // background.
+        let mut d = document();
+        d.cut_for("T-shirt, adult M", 510.0).expect("record");
+        let tile = d.pattern.tile_size_mm;
+        let motif = d.motifs[0].natural_size_mm.expect("a size");
+
+        let factor = d.cut_for("T-shirt, age 3–4", 330.0).expect("cut");
+        assert!((factor - 330.0 / 510.0).abs() < 1e-6);
+        assert!((d.pattern.tile_size_mm - tile * factor).length() < 1e-3);
+        assert!((d.motifs[0].natural_size_mm.expect("a size") - motif * factor).length() < 1e-3);
+    }
+
+    #[test]
+    fn going_back_returns_the_design_rather_than_drifting() {
+        // Why the reference is recorded rather than the factor accumulated.
+        // A control that loses a little on every change is one a designer
+        // learns not to touch.
+        let mut d = document();
+        d.cut_for("T-shirt, adult M", 510.0).expect("record");
+        let tile = d.pattern.tile_size_mm;
+        let motif = d.motifs[0].natural_size_mm.expect("a size");
+
+        for (name, chest) in [
+            ("T-shirt, age 3–4", 330.0),
+            ("T-shirt, adult L", 560.0),
+            ("T-shirt, age 9–10", 400.0),
+            ("T-shirt, adult M", 510.0),
+        ] {
+            d.cut_for(name, chest).expect("cut");
+        }
+        assert!(
+            (d.pattern.tile_size_mm - tile).length() < 0.01,
+            "{:?}",
+            d.pattern.tile_size_mm
+        );
+        assert!((d.motifs[0].natural_size_mm.expect("a size") - motif).length() < 0.01);
+    }
+
+    #[test]
+    fn the_scaled_design_still_loads_and_renders() {
+        // A scale control that can produce a pattern the engine refuses is a
+        // scale control nobody can use.
+        let mut d = document();
+        d.cut_for("T-shirt, adult M", 510.0).expect("record");
+        d.cut_for("T-shirt, age 3–4", 330.0).expect("cut");
+        d.pattern.validate().expect("still a repeat");
+
+        let dir = std::env::temp_dir().join("pattern-engine-garment-test");
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let bank = d
+            .load_motifs(&dir.join("pattern.json"))
+            .expect("motifs should still load");
+        assert!(!bank.is_empty());
+    }
+
+    #[test]
+    fn a_garment_with_no_width_is_refused() {
+        let mut d = document();
+        assert!(d.cut_for("Nothing", 0.0).is_err());
+        assert!(d.drawn_for.is_none(), "a refused cut records nothing");
+    }
+}

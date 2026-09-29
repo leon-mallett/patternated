@@ -13,6 +13,7 @@ import {
   mockup,
   newFromImages,
   newPlain,
+  cutFor,
   openDocument,
   proof,
   rememberColourway,
@@ -111,6 +112,7 @@ export default function App() {
   const [palette, setPalette] = useState<PaletteState | null>(null);
 
   const [wearing, setWearing] = useState<string | null>(null);
+  const [drawnFor, setDrawnFor] = useState<string | null>(null);
   const [garmentList, setGarmentList] = useState<GarmentOption[]>([]);
   const [worn, setWorn] = useState<MockupView | null>(null);
 
@@ -250,6 +252,7 @@ export default function App() {
     setJitter(opened.rotation_jitter_deg);
     setScale(opened.scale_range);
     setSeed(opened.seed);
+    setDrawnFor(opened.drawn_for);
     setWeights(Object.fromEntries(opened.motifs.map((m) => [m.id, m.weight])));
     setSizes(
       Object.fromEntries(opened.motifs.map((m) => [m.id, m.longest_edge_mm])),
@@ -434,6 +437,28 @@ export default function App() {
       ...ground,
       bands: ground.bands.map((b, i) => (i === index ? { ...b, ...over } : b)),
     });
+  }
+
+  /// Cut the design for a garment: the repeat and the motifs move together.
+  async function onCutFor(garment: string) {
+    try {
+      const cut = await cutFor(garment);
+      setDrawnFor(cut.drawn_for);
+      setTile(cut.tile_mm);
+      setMotifs(cut.motifs);
+      setSizes(
+        Object.fromEntries(cut.motifs.map((m) => [m.id, m.longest_edge_mm])),
+      );
+      setError(null);
+      setStatus(
+        cut.factor === 1
+          ? `These measurements are now recorded as ${garment}.`
+          : `Cut for ${garment} — everything scaled by ${cut.factor.toFixed(2)}.`,
+      );
+      await refresh();
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   async function onOpen() {
@@ -1022,6 +1047,31 @@ export default function App() {
               drawn or grown meets an edge it was not made against.
             </p>
           )}
+          {/* Cutting rather than previewing: this changes the design, where
+              the garment picker in the header only shows it on one. A repeat
+              is a physical size, so the size it is *for* belongs beside the
+              millimetres rather than beside the preview. */}
+          <label>
+            Cut for
+            <select
+              data-testid="cut-for"
+              value={drawnFor ?? ""}
+              onChange={(e) => e.target.value && onCutFor(e.target.value)}
+            >
+              {drawnFor === null && <option value="">Not set</option>}
+              {garmentList.map((g) => (
+                <option key={g.name} value={g.name}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="hint" data-testid="cut-for-hint">
+            {drawnFor === null
+              ? "A repeat reads completely differently on an adult shirt and on a three-year-old's. Choosing a size here records what these millimetres are for; it does not resize anything yet, because there is nothing to scale from."
+              : `These measurements are for ${drawnFor}. Choosing another size scales the repeat and the motifs together, from this one — so going back and forth returns the design rather than drifting.`}
+          </p>
+
           <NumberField
             label="Width"
             testId="tile-width"

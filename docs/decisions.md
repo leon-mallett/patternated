@@ -1894,3 +1894,56 @@ comparative rather than absolute, and says why.
 angular one — a corridor is regular spacing along a direction, not only a
 direction — and a labelled corpus of real patterns rather than synthetic pulls.
 Neither is needed for a warning.
+
+---
+
+## Two vector types, kept apart on purpose
+
+**Decided.** The raster tracer's output is `TracedOutlines`; artwork that
+arrived as outlines is `pattern_core::VectorMotif`. They were briefly both
+called `VectorMotif`, in the same crate.
+
+**Merging them was considered and would have been wrong.** They look alike —
+slotted outlines — and are opposites in use. One is a *tracing of a bitmap*,
+produced for vector export and kept alongside the raster, never instead of it,
+because textured artwork traces badly and the spec says those ship as raster.
+The other *is* the artwork, held so the renderer can draw it at whatever
+resolution a render needs. A single type would have invited drawing the tracing
+instead of the bitmap, which is worse output for exactly the artwork the
+tracing represents least well.
+
+**So the fix was a name and a paragraph**, not a refactor. Recorded because the
+merge is the obvious move and the reason not to make it is not visible from the
+types.
+
+---
+
+## A repeat is cut for a garment, from a recorded reference
+
+**Decided.** A document records the garment its measurements are for. Changing
+it scales the repeat, the lattice, the placements, the ground's lengths and
+every motif's natural size by the ratio of the two chest widths.
+
+**Chest rather than length or shoulder.** A repeat reads *across* a body: it is
+the dimension the eye counts repeats along, and the one the garment preview
+already reports.
+
+**Measured against counted.** Everything in millimetres moves. A texture's cell
+count is how many fit across the tile, so it follows the tile already and
+doubling it would halve the pattern instead of keeping it. Getting that
+distinction wrong is silent — the render still looks like a texture, just the
+wrong one.
+
+**From the reference, not compounded.** The alternative — multiply whatever the
+sizes currently are — drifts a little on every change, and a control that loses
+something each time you touch it is one a designer learns not to touch. A test
+walks four sizes and back and requires the design to return.
+
+**An untold document is told, not resized.** There is no factor without two
+sizes. Guessing that a document written before this existed meant "adult" would
+silently resize somebody's work the first time they opened the control.
+
+**Separate from the garment preview**, which shows a print on a body without
+changing it. One is a lens and the other is a decision, so they are different
+controls in different places — the preview in the header, the cut beside the
+millimetres it changes.

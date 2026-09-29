@@ -25,4 +25,4 @@ pub use quantise::{colour_distance_sq, derive_palette, quantise, QuantisationRep
 pub use source::SourceImage;
 pub use svg::{read_svg, SvgArt, SvgError};
 pub use trim::{natural_size_mm, trim, TrimBounds};
-pub use vectorise::{vectorise, VectoriseOptions};
+pub use vectorise::{vectorise, SlotPath, TracedOutlines, VectoriseOptions};

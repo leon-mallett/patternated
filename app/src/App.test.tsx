@@ -54,6 +54,13 @@ const engine = {
     suggested_name: "cherries-tile-300dpi.tif",
   } as ExportPlan,
   exported: [] as string[],
+  cuts: [] as string[],
+  cut: {
+    factor: 0.65,
+    tile_mm: [156, 117] as [number, number],
+    motifs: [makeMotif({ longest_edge_mm: 34 })],
+    drawn_for: "T-shirt, age 3–4",
+  },
   fittedGrid: { cols: 10, rows: 8, cell_w_mm: 24, cell_h_mm: 22.5 } as {
     cols: number;
     rows: number;
@@ -69,6 +76,10 @@ vi.mock("./api", async (importOriginal) => {
     openDocument: async () => engine.opened,
     newFromImages: async () => engine.opened,
     newPlain: async () => engine.opened,
+    cutFor: async (garment: string) => {
+      engine.cuts.push(garment);
+      return engine.cut;
+    },
     exportPlan: async () => engine.plan,
     exportFile: async (path: string) => {
       engine.exported.push(path);
@@ -78,7 +89,13 @@ vi.mock("./api", async (importOriginal) => {
       engine.applied.push(params);
       return engine.preview;
     },
-    garments: async () => [],
+    // The real chart, abridged. An empty list let a garment control render
+    // with nothing in it and still pass, which is a test of nothing.
+    garments: async () => [
+      { name: "T-shirt, age 3–4", chest_mm: 330, length_mm: 440 },
+      { name: "T-shirt, age 9–10", chest_mm: 400, length_mm: 580 },
+      { name: "T-shirt, adult M", chest_mm: 510, length_mm: 740 },
+    ],
     mockup: async () => ({
       png_base64: "",
       width: 1,
@@ -170,6 +187,7 @@ beforeEach(() => {
   engine.groundSlots = [3, 4];
   engine.levelShares = [0.7, 0.3];
   engine.exported = [];
+  engine.cuts = [];
   engine.fittedGrid = { cols: 10, rows: 8, cell_w_mm: 24, cell_h_mm: 22.5 };
   dialog.confirmed = true;
   dialog.chosen = "/patterns/cherries.json";
@@ -428,6 +446,44 @@ function sections(): string[] {
     document.querySelectorAll(".controls section h2, .controls section h3"),
   ).map((h) => h.textContent ?? "");
 }
+
+describe("cutting for a garment", () => {
+  it("records the size when there is nothing to scale from", async () => {
+    // A document that has never been told has no factor: there is no ratio
+    // without two sizes, and resizing somebody's work on first contact with a
+    // control would be the worst possible introduction to it.
+    await openApp({ drawn_for: null });
+    const menu = screen.getByTestId("cut-for") as HTMLSelectElement;
+    expect(menu.value).toBe("");
+    expect(screen.getByTestId("cut-for-hint").textContent).toContain(
+      "does not resize anything yet",
+    );
+  });
+
+  it("scales the repeat and the motifs together", async () => {
+    // The spec's requirement and the failure it names: scaling the tile alone
+    // leaves one enormous motif on a small garment.
+    const user = await openApp({ drawn_for: "T-shirt, adult M" });
+    await user.selectOptions(screen.getByTestId("cut-for"), "T-shirt, age 3–4");
+
+    await waitFor(() => expect(engine.cuts).toEqual(["T-shirt, age 3–4"]));
+    // The repeat the engine returned, not the one that was there.
+    await waitFor(() =>
+      expect((screen.getByTestId("tile-width") as HTMLInputElement).value).toBe("156"),
+    );
+    // And the motif size came back with it.
+    await waitFor(() =>
+      expect((screen.getByTestId("size-cherry") as HTMLInputElement).value).toBe("34"),
+    );
+  });
+
+  it("says what these millimetres are for once it knows", async () => {
+    await openApp({ drawn_for: "T-shirt, adult M" });
+    const hint = screen.getByTestId("cut-for-hint").textContent ?? "";
+    expect(hint).toContain("T-shirt, adult M");
+    expect(hint).toContain("returns the design rather than drifting");
+  });
+});
 
 describe("tracking", () => {
   it("says nothing about a scatter that does not track", async () => {

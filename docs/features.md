@@ -843,6 +843,31 @@ And the physical size reported is the one implied by the file's pixels rather
 than the design's nominal size, because quantising the tile moves it by a
 fraction of a millimetre — see below.
 
+## A repeat is for a garment
+
+A 240 mm repeat reads completely differently on an adult shirt and on a
+three-year-old's, so a repeat without a garment beside it is a number with no
+scale attached. A document records which garment its measurements are for, and
+changing that cuts the same design for the new one: the size chart sets a
+factor on **both the tile and the motifs within it**, because scaling the tile
+alone leaves one enormous motif on a small garment — which is the failure the
+spec names.
+
+Everything measured in millimetres moves together: the repeat, the lattice that
+steps it, where each motif sits, a band's widths, an ornament's cell and
+stroke. What is *counted* rather than measured is left alone — a texture's
+cells are how many fit across the tile, so they follow it already.
+
+**Scaled from the recorded reference, never compounded.** Switching between
+sizes and back returns the design rather than drifting a little further each
+time. A document that has never been told which garment it is for is simply
+told, and nothing is scaled: there is no factor without two sizes, and guessing
+that an untold document meant "adult" would silently resize somebody's work the
+first time they touched the control.
+
+Distinct from the garment *preview*, which shows a print on a body without
+changing it. One is a lens; this is a decision.
+
 ## Garment mockups
 
 The print on a garment, at true scale. Six to choose from, built from standard

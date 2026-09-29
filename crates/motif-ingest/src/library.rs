@@ -17,7 +17,7 @@ use crate::matte::{matte, MatteMethod};
 use crate::quantise::{quantise, QuantisationReport};
 use crate::source::SourceImage;
 use crate::trim::{natural_size_mm, trim, TrimBounds};
-use crate::vectorise::{vectorise, VectorMotif, VectoriseOptions};
+use crate::vectorise::{vectorise, TracedOutlines, VectoriseOptions};
 
 #[derive(Debug, Error)]
 pub enum LibraryError {
@@ -81,7 +81,7 @@ pub struct MotifVersion {
     pub border_retained: f32,
     pub quantisation: QuantisationReport,
     pub indexed: IndexedMotif,
-    pub vector: VectorMotif,
+    pub vector: TracedOutlines,
 }
 
 /// A motif's metadata, as it sits in `motif.json`.
@@ -107,7 +107,7 @@ struct StoredMotif {
     quantisation: QuantisationReport,
     width: u32,
     height: u32,
-    vector: VectorMotif,
+    vector: TracedOutlines,
 }
 
 /// Interleaved slot and alpha bytes, the companion to [`StoredMotif`].

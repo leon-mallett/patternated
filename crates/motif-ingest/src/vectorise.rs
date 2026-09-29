@@ -15,21 +15,32 @@ pub struct SlotPath {
     pub d: String,
 }
 
-/// A motif as outlines rather than pixels.
+/// A raster motif's outlines, traced.
 ///
-/// Kept *alongside* the raster, never instead of it. Some illustration styles —
-/// watercolour, grain, anything with texture — vectorise badly, and the spec is
-/// explicit that those should stay raster with a high-resolution original. The
-/// pipeline therefore always produces both and lets the choice happen at
-/// export.
+/// Not to be confused with [`pattern_core::TracedOutlines`], which is a different
+/// thing with a similar shape, and the two were briefly both called
+/// `TracedOutlines`:
+///
+/// - This is a **tracing of a bitmap**, produced for *export*. It is kept
+///   alongside the raster and never instead of it, because some illustration
+///   styles — watercolour, grain, anything with texture — trace badly, and the
+///   spec is explicit that those ship as raster with a high-resolution
+///   original. Stored as SVG path data, because a library serialises it.
+/// - `pattern_core::TracedOutlines` is artwork that *arrived* as outlines, held
+///   so the renderer can draw it at whatever resolution a render needs.
+///
+/// Merging them was considered and would have been wrong. Drawing a traced
+/// bitmap instead of the bitmap is worse output for exactly the artwork the
+/// tracing is least able to represent, and a single type would have invited
+/// precisely that.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VectorMotif {
+pub struct TracedOutlines {
     pub width: u32,
     pub height: u32,
     pub paths: Vec<SlotPath>,
 }
 
-impl VectorMotif {
+impl TracedOutlines {
     /// Total number of traced outlines.
     ///
     /// A blunt measure of how complicated a motif is, and the one the style
@@ -114,7 +125,7 @@ impl Default for VectoriseOptions {
 /// a plain binary mask and the result cannot disagree with the raster about
 /// what colour anything is.
 #[must_use]
-pub fn vectorise(motif: &IndexedMotif, options: VectoriseOptions) -> VectorMotif {
+pub fn vectorise(motif: &IndexedMotif, options: VectoriseOptions) -> TracedOutlines {
     let mode = if options.smooth {
         PathSimplifyMode::Spline
     } else {
@@ -163,7 +174,7 @@ pub fn vectorise(motif: &IndexedMotif, options: VectoriseOptions) -> VectorMotif
             }
         }
     }
-    VectorMotif {
+    TracedOutlines {
         width: motif.width,
         height: motif.height,
         paths,

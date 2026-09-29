@@ -91,6 +91,33 @@ pub struct Document {
     /// like the scale above, and surfaced for the same reason.
     #[serde(skip, default = "no_cells")]
     pub grid_cells_used: (u32, u32),
+    /// The garment this repeat's measurements are for, and how wide it is.
+    ///
+    /// A 240 mm repeat reads completely differently on an adult shirt and on a
+    /// three-year-old's, so a repeat without a garment beside it is a number
+    /// with no scale attached. Recorded rather than assumed: changing garment
+    /// rescales *from what is written here*, never from whatever the sizes
+    /// happen to be, so switching back and forth returns the design instead of
+    /// drifting a little further each time.
+    ///
+    /// Absent for a document that has never been told, which is every document
+    /// written before this existed. Absent means "no opinion", not "adult".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drawn_for: Option<DrawnFor>,
+}
+
+/// The garment a repeat's measurements were chosen against.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DrawnFor {
+    /// What to call it in an interface. Carried so a reopened document can say
+    /// what it was scaled for without needing the size chart that named it.
+    pub garment: String,
+    /// Width across the chest, laid flat.
+    ///
+    /// Chest rather than length or shoulder, because a repeat reads *across* a
+    /// body: it is the dimension the eye counts repeats along, and the one the
+    /// garment preview already reports.
+    pub chest_mm: f32,
 }
 
 fn no_cells() -> (u32, u32) {
@@ -730,6 +757,50 @@ pub fn load_source(path: &Path) -> Result<SourceImage> {
         .ok_or_else(|| anyhow!("decoded {} to an inconsistent buffer", path.display()))
 }
 
+impl Document {
+    /// The same design cut for a different garment.
+    ///
+    /// The scale factor is the ratio of the two chest widths, applied to the
+    /// repeat, to everything the ground measures in millimetres, and to every
+    /// motif's natural size — the spec's requirement that a size chart sets a
+    /// factor "on both the tile and the motifs within it", because scaling the
+    /// tile alone would leave one enormous dinosaur on a small garment, which
+    /// is the failure it names.
+    ///
+    /// A document that has never been told which garment it is for is simply
+    /// told, and nothing is scaled: there is no factor without two sizes, and
+    /// guessing that an untold document meant "adult" would silently resize
+    /// somebody's work the first time they opened this control.
+    ///
+    /// Returns the factor applied, so an interface can say what it did.
+    ///
+    /// # Errors
+    ///
+    /// If the garment has no positive chest width to scale by.
+    pub fn cut_for(&mut self, garment: &str, chest_mm: f32) -> Result<f32> {
+        if !chest_mm.is_finite() || chest_mm <= 0.0 {
+            return Err(anyhow!("a garment needs a chest width to scale by"));
+        }
+        let factor = match &self.drawn_for {
+            Some(previous) if previous.chest_mm > 0.0 => chest_mm / previous.chest_mm,
+            _ => 1.0,
+        };
+        if factor != 1.0 {
+            self.pattern = self.pattern.scaled_by(factor);
+            for motif in &mut self.motifs {
+                if let Some(size) = motif.natural_size_mm.as_mut() {
+                    *size *= factor;
+                }
+            }
+        }
+        self.drawn_for = Some(DrawnFor {
+            garment: garment.to_string(),
+            chest_mm,
+        });
+        Ok(factor)
+    }
+}
+
 /// Run one loose file through the pipeline, without storing it in a library.
 fn ingest_file(
     path: &Path,
@@ -963,6 +1034,7 @@ pub fn new_from_images(
         active_colourway: None,
         grid_scale_applied: 1.0,
         grid_cells_used: (0, 0),
+        drawn_for: None,
         scatter: Some(ScatterSpec {
             density: 0.3,
             prevent_overlap: true,
@@ -1009,6 +1081,7 @@ pub fn new_plain(ground: pattern_core::Color) -> Document {
         active_colourway: None,
         grid_scale_applied: 1.0,
         grid_cells_used: (0, 0),
+        drawn_for: None,
         scatter: None,
     }
 }

@@ -127,6 +127,38 @@ impl Ground {
         }
     }
 
+    /// The same ground at a different physical size.
+    ///
+    /// Everything measured in millimetres is multiplied; everything counted is
+    /// left alone. A texture's cell count is across the tile, so it scales by
+    /// following the tile and would be wrong to touch; a band's width and an
+    /// ornament's cell are lengths, and would stay put while the fabric around
+    /// them grew.
+    #[must_use]
+    pub fn scaled_by(&self, factor: f32) -> Self {
+        match self {
+            Ground::Bands(b) => {
+                let widths = |seq: &[crate::Band]| -> Vec<crate::Band> {
+                    seq.iter()
+                        .map(|band| crate::Band::new(band.width_mm * factor, band.slot))
+                        .collect()
+                };
+                Ground::Bands(Bands {
+                    vertical: widths(&b.vertical),
+                    horizontal: widths(&b.horizontal),
+                    crossings: b.crossings.clone(),
+                })
+            }
+            // Counted, not measured: `cells` is how many across the tile.
+            Ground::Texture(t) => Ground::Texture(t.clone()),
+            Ground::Ornament(o) => Ground::Ornament(Ornament {
+                cell_mm: o.cell_mm * factor,
+                stroke_mm: o.stroke_mm * factor,
+                ..o.clone()
+            }),
+        }
+    }
+
     /// The bands, when that is what this is.
     ///
     /// Present because the interface edits band sequences specifically, and a

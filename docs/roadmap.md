@@ -43,8 +43,14 @@ discriminate was removed rather than shipped.
 
 ## M7 — Dreamwoven pipeline
 
-Generation behind a trait, a style adapter, blocking quality gates, IP
-filtering, and garment-size-driven scale.
+Generation behind a trait, a style adapter, blocking quality gates, and IP
+filtering.
+
+**Garment-size-driven scale is built** — see
+[Features](./features.md#a-repeat-is-for-a-garment). It was never Dreamwoven-
+only: the spec asks for the same mechanism across Peel Club's size range with a
+human able to override it, which is what the control does. Dreamwoven's share
+of it is mapping an age to a size automatically rather than a person choosing.
 
 Not to be started until M1–M6 have produced a Peel Club range that went to
 fabric and came back right. Building it earlier means debugging generation,

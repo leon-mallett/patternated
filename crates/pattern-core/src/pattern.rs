@@ -34,6 +34,44 @@ pub struct Pattern {
 }
 
 impl Pattern {
+    /// The same design at a different physical size.
+    ///
+    /// Not a zoom. A 120 mm repeat and a 400 mm repeat are different designs,
+    /// which is the first invariant in this engine — and the reason this
+    /// exists is the other half of that thought: the *same* design worn by a
+    /// three-year-old and by an adult is also two different repeats, and
+    /// arriving at the second by hand means redoing every length.
+    ///
+    /// Everything in millimetres moves together: the tile, the lattice that
+    /// steps it, where each motif sits, and whatever the ground measures in
+    /// lengths. Motif sizes are not here, because a motif belongs to a library
+    /// rather than to one pattern — see `Document::scaled_by`.
+    ///
+    /// A placement's own `scale` is left alone: it is a multiplier on a motif's
+    /// natural size, so it follows once that size moves, and scaling both
+    /// would square the factor.
+    #[must_use]
+    pub fn scaled_by(&self, factor: f32) -> Self {
+        Self {
+            tile_size_mm: self.tile_size_mm * factor,
+            lattice: Lattice {
+                u: self.lattice.u * factor,
+                v: self.lattice.v * factor,
+            },
+            placements: self
+                .placements
+                .iter()
+                .map(|p| Placement {
+                    position_mm: p.position_mm * factor,
+                    ..p.clone()
+                })
+                .collect(),
+            ground: self.ground.as_ref().map(|g| g.scaled_by(factor)),
+            palette: self.palette.clone(),
+            seed: self.seed,
+        }
+    }
+
     /// Check that this pattern describes something that can actually be
     /// printed.
     ///
@@ -140,6 +178,147 @@ pub fn resolved_color_count(pattern: &Pattern, motifs: &[Motif]) -> usize {
     slots.sort_unstable();
     slots.dedup();
     slots.len()
+}
+
+#[cfg(test)]
+mod scaling_tests {
+    use super::*;
+    use crate::{Band, Bands, Figure, Ornament, Palette, Texture};
+
+    fn tile() -> Vec2 {
+        Vec2::new(240.0, 180.0)
+    }
+
+    fn pattern(ground: Option<crate::Ground>) -> Pattern {
+        Pattern {
+            tile_size_mm: tile(),
+            lattice: Lattice::half_drop(tile()),
+            placements: vec![Placement::new("cherry", Vec2::new(60.0, 40.0))],
+            ground,
+            palette: Palette::new(vec![
+                crate::Color::new(250, 246, 238),
+                crate::Color::new(1, 2, 3),
+            ]),
+            seed: 1,
+        }
+    }
+
+    #[test]
+    fn every_length_moves_together() {
+        // The whole point. If the tile grew and the lattice did not, the
+        // repeat would step by the wrong amount and every join would break; if
+        // positions did not, the motifs would huddle in one corner of a bigger
+        // tile.
+        let big = pattern(None).scaled_by(2.0);
+        assert_eq!(big.tile_size_mm, Vec2::new(480.0, 360.0));
+        assert_eq!(big.lattice.u, Lattice::half_drop(tile()).u * 2.0);
+        assert_eq!(big.lattice.v, Lattice::half_drop(tile()).v * 2.0);
+        assert_eq!(big.placements[0].position_mm, Vec2::new(120.0, 80.0));
+    }
+
+    #[test]
+    fn the_repeat_still_repeats_at_the_new_size() {
+        // A design that validated before has to validate after, or the scale
+        // control is a way of producing a pattern the engine will not render.
+        for ground in [
+            None,
+            Some(Bands::check(9.0, 8.0, 1, 1).into()),
+            Some(
+                Ornament {
+                    levels: vec![1],
+                    ..Ornament::default()
+                }
+                .into(),
+            ),
+        ] {
+            let mut p = pattern(ground);
+            // A ground needs a block lattice, so give it one before scaling.
+            if p.ground.is_some() {
+                p.lattice = Lattice::block(p.tile_size_mm);
+            }
+            p.validate().expect("valid before");
+            p.scaled_by(0.4).validate().expect("valid after");
+        }
+    }
+
+    #[test]
+    fn a_bands_widths_are_lengths_and_move() {
+        let banded = pattern(Some(
+            Bands {
+                vertical: vec![Band::new(20.0, 1)],
+                ..Bands::default()
+            }
+            .into(),
+        ))
+        .scaled_by(0.5);
+        let bands = banded
+            .ground
+            .as_ref()
+            .and_then(crate::Ground::as_bands)
+            .expect("bands");
+        assert_eq!(bands.vertical[0].width_mm, 10.0);
+    }
+
+    #[test]
+    fn an_ornaments_cell_is_a_length_and_its_texture_is_a_count() {
+        // The distinction the scaling turns on. A cell size is millimetres and
+        // has to grow with the fabric; a texture's cells are how many fit
+        // across the tile, so they follow it already and doubling them would
+        // halve the pattern instead of keeping it.
+        let drawn = pattern(Some(
+            Ornament {
+                cell_mm: 24.0,
+                stroke_mm: 4.0,
+                levels: vec![1],
+                figure: Figure::Truchet,
+                ..Ornament::default()
+            }
+            .into(),
+        ))
+        .scaled_by(2.0);
+        let o = drawn
+            .ground
+            .as_ref()
+            .and_then(crate::Ground::as_ornament)
+            .expect("ornament");
+        assert_eq!((o.cell_mm, o.stroke_mm), (48.0, 8.0));
+
+        let grown = pattern(Some(
+            Texture {
+                cells: 96,
+                levels: vec![crate::GROUND_SLOT, 1],
+                ..Texture::default()
+            }
+            .into(),
+        ))
+        .scaled_by(2.0);
+        let t = grown
+            .ground
+            .as_ref()
+            .and_then(crate::Ground::as_texture)
+            .expect("texture");
+        assert_eq!(t.cells, 96, "a count is not a length");
+    }
+
+    #[test]
+    fn a_placements_own_scale_is_left_where_it_was() {
+        // It multiplies a motif's natural size, and that size moves with the
+        // garment too. Scaling both would apply the factor twice.
+        let mut p = pattern(None);
+        p.placements[0].scale = 1.3;
+        assert_eq!(p.scaled_by(3.0).placements[0].scale, 1.3);
+    }
+
+    #[test]
+    fn scaling_there_and_back_returns_the_design() {
+        let there = pattern(Some(Bands::check(9.0, 8.0, 1, 1).into())).scaled_by(400.0 / 330.0);
+        let back = there.scaled_by(330.0 / 400.0);
+        let original = pattern(Some(Bands::check(9.0, 8.0, 1, 1).into()));
+        assert!((back.tile_size_mm - original.tile_size_mm).length() < 1e-3);
+        assert!(
+            (back.placements[0].position_mm - original.placements[0].position_mm).length() < 1e-3
+        );
+    }
 }
 
 #[cfg(test)]

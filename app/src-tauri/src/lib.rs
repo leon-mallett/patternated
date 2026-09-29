@@ -75,6 +75,9 @@ struct Opened {
     /// editor needs it, so that reopening a document shows the bands it has
     /// rather than an empty editor.
     ground: GroundSummary,
+    /// The garment this repeat's measurements were chosen against, if it has
+    /// ever been told. Absent means no opinion, not "adult".
+    drawn_for: Option<String>,
     band_slots: Vec<u8>,
     colourways: Vec<String>,
     active_colourway: Option<String>,
@@ -240,6 +243,7 @@ fn describe(path: &Path, document: &Document, bank: &MotifBank) -> Opened {
         palette: p.palette.colors.iter().map(hex).collect(),
         palette_colours: p.palette.len(),
         ground: ground_summary(p),
+        drawn_for: document.drawn_for.as_ref().map(|d| d.garment.clone()),
         band_slots: p
             .ground
             .as_ref()
@@ -909,6 +913,53 @@ fn garments() -> Vec<GarmentOption> {
             length_mm: g.length_mm,
         })
         .collect()
+}
+
+/// What cutting a design for a garment did.
+#[derive(Serialize)]
+struct Cut {
+    /// What everything was multiplied by. One means the document had never
+    /// been told which garment it was for, so there was no factor to apply.
+    factor: f32,
+    tile_mm: [f32; 2],
+    motifs: Vec<MotifEntry>,
+    drawn_for: String,
+}
+
+/// Cut this design for a garment, scaling the repeat and the motifs together.
+///
+/// Its own command rather than a parameter on `apply`, because it rewrites
+/// lengths that `apply` reads: a scale and a tile size arriving in the same
+/// request would race, and the one the designer moved last should win.
+#[tauri::command]
+fn cut_for(app: State<'_, App>, garment: String) -> Reply<Cut> {
+    let mut guard = app.session.lock().map_err(|e| fail("state", e))?;
+    let session = guard.as_mut().ok_or("no document is open")?;
+
+    let chest = pattern_render::Garment::standard()
+        .into_iter()
+        .find(|g| g.name == garment)
+        .map(|g| g.chest_mm)
+        .ok_or_else(|| format!("'{garment}' is not a size this tool knows"))?;
+
+    let factor = session
+        .document
+        .cut_for(&garment, chest)
+        .map_err(|e| fail("that size cannot be cut", e))?;
+
+    // The bank holds the sizes a render uses, and they have just moved.
+    let bank = session.document.load_motifs(&session.path);
+    if let Ok(bank) = bank {
+        session.bank = bank;
+    }
+
+    let tile = session.document.pattern.tile_size_mm;
+    Ok(Cut {
+        factor,
+        tile_mm: [tile.x, tile.y],
+        motifs: motif_entries(&session.bank, session.document.scatter.as_ref()),
+        drawn_for: garment,
+    })
 }
 
 /// A print on a garment, at true scale.
@@ -1938,6 +1989,7 @@ pub fn run() {
             open_document,
             new_from_images,
             new_plain,
+            cut_for,
             apply,
             save_target,
             export_plan,

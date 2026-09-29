@@ -42,6 +42,7 @@ export function makeOpened(over: Partial<Opened> = {}): Opened {
       direction: "both",
       crossings: "blend",
     },
+    drawn_for: null,
     band_slots: [],
     colourways: [],
     active_colourway: null,

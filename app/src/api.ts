@@ -17,6 +17,8 @@ export interface Opened {
   /** The ground as the sequence editor needs it, so reopening a document
    *  shows the bands it has rather than an empty editor. */
   ground: GroundSummary;
+  /** The garment this repeat was cut for, if it has ever been told. */
+  drawn_for: string | null;
   band_slots: number[];
   colourways: string[];
   active_colourway: string | null;
@@ -478,6 +480,24 @@ export function presetOf(ground: {
   }
   return "";
 }
+
+/** What cutting a design for a garment did. */
+export interface Cut {
+  /** What every length was multiplied by. One means the document had never
+   *  been told which garment it was for, so there was no factor to apply. */
+  factor: number;
+  tile_mm: [number, number];
+  motifs: MotifEntry[];
+  drawn_for: string;
+}
+
+/** Cut this design for a garment, scaling the repeat and the motifs together.
+ *
+ *  A 240 mm repeat reads completely differently on an adult shirt and on a
+ *  three-year-old's, so the size chart sets a factor on both the tile and the
+ *  motifs within it — scaling the tile alone leaves one enormous motif on a
+ *  small garment. */
+export const cutFor = (garment: string) => invoke<Cut>("cut_for", { garment });
 
 export const openDocument = (path: string) =>
   invoke<Opened>("open_document", { path });
