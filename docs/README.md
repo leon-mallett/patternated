@@ -1,6 +1,6 @@
 # Pattern Engine — documentation
 
-Last confirmed against: 1aa925c (2026-09-29)
+Last confirmed against: 22885c6 (2026-09-30)
 
 Deterministic repeat-pattern engine for textile printing. Motifs in,
 print-ready seamless patterns out.
