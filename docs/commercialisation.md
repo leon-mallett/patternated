@@ -1,5 +1,21 @@
 # Commercialisation
 
+> **2026-09-29 — Dreamwoven is the target.** Peel Club is a reference point and
+> not a destination, so the two-consumer framing below no longer describes the
+> intent. The page is kept because most of its reasoning does not depend on
+> which brand ships — the print route, the licensing position, the nightwear
+> rules and the case for selling a garment rather than software all stand.
+>
+> One argument does **not** survive, and it is the load-bearing one: *"Peel Club
+> needs the engine regardless of whether anyone else would buy it, which is what
+> makes building it straightforwardly worthwhile."* With Peel Club out, the
+> engine has no guaranteed consumer, and its worth now rests entirely on
+> Dreamwoven working. That is a real change in the risk and is recorded here
+> rather than quietly dropped.
+>
+> The stop-and-reassess paragraph below has been answered; see
+> [Roadmap](./roadmap.md#dreamwoven-is-the-target-2026-09-29).
+
 The engine is shared infrastructure under two consumer brands. **The product
 sold is a garment, not software.**
 

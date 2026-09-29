@@ -9,21 +9,36 @@ this page.
 
 **The spec directs a stop and reassessment here**, on the grounds that a working
 tool producing one good range answers the product question better than more
-planning. Everything below is explicitly optional.
+planning. That reassessment has happened — see below.
 
-## Screen printing, if a range goes that way
+## Dreamwoven is the target (2026-09-29)
 
-Not a milestone, because nothing has chosen it. Recorded so the door stays
-visibly open.
+The spec sequences the work Peel Club first, on the grounds that it was the real
+business and Dreamwoven the concept. That is no longer the case: **Peel Club is
+a reference point, not a destination.** Everything the engine does is now aimed
+at Dreamwoven.
 
-Per-colour separations are one file per palette slot, which is a rendering pass
-over data the engine already holds — the slot model was built for colourways
-and happens to be exactly what separations need. Alongside it: enforcing a
-maximum colour count in the palette generator, and showing a designer when a
-print has drifted past what screen printing can do.
+The spec is left intact as the record of why things were built the way they
+were. This page supersedes its sequencing, and the differences are these:
 
-Cheap to add when wanted. Expensive to have guessed at now, because the
-constraints that shape it come from a specific printer nobody has picked.
+- **The fabric gate survives, in a smaller form.** Its purpose was never the
+  brand — it was not debugging generation, style transfer and tiling at the same
+  time. What replaces "a Peel Club range that came back right" is **one test
+  metre**: a handful of motifs in roughly the target idiom, through the engine,
+  onto jersey at a real bureau, looked at by eye. Same risk retired, no business
+  required.
+- **Tracking detection is simply required.** It used to be a convenience for one
+  brand and a prerequisite for the other. Only the second half remains, because
+  no human approves an order.
+- **Screen printing is shelved.** Bespoke, one-garment-per-order pyjamas are
+  direct-to-garment or dye-sublimation; a screen setup needs a run length that
+  this product does not have. Per-colour separations remain a rendering pass
+  over data the engine already holds, so the door stays open at the same cost it
+  always did — but nothing is waiting on it, and the colour-count gate loses
+  most of its force with it, a DTG bureau's slot limit being effectively
+  unbounded.
+- **The unattended order path is the largest gap**, and no milestone names it.
+  See M7.
 
 ## M6 — Mockups and tracking detection
 
@@ -36,10 +51,9 @@ not discriminate. The numbers and the likely next approach are in
 [Decisions](./decisions.md#not-shipping-tracking-detection-having-built-it-twice).
 
 
-What remains is corridor detection with automatic reseed. It is a convenience
-for Peel Club and a prerequisite for Dreamwoven, so it wants building properly
-rather than as a warning badge — which is why a version that could not
-discriminate was removed rather than shipped.
+What remains is corridor detection with automatic reseed. With no human
+approving an order it is simply required, which is why a version that could not
+discriminate was removed rather than shipped behind a threshold.
 
 ## M7 — Dreamwoven pipeline
 
@@ -47,16 +61,30 @@ Generation behind a trait, a style adapter, blocking quality gates, and IP
 filtering.
 
 **Garment-size-driven scale is built** — see
-[Features](./features.md#a-repeat-is-for-a-garment). It was never Dreamwoven-
-only: the spec asks for the same mechanism across Peel Club's size range with a
-human able to override it, which is what the control does. Dreamwoven's share
-of it is mapping an age to a size automatically rather than a person choosing.
+[Features](./features.md#a-repeat-is-for-a-garment). What remains of it is
+mapping an age to a size automatically rather than a person choosing.
 
-Not to be started until M1–M6 have produced a Peel Club range that went to
-fabric and came back right. Building it earlier means debugging generation,
-style transfer and tiling simultaneously.
+### The order path does not exist
 
-Gated on two things that do not exist: a written style guide — line weight, fill
+Not a gate and not a gap in a gate — an absence. The product is that a parent
+names a child's age and a few favourite things and a print file comes out.
+Everything built so far is a desktop app a person drives, plus a CLI that
+renders a document somebody has already made. Nothing turns a brief into a
+finished pattern without a person in the middle.
+
+The [quality gates](./pattern-engine-spec.md#unattended-quality-gates) describe
+what checks that loop; three of the five are measured today and none of them
+blocks, because there is nothing yet for them to block. Building the loop is the
+larger job and the one that makes the gates mean anything.
+
+### Intellectual property is the top commercial risk
+
+Not a footnote. The spec expects licensed characters on a large share of orders
+rather than as an edge case, and rates **guided categories over a free-text box**
+as the single most effective control. That is an intake design decision, so it
+wants taking before the intake is written rather than retrofitted to it.
+
+### Still gated on two things that do not exist a written style guide — line weight, fill
 treatment, level of abstraction, palette rules — and roughly twenty commissioned
 reference pieces spanning an animal, a vehicle, a food, a plant, a manufactured
 object and a figure. The written guide is the more valuable of the two, since it
@@ -70,6 +98,12 @@ anything; that keeps outlay at zero until the approach is shown to hold.
 
 Not milestones, but not forgotten.
 
+- **A stretch repeat is not compensated.** Jersey is the obvious pyjama
+  substrate and it stretches, which distorts a print; the repeat may need
+  pre-distorting before it goes to the bureau. Recorded in the spec's prose and
+  nowhere else until now. How much, and in which axis, is a question for the
+  test metre rather than for a guess.
+
 - **Cross-platform determinism is verified on two platforms, not three.** CI
   runs the suite on Linux x86-64 and development happens on macOS arm64; the
   golden images agree as identical bytes, rotation included. Windows is
@@ -79,13 +113,13 @@ Not milestones, but not forgotten.
   deliberately deferred: they are the family the spec places in v2, and they are
   neither a lattice nor a grid, so they need a motif frame rather than another
   preset.
-- **Real Peel Club files have not been through the pipeline.** Downgraded from
-  the largest debt on 2026-09-20, when the artwork was confirmed to be
-  **digital rather than scanned**: that is the easy route through ingest and is
-  well covered by artwork of the same kind. What real exports may still bring is
-  very large dimensions, embedded colour profiles, CMYK, semi-transparent
-  texture layers, and baked-in drop shadows. M3's stated acceptance test still
-  cannot be ticked until the files exist.
+- **~~Real Peel Club files have not been through the pipeline.~~** Retired on
+  2026-09-29 when Peel Club stopped being a destination. The debt was about what
+  an illustrator's exports bring — very large dimensions, embedded profiles,
+  CMYK, semi-transparent texture layers, baked-in drop shadows. Dreamwoven's
+  inputs are model outputs on flat backgrounds, which is the easy route through
+  ingest and is already well covered. Left visible rather than deleted so that a
+  later reader can tell it was answered rather than forgotten.
 - **Quantisation uses an approximate colour metric.** Redmean rather than Oklab
   or CIELAB, because a perceptual space needs a cube root and `f32`
   transcendentals carry no cross-platform bit-exactness guarantee. Ingest runs

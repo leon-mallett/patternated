@@ -3,13 +3,16 @@
 Deterministic repeat-pattern engine for textile printing. Motifs in, print-ready
 seamless patterns out.
 
-Two consumers share this engine:
+**Dreamwoven is what this is for** — bespoke children's pyjamas, motifs
+generated per order, no human approving an order.
 
-- **Peel Club** — adult apparel, fruit prints, illustrations already exist. Live.
-- **Dreamwoven** — bespoke children's pyjamas, motifs generated per order. Concept.
+**Peel Club** — adult apparel, existing fruit-print illustrations — appears
+throughout the spec as the first consumer and is now a *reference point only*.
+Where the spec sequences work Peel Club first, `docs/roadmap.md` supersedes it.
+Do not treat a Peel Club need as a reason to build something.
 
-They share the engine and nothing visual. Full technical spec lives in
-`docs/pattern-engine-spec.md`.
+Full technical spec lives in `docs/pattern-engine-spec.md`; the spec is the
+record of reasoning, the roadmap is the live statement of intent.
 
 **Current milestone: past M5.** M1–M5 are complete and the spec directs a stop
 and reassessment there; `docs/roadmap.md` is the live statement of what is done,
@@ -93,9 +96,12 @@ generation or style adapters ahead of their milestone, however tempting the
 adjacent code makes it. Partial implementations of later milestones are worse
 than none — they get forgotten and then trusted.
 
-M7 is gated on a written style guide and reference artwork, and on a Peel Club
-range having gone to fabric and come back right. Those are the gates, not the
-calendar.
+M7 is gated on a written style guide and reference artwork, and on **one test
+metre** — a few motifs in the target idiom, through the engine, onto jersey at a
+real bureau, looked at by eye. Those are the gates, not the calendar.
+
+The largest thing M7 needs is not a gate at all: **there is no order path.**
+Nothing turns a brief into a finished pattern without a person driving the app.
 
 Explicitly out of bounds right now:
 
