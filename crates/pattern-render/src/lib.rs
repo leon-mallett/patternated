@@ -21,7 +21,7 @@ use tiny_skia::{FilterQuality, Pixmap, PixmapPaint, PremultipliedColorU8, Transf
 /// dependency of their own risks two versions of the same crate.
 pub use tiny_skia;
 
-pub use mockup::{render_mockup, Garment, Mockup};
+pub use mockup::{render_mockup, Cut, Garment, Mockup};
 pub use motif::{resolve, MotifBank};
 pub use pixel_lattice::PixelLattice;
 pub use raster::{draw_vector, RasterError};

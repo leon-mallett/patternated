@@ -120,7 +120,7 @@ mod garment_scale {
         let factor = d.cut_for("T-shirt, adult M", 510.0).expect("should record");
         assert_eq!(factor, 1.0);
         assert_eq!(d.pattern.tile_size_mm, before);
-        assert_eq!(d.drawn_for.as_ref().expect("recorded").chest_mm, 510.0);
+        assert_eq!(d.drawn_for.as_ref().expect("recorded").across_mm, 510.0);
     }
 
     #[test]

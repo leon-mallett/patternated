@@ -623,7 +623,7 @@ export const saveDocument = (path?: string) =>
 /** A garment a print can be seen on, by the measurements a size chart lists. */
 export interface GarmentOption {
   name: string;
-  chest_mm: number;
+  across_mm: number;
   length_mm: number;
 }
 
@@ -635,7 +635,7 @@ export interface MockupView {
   width: number;
   height: number;
   repeats_across: number;
-  chest_mm: number;
+  across_mm: number;
   length_mm: number;
 }
 

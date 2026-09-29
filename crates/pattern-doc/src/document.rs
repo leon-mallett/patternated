@@ -117,7 +117,7 @@ pub struct DrawnFor {
     /// Chest rather than length or shoulder, because a repeat reads *across* a
     /// body: it is the dimension the eye counts repeats along, and the one the
     /// garment preview already reports.
-    pub chest_mm: f32,
+    pub across_mm: f32,
 }
 
 fn no_cells() -> (u32, u32) {
@@ -798,12 +798,12 @@ impl Document {
     /// # Errors
     ///
     /// If the garment has no positive chest width to scale by.
-    pub fn cut_for(&mut self, garment: &str, chest_mm: f32) -> Result<f32> {
-        if !chest_mm.is_finite() || chest_mm <= 0.0 {
+    pub fn cut_for(&mut self, garment: &str, across_mm: f32) -> Result<f32> {
+        if !across_mm.is_finite() || across_mm <= 0.0 {
             return Err(anyhow!("a garment needs a chest width to scale by"));
         }
         let factor = match &self.drawn_for {
-            Some(previous) if previous.chest_mm > 0.0 => chest_mm / previous.chest_mm,
+            Some(previous) if previous.across_mm > 0.0 => across_mm / previous.across_mm,
             _ => 1.0,
         };
         if factor != 1.0 {
@@ -816,7 +816,7 @@ impl Document {
         }
         self.drawn_for = Some(DrawnFor {
             garment: garment.to_string(),
-            chest_mm,
+            across_mm,
         });
         Ok(factor)
     }

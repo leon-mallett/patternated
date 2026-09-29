@@ -101,7 +101,7 @@ vi.mock("./api", async (importOriginal) => {
       width: 1,
       height: 1,
       repeats_across: 1,
-      chest_mm: 1,
+      across_mm: 1,
       length_mm: 1,
     }),
     closeDocument: async (discard: boolean) => {

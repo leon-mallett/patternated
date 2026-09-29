@@ -917,7 +917,7 @@ fn export(app: State<'_, App>, path: String, request: ExportRequest) -> Reply<St
 #[derive(Serialize)]
 struct GarmentOption {
     name: String,
-    chest_mm: f32,
+    across_mm: f32,
     length_mm: f32,
 }
 
@@ -927,7 +927,7 @@ fn garments() -> Vec<GarmentOption> {
         .into_iter()
         .map(|g| GarmentOption {
             name: g.name,
-            chest_mm: g.chest_mm,
+            across_mm: g.across_mm,
             length_mm: g.length_mm,
         })
         .collect()
@@ -957,7 +957,7 @@ fn cut_for(app: State<'_, App>, garment: String) -> Reply<Cut> {
     let chest = pattern_render::Garment::standard()
         .into_iter()
         .find(|g| g.name == garment)
-        .map(|g| g.chest_mm)
+        .map(|g| g.across_mm)
         .ok_or_else(|| format!("'{garment}' is not a size this tool knows"))?;
 
     let factor = session
@@ -986,10 +986,11 @@ struct MockupView {
     png_base64: String,
     width: u32,
     height: u32,
-    /// How many repeats span the chest — the number this view exists to make
-    /// obvious.
+    /// How many repeats span the garment's width — the number this view
+    /// exists to make obvious. A chest on a top, a hip on trousers, a brim on
+    /// a hat.
     repeats_across: f32,
-    chest_mm: f32,
+    across_mm: f32,
     length_mm: f32,
 }
 
@@ -1030,7 +1031,7 @@ fn mockup(
         width: rendered.pixmap.width(),
         height: rendered.pixmap.height(),
         repeats_across: rendered.repeats_across,
-        chest_mm: chosen.chest_mm,
+        across_mm: chosen.across_mm,
         length_mm: chosen.length_mm,
     })
 }

@@ -1976,3 +1976,42 @@ criterion and left the app no better off: a subscriber writing to a terminal
 nobody is watching is the same failure with more machinery. Returned data is
 what an interface can show, a test can assert on, and a caller can ignore
 deliberately.
+
+---
+
+## A garment has a cut, and its width is not a chest
+
+**Decided.** `Garment` carries an explicit `Cut` — panel, top, legs,
+dungarees, hat, tote, pyjamas — and its width is `across_mm`.
+
+**Why a cut.** The shape used to be inferred from whether `sleeve_mm` was
+greater than one, which worked for exactly the two shapes there were and could
+not express a third. A hat has no sleeve length to be zero.
+
+**Why not `chest_mm`.** It is the number a repeat is scaled against, so it has
+to mean the same thing for every shape, and a hat has no chest. `across_mm` is
+named for what it is *for* — the width the print reads across — rather than for
+one garment's anatomy.
+
+**Pyjamas are one shape, not two garments.** The outline is two contours in one
+path, so they are filled and stroked together and the same cloth runs across
+both halves. That is the difference between a pair of pyjamas and a top and
+trousers that happen to match, and it costs nothing: the renderer already
+filled whatever path it was given.
+
+**Three faults a picture found and no test would have.** A long sleeve reached
+in proportion to its length and gave a T-pose three times as wide as it was
+tall. A pair of dungarees lost the tops of its straps off the top of the frame.
+A hat's brim overshot the hem by ten millimetres. Every number was right in all
+three; each was obvious the moment the shape was drawn.
+
+**So two tests now say what the pictures said.** Every silhouette must fit the
+frame its own extent describes — the extent decides the canvas, so anything
+past it is clipped silently — and no two cuts may cover the same share of their
+frame. The share is measured by *drawing* the silhouette, because the first
+attempt compared bounding boxes and a pair of legs and a pair of dungarees both
+fill theirs exactly.
+
+**And the reach is worked out in one place.** The extent and the outline each
+computed the sleeve separately and could disagree; a silhouette drawn wider
+than the frame it was measured for is clipped without anything failing.

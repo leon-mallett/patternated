@@ -7,7 +7,7 @@
 mod support;
 
 use pattern_core::Lattice;
-use pattern_render::{render_mockup, Garment};
+use pattern_render::{render_mockup, Cut, Garment};
 use support::{bank, scattered_pattern, TILE};
 
 /// Widest unbroken run of motif-coloured pixels on any row — near enough to
@@ -114,20 +114,106 @@ fn every_standard_garment_renders() {
 }
 
 #[test]
-fn a_garment_is_taller_than_it_is_wide_unless_it_is_a_cushion() {
-    // A cheap guard on the outline maths: a t-shirt whose extent came out
-    // square would mean the sleeve reach had swallowed the body.
+fn every_silhouette_fits_the_frame_it_was_measured_for() {
+    // The extent decides the canvas; the outline is drawn into it. Anything
+    // the outline reaches past is clipped, and nothing fails — a pair of
+    // dungarees lost the tops of its straps that way and a hat lost the
+    // underside of its brim, both found by looking at a picture rather than by
+    // any test here.
     for g in Garment::standard() {
         let e = g.extent_mm();
-        if g.name.starts_with("Cushion") {
-            assert!((e.x - e.y).abs() < 1.0, "{} is not square", g.name);
-        } else {
-            assert!(
-                e.x > g.chest_mm && e.x < g.chest_mm * 2.0,
+        let bounds = g.outline_bounds().expect("every garment has an outline");
+        assert!(
+            bounds.left() >= -0.5
+                && bounds.top() >= -0.5
+                && bounds.right() <= e.x + 0.5
+                && bounds.bottom() <= e.y + 0.5,
+            "{} is drawn outside the {:.0} x {:.0} mm frame it asked for: {bounds:?}",
+            g.name,
+            e.x,
+            e.y
+        );
+    }
+}
+
+#[test]
+fn an_extent_says_what_each_cut_actually_needs() {
+    // Replaces a test that required every garment to be wider than its chest.
+    // That was true of the only two shapes there were and is false of
+    // trousers, a hat and a tote, which are exactly as wide as they measure.
+    for g in Garment::standard() {
+        let e = g.extent_mm();
+        assert!(
+            e.x >= g.across_mm - 0.5 && e.y >= g.length_mm - 0.5,
+            "{} is smaller than its own measurements",
+            g.name
+        );
+        match &g.cut {
+            // Sleeves reach past the body, and not by more than the body.
+            Cut::Top { .. } => assert!(
+                e.x > g.across_mm && e.x < g.across_mm * 2.0,
                 "{} reaches {:.0} mm across a {:.0} mm chest",
                 g.name,
                 e.x,
-                g.chest_mm
+                g.across_mm
+            ),
+            // Two pieces side by side, so wider than either.
+            Cut::Pyjamas { .. } => assert!(
+                e.x > g.across_mm * 2.0,
+                "{} should stand two pieces side by side, and is {:.0} mm wide",
+                g.name,
+                e.x
+            ),
+            // Handles rise above the bag rather than beside it.
+            Cut::Tote { .. } => {
+                assert!((e.x - g.across_mm).abs() < 0.5);
+                assert!(e.y > g.length_mm, "{} has no room for its handles", g.name);
+            }
+            Cut::Panel | Cut::Legs { .. } | Cut::Dungarees { .. } | Cut::Hat { .. } => {
+                assert!(
+                    (e.x - g.across_mm).abs() < 0.5 && (e.y - g.length_mm).abs() < 0.5,
+                    "{} should be exactly its own measurements",
+                    g.name
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn no_two_cuts_draw_the_same_shape() {
+    // A silhouette is judged by eye, and the one thing a test can say about a
+    // set of them is that they are a set: a cut whose arm fell through to
+    // another's would be trousers that rendered as a cushion, and the numbers
+    // would all still be right.
+    //
+    // Compared as the share of its own frame the silhouette covers when it is
+    // drawn — a square panel fills it, a pair of legs does not. The area of a
+    // *bounding box* was the first attempt and is one for legs and one for
+    // dungarees, which are not remotely the same shape.
+    let mut by_cut: Vec<(&'static str, f32)> = Vec::new();
+    for g in Garment::standard() {
+        let label = match g.cut {
+            Cut::Panel => "panel",
+            Cut::Top { .. } => "top",
+            Cut::Legs { .. } => "legs",
+            Cut::Dungarees { .. } => "dungarees",
+            Cut::Hat { .. } => "hat",
+            Cut::Tote { .. } => "tote",
+            Cut::Pyjamas { .. } => "pyjamas",
+        };
+        if by_cut.iter().any(|(seen, _)| *seen == label) {
+            continue;
+        }
+        by_cut.push((label, g.coverage()));
+    }
+
+    assert_eq!(by_cut.len(), 7, "a cut is missing from the size chart");
+    for (i, (a, fill_a)) in by_cut.iter().enumerate() {
+        for (b, fill_b) in by_cut.iter().skip(i + 1) {
+            assert!(
+                (fill_a - fill_b).abs() > 0.01,
+                "{a} and {b} fill their frames identically ({fill_a:.4})"
             );
         }
     }

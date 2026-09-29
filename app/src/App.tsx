@@ -864,9 +864,9 @@ export default function App() {
             <div className="worn-caption">
               <strong>{wearing}</strong>
               <span className="muted">
-                {Math.round(worn.chest_mm / 10)} × {Math.round(worn.length_mm / 10)} cm
+                {Math.round(worn.across_mm / 10)} × {Math.round(worn.length_mm / 10)} cm
                 {" · "}
-                {worn.repeats_across.toFixed(1)} repeats across the chest
+                {worn.repeats_across.toFixed(1)} repeats across
               </span>
             </div>
           </div>

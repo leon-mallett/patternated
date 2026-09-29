@@ -883,13 +883,25 @@ changing it. One is a lens; this is a decision.
 
 ## Garment mockups
 
-The print on a garment, at true scale. Six to choose from, built from standard
-size-chart figures: t-shirts from age 3–4 to adult L, and a 45 cm cushion.
+The print on a garment, at true scale. Eighteen to choose from, built from
+standard size-chart figures, in seven cuts: tops short- and long-sleeved,
+trousers, shorts, dungarees, a bucket hat, a tote bag, a cushion, and pyjamas —
+a top and trousers side by side in the one cloth, which is what makes them a
+pair rather than two garments that happen to match.
 
 The size range is the point. A 240 mm repeat reads completely differently on an
 adult shirt and a three-year-old's, and the only way to see that is to look.
-Beside each is **repeats across the chest** — two is a bold print, eleven is a
-texture, a fifth of one is a placement print that happens to be tiled.
+Beside each is **repeats across** — two is a bold print, eleven is a texture, a
+fifth of one is a placement print that happens to be tiled. Across the chest on
+a top, the hip on trousers, the brim on a hat: one number that means the same
+thing for every shape, because it is also what a repeat is scaled against when
+a design is [cut for a garment](#a-repeat-is-for-a-garment).
+
+A long sleeve hangs rather than sticking out. Reaching in proportion to its
+length is right for a short sleeve and gives a long-sleeved top a T-pose three
+times as wide as it is tall — which defeats the only thing this view is for,
+because the body it is meant to be judged against becomes a strip in the
+middle.
 
 A silhouette rather than a photograph. Warping a print onto folds is a much
 larger piece of work, and it would make the one thing this exists for — the
