@@ -437,6 +437,99 @@ fn brief() -> Vec<Asset> {
     ]
 }
 
+/// Build the pattern for a given set of asset sizes.
+///
+/// Split out so the same brief can be solved twice and the two layouts
+/// compared — which is the only way to answer what a size slider in a buyer's
+/// hands would actually do to the picture.
+fn solve(assets: &[Asset], sizes: &[f32], seed: u64, density: f32) -> (Pattern, Vec<String>) {
+    let mix: Vec<MotifWeight> = assets
+        .iter()
+        .zip(sizes)
+        .map(|(a, size)| MotifWeight {
+            motif_id: a.id.into(),
+            weight: a.tier.weight(),
+            required: a.tier.required(),
+            natural_size_mm: Vec2::splat(*size),
+            radius_fraction: 0.74,
+        })
+        .collect();
+
+    let lattice = Lattice::block(TILE);
+    let params = ScatterParams {
+        density,
+        rotation_jitter_deg: 10.0,
+        scale_range: (0.9, 1.1),
+        motif_mix: mix,
+        prevent_overlap: true,
+        mirror: Mirror::None,
+        on_axis_share: 0.0,
+        seed,
+    };
+    let outcome = pattern_core::scatter_with_outcome(&params, TILE, &lattice);
+    (
+        Pattern {
+            tile_size_mm: TILE,
+            lattice,
+            placements: outcome.placements,
+            ground: None,
+            palette: palette(),
+            seed,
+        },
+        outcome.unplaced_required,
+    )
+}
+
+/// How much of one layout survives into another, 0..1.
+///
+/// A placement counts as surviving when the same motif is within a millimetre
+/// of where it was. Deliberately strict: the question is whether a person
+/// watching the preview would see a nudge or a reshuffle.
+fn survival(before: &[pattern_core::Placement], after: &[pattern_core::Placement]) -> f32 {
+    if before.is_empty() {
+        return 1.0;
+    }
+    let kept = before
+        .iter()
+        .filter(|b| {
+            after
+                .iter()
+                .any(|a| a.motif_id == b.motif_id && (a.position_mm - b.position_mm).length() < 1.0)
+        })
+        .count();
+    kept as f32 / before.len() as f32
+}
+
+/// Pairs of placements whose ink now intersects, measured on the torus.
+///
+/// The same relation the sampler enforces while it is placing, asked after the
+/// fact — which is what a control that moves nothing but size needs to know.
+fn overlapping_pairs(pattern: &Pattern, assets: &[Asset]) -> usize {
+    let radius = |pl: &pattern_core::Placement| -> f32 {
+        let a = assets
+            .iter()
+            .find(|a| a.id == pl.motif_id)
+            .expect("placement names an asset of this brief");
+        Vec2::splat(a.size_mm).length() / 2.0 * 0.74 * pl.scale
+    };
+    let p = &pattern.placements;
+    let mut hits = 0;
+    for i in 0..p.len() {
+        for j in (i + 1)..p.len() {
+            let touching = radius(&p[i]) + radius(&p[j]);
+            if pattern_core::lattice_distance_sq(
+                p[i].position_mm,
+                p[j].position_mm,
+                &pattern.lattice,
+            ) < touching * touching
+            {
+                hits += 1;
+            }
+        }
+    }
+    hits
+}
+
 fn main() {
     let out = std::env::args().nth(1).unwrap_or_else(|| ".".to_string());
     std::fs::create_dir_all(&out).expect("output directory");
@@ -472,51 +565,57 @@ fn main() {
             .expect("code-drawn art rasterises");
     }
 
-    let mix: Vec<MotifWeight> = assets
-        .iter()
-        .map(|a| MotifWeight {
-            motif_id: a.id.into(),
-            weight: a.tier.weight(),
-            required: a.tier.required(),
-            natural_size_mm: Vec2::splat(a.size_mm),
-            radius_fraction: 0.74,
-        })
-        .collect();
+    let seed: u64 = std::env::var("S")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20261001);
+    let density: f32 = std::env::var("D")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0.30);
 
-    let lattice = Lattice::block(TILE);
-    let params = ScatterParams {
-        density: std::env::var("D")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(0.30),
-        rotation_jitter_deg: 10.0,
-        scale_range: (0.9, 1.1),
-        motif_mix: mix,
-        prevent_overlap: true,
-        mirror: Mirror::None,
-        on_axis_share: 0.0,
-        seed: std::env::var("S")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(20261001),
-    };
-
-    let outcome = pattern_core::scatter_with_outcome(&params, TILE, &lattice);
-    if !outcome.unplaced_required.is_empty() {
+    let base: Vec<f32> = assets.iter().map(|a| a.size_mm).collect();
+    let (pattern, unplaced) = solve(&assets, &base, seed, density);
+    if !unplaced.is_empty() {
         println!(
             "COULD NOT PLACE: {} — the tile has no room for them",
-            outcome.unplaced_required.join(", ")
+            unplaced.join(", ")
         );
     }
 
-    let pattern = Pattern {
-        tile_size_mm: TILE,
-        lattice,
-        placements: outcome.placements,
-        ground: None,
-        palette: palette(),
-        seed: 20261001,
-    };
+    // `BIGGER=unicorn:1.4` re-solves with one asset resized, and reports how
+    // much of the first layout survived. That is the question a size slider in
+    // a buyer's hands actually asks.
+    if let Ok(spec) = std::env::var("BIGGER") {
+        let (id, factor) = spec.split_once(':').expect("BIGGER=<motif>:<factor>");
+        let factor: f32 = factor.parse().expect("factor");
+        let nudged: Vec<f32> = assets
+            .iter()
+            .zip(&base)
+            .map(|(a, s)| if a.id == id { s * factor } else { *s })
+            .collect();
+        let (after, _) = solve(&assets, &nudged, seed, density);
+        println!(
+            "re-solved   {id} x{factor}: {} -> {} placements, {:.0}% of the layout survived",
+            pattern.placements.len(),
+            after.placements.len(),
+            survival(&pattern.placements, &after.placements) * 100.0,
+        );
+
+        // The alternative: leave every position alone and change only the
+        // placement's own scale. The layout survives entirely by construction,
+        // so the only question is whether anything now collides.
+        let mut in_place = pattern.clone();
+        for pl in &mut in_place.placements {
+            if pl.motif_id == id {
+                pl.scale *= factor;
+            }
+        }
+        println!(
+            "scaled in place {id} x{factor}: 100% of the layout survived, {} overlapping pairs",
+            overlapping_pairs(&in_place, &assets),
+        );
+    }
 
     let motifs: Vec<_> = bank.motifs().into_iter().cloned().collect();
     println!(
@@ -525,7 +624,7 @@ fn main() {
         TILE.x,
         TILE.y,
         pattern_core::resolved_color_count(&pattern, &motifs),
-        pattern_core::alignment(&pattern.placements, TILE, &lattice),
+        pattern_core::alignment(&pattern.placements, TILE, &pattern.lattice),
         pattern_core::WORTH_A_LOOK,
     );
 

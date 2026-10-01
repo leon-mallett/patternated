@@ -97,6 +97,39 @@ A grid refuses the flag outright rather than ignoring it: it fills every cell
 from the weighted mix and has no coverage guarantee to offer, so accepting the
 flag there would be a lie.
 
+## A size control must not re-solve the layout
+
+The buyer sees the pattern and can adjust it — resize individual motifs, choose
+an arrangement. That has one hard engineering consequence, measured rather than
+guessed.
+
+Scatter is a whole-cloth solve. Separation depends on every motif's radius, so
+changing one motif's size changes acceptance decisions, which changes which
+darts land, which changes everything after them. Re-solving the reference brief
+with a single asset resized:
+
+| Change | Layout surviving a re-solve | Scaled in place |
+| --- | --- | --- |
+| unicorn ×1.4 | 4% | 100%, 1 overlapping pair |
+| unicorn ×1.2 | 8% | 100%, 1 overlapping pair |
+| stegosaur ×1.3 | 4% | 100%, 2 overlapping pairs |
+| sparkle ×1.5 | 8% | 100%, 0 overlapping pairs |
+
+A slider that re-solves is not "make the dinosaur bigger". It is "reroll the
+entire design, and also the dinosaur is bigger" — on every tick of the drag.
+
+So a size control changes [`Placement::scale`](../crates/pattern-core/src/placement.rs)
+on the placements already solved, and touches no position. The layout survives
+by construction and the only question left is collisions, which come out at
+nought to two pairs at the sizes a person would plausibly ask for. That is
+small enough to clamp the control against: the slider's maximum is where the
+existing layout starts to collide, which is computable from the layout in hand.
+
+Re-solving still belongs behind an explicit control — a **shuffle** — where a
+wholesale change is what was asked for rather than a surprise. Shuffle is also
+a reseed, which is what the tracking check wants when it fires, so the same
+button serves the buyer and the quality gate.
+
 ## Seeing it
 
 ```bash
