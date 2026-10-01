@@ -267,23 +267,25 @@ fn owl(body: u8, face: u8) -> VectorMotif {
 
 // ------------------------------------------------------------------- fillers
 
+/// A crescent, as one closed path of two arcs.
+///
+/// Not two circles with `even_odd`. Even-odd fills what is covered an odd
+/// number of times, which subtracts one disc from another only while the
+/// biting disc lies wholly inside the other — and a crescent needs it to
+/// overlap the edge, so the part hanging outside gets *filled* rather than
+/// removed. That turned the moon into a ring, and since the bite also reached
+/// past the view box, the stray arc was clipped flat on the right as well.
+///
+/// Two arcs bounding one region has no such ambiguity, and stays in the box.
 fn moon() -> VectorMotif {
-    VectorMotif {
-        view: Rect::from_xywh(0.0, 0.0, 100.0, 100.0).expect("unit box"),
-        shapes: vec![VectorShape {
-            path: {
-                let mut pb = PathBuilder::new();
-                pb.push_circle(50.0, 50.0, 42.0);
-                pb.push_circle(68.0, 40.0, 36.0);
-                pb.finish().expect("crescent")
-            },
-            slot: ink::CREAM,
-            // The one shape here that genuinely wants even-odd: it is what
-            // bites the second disc out of the first.
-            even_odd: true,
-            opacity: 255,
-        }],
-    }
+    let mut pb = PathBuilder::new();
+    pb.move_to(74.0, 16.0);
+    // Outer edge, bulging left to about x = 23.
+    pb.cubic_to(6.0, 20.0, 6.0, 80.0, 74.0, 84.0);
+    // Inner edge, returning with a shallower bulge to about x = 50.
+    pb.cubic_to(42.0, 78.0, 42.0, 22.0, 74.0, 16.0);
+    pb.close();
+    motif(vec![(pb.finish().expect("crescent"), ink::CREAM)])
 }
 
 fn star() -> VectorMotif {
@@ -431,6 +433,30 @@ fn main() {
     let assets = brief();
     let mut bank = MotifBank::new();
     for a in &assets {
+        // Anything outside the view box is clipped without a word, which is
+        // how the moon came to have a straight edge down one side. Cheap to
+        // assert, invisible otherwise.
+        for (i, s) in a.art.shapes.iter().enumerate() {
+            let b = s.path.bounds();
+            let v = a.art.view;
+            assert!(
+                b.left() >= v.left()
+                    && b.top() >= v.top()
+                    && b.right() <= v.right()
+                    && b.bottom() <= v.bottom(),
+                "{}: shape {i} runs outside the view box and will be clipped \
+                 ({:.1},{:.1})-({:.1},{:.1}) against ({:.1},{:.1})-({:.1},{:.1})",
+                a.id,
+                b.left(),
+                b.top(),
+                b.right(),
+                b.bottom(),
+                v.left(),
+                v.top(),
+                v.right(),
+                v.bottom(),
+            );
+        }
         bank.insert_vector(a.id, Vec2::splat(a.size_mm), a.art.clone())
             .expect("code-drawn art rasterises");
     }

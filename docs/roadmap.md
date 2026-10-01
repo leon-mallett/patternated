@@ -98,6 +98,17 @@ anything; that keeps outlay at zero until the approach is shown to hold.
 
 Not milestones, but not forgotten.
 
+- **SVG artwork outside its own view box is silently dropped.** `read_svg`
+  keeps a shape whose bounds fall outside the view, but the view is what gets
+  rasterised, so the shape is clipped away at render with no note. Measured on
+  a two-disc test file: one disc inside the box, one at x 150–210 against a
+  0–100 view, both kept at import and only one printable. `palette_sample`
+  weights colours by bounding-box area, so the lost shape can also pull a
+  colour into the derived palette that never reaches the cloth. Clipping is
+  correct for a browser showing an SVG and wrong for a motif, where the
+  artwork *is* the subject. The fix is a decision rather than a patch — widen
+  the view to the content, or keep clipping and raise a `Note` — so it is
+  recorded rather than guessed at.
 - **A stretch repeat is not compensated.** Jersey is the obvious pyjama
   substrate and it stretches, which distorts a print; the repeat may need
   pre-distorting before it goes to the bureau. Recorded in the spec's prose and
