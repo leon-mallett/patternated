@@ -125,6 +125,29 @@ nought to two pairs at the sizes a person would plausibly ask for. That is
 small enough to clamp the control against: the slider's maximum is where the
 existing layout starts to collide, which is computable from the layout in hand.
 
+### Design at the maximum, ship under it
+
+Knowing the headroom exposes a second problem. `prevent_overlap` packs a tile
+until motifs nearly touch, so a layout solved at the size it is drawn has
+almost no slack in it — the heroes of the reference brief come out at **×1.01**.
+A "make the unicorn bigger" slider with one per cent of travel is not a
+control.
+
+The fix is to solve the layout as though every motif were larger than it will
+be drawn, and then draw it smaller. Every motif can then grow back into space
+the layout already reserved, and shrinking was always free. At a slack of 1.3
+the heroes go from ×1.01 to about ×1.4–1.5.
+
+It is paid for in **density, and only density**. Solving at larger sizes fits
+fewer motifs — 25 placements become 14 — and the density control buys them
+back: 0.30 with no slack and 0.55 at a slack of 1.3 both give 24 or 25.
+
+One claim was nearly recorded here that turned out to be false. A single render
+at slack 1.3 scored 0.54 for tracking against 0.28 without, and read as more
+regular by eye, which looked like slack buying corridors. Averaged over eight
+seeds the figures are 0.42, 0.49 and 0.34 for slack 1.0, 1.2 and 1.3 — noise,
+with no trend. One seed is not a measurement of a stochastic process.
+
 Re-solving still belongs behind an explicit control — a **shuffle** — where a
 wholesale change is what was asked for rather than a surprise. Shuffle is also
 a reseed, which is what the tracking check wants when it fires, so the same

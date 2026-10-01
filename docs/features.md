@@ -868,6 +868,26 @@ And the physical size reported is the one implied by the file's pixels rather
 than the design's nominal size, because quantising the tile moves it by a
 fraction of a millimetre — see below.
 
+## How much a motif can grow
+
+`growth_headroom` answers, for one motif, how far it can be scaled up before
+its ink meets a neighbour's — as a multiplier on its current size, capped at
+`MOST_GROWTH`. `growth_headroom_for_each` answers for every motif in the mix at
+once, which is what an interface clamping a slider per motif needs.
+
+Distances are measured on the lattice torus, so a motif near a tile edge is
+judged against the neighbours it actually has on the cloth. A neighbour of a
+*different* motif stays put and the whole gap is available; a neighbour of the
+*same* motif grows at the same moment, so that pair closes from both ends and
+gets half the gap each.
+
+Alongside it, `scale_in_place` resizes every placement of one motif without
+moving anything, and `overlapping_pairs` asks after the fact whether any ink
+now intersects.
+
+Together these let a size control bound itself instead of checking its result.
+See [From brief to pattern](./from-brief-to-pattern.md#a-size-control-must-not-re-solve-the-layout).
+
 ## A motif can be required to appear
 
 A scatter mix entry carries `required`. Weight is a tendency and a tendency is

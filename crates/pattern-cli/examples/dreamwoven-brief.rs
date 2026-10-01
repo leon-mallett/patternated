@@ -442,8 +442,8 @@ fn brief() -> Vec<Asset> {
 /// Split out so the same brief can be solved twice and the two layouts
 /// compared — which is the only way to answer what a size slider in a buyer's
 /// hands would actually do to the picture.
-fn solve(assets: &[Asset], sizes: &[f32], seed: u64, density: f32) -> (Pattern, Vec<String>) {
-    let mix: Vec<MotifWeight> = assets
+fn mix_of(assets: &[Asset], sizes: &[f32]) -> Vec<MotifWeight> {
+    assets
         .iter()
         .zip(sizes)
         .map(|(a, size)| MotifWeight {
@@ -453,7 +453,11 @@ fn solve(assets: &[Asset], sizes: &[f32], seed: u64, density: f32) -> (Pattern, 
             natural_size_mm: Vec2::splat(*size),
             radius_fraction: 0.74,
         })
-        .collect();
+        .collect()
+}
+
+fn solve(assets: &[Asset], sizes: &[f32], seed: u64, density: f32) -> (Pattern, Vec<String>) {
+    let mix = mix_of(assets, sizes);
 
     let lattice = Lattice::block(TILE);
     let params = ScatterParams {
@@ -500,36 +504,6 @@ fn survival(before: &[pattern_core::Placement], after: &[pattern_core::Placement
     kept as f32 / before.len() as f32
 }
 
-/// Pairs of placements whose ink now intersects, measured on the torus.
-///
-/// The same relation the sampler enforces while it is placing, asked after the
-/// fact — which is what a control that moves nothing but size needs to know.
-fn overlapping_pairs(pattern: &Pattern, assets: &[Asset]) -> usize {
-    let radius = |pl: &pattern_core::Placement| -> f32 {
-        let a = assets
-            .iter()
-            .find(|a| a.id == pl.motif_id)
-            .expect("placement names an asset of this brief");
-        Vec2::splat(a.size_mm).length() / 2.0 * 0.74 * pl.scale
-    };
-    let p = &pattern.placements;
-    let mut hits = 0;
-    for i in 0..p.len() {
-        for j in (i + 1)..p.len() {
-            let touching = radius(&p[i]) + radius(&p[j]);
-            if pattern_core::lattice_distance_sq(
-                p[i].position_mm,
-                p[j].position_mm,
-                &pattern.lattice,
-            ) < touching * touching
-            {
-                hits += 1;
-            }
-        }
-    }
-    hits
-}
-
 fn main() {
     let out = std::env::args().nth(1).unwrap_or_else(|| ".".to_string());
     std::fs::create_dir_all(&out).expect("output directory");
@@ -574,8 +548,28 @@ fn main() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(0.30);
 
-    let base: Vec<f32> = assets.iter().map(|a| a.size_mm).collect();
-    let (pattern, unplaced) = solve(&assets, &base, seed, density);
+    // `SLACK=1.25` solves the layout as though every motif were a quarter
+    // larger, then draws everything at 1/1.25 of that.
+    //
+    // The picture is the same and the slider is not. Solved at the size it is
+    // drawn, a motif in a tile packed by `prevent_overlap` has essentially no
+    // room — the heroes of this brief come out at ×1.01 — so "make the unicorn
+    // bigger" would be a control with no travel. Solving at the largest size
+    // anything may reach and drawing below it means every motif can grow back
+    // to where the layout already has space for it, and shrinking was always
+    // free. Design at the maximum, ship under it.
+    let slack: f32 = std::env::var("SLACK")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1.0);
+
+    let base: Vec<f32> = assets.iter().map(|a| a.size_mm * slack).collect();
+    let (mut pattern, unplaced) = solve(&assets, &base, seed, density);
+    if slack != 1.0 {
+        for pl in &mut pattern.placements {
+            pl.scale /= slack;
+        }
+    }
     if !unplaced.is_empty() {
         println!(
             "COULD NOT PLACE: {} — the tile has no room for them",
@@ -605,16 +599,27 @@ fn main() {
         // The alternative: leave every position alone and change only the
         // placement's own scale. The layout survives entirely by construction,
         // so the only question is whether anything now collides.
-        let mut in_place = pattern.clone();
-        for pl in &mut in_place.placements {
-            if pl.motif_id == id {
-                pl.scale *= factor;
-            }
-        }
+        let mut in_place = pattern.placements.clone();
+        pattern_core::scale_in_place(&mut in_place, id, factor);
         println!(
             "scaled in place {id} x{factor}: 100% of the layout survived, {} overlapping pairs",
-            overlapping_pairs(&in_place, &assets),
+            pattern_core::overlapping_pairs(&in_place, &pattern.lattice, &mix_of(&assets, &base)),
         );
+    }
+
+    // What a buyer's sliders would actually be bounded by.
+    println!("growth headroom, in place:");
+    for (id, room) in pattern_core::growth_headroom_for_each(
+        &pattern.placements,
+        &pattern.lattice,
+        &mix_of(&assets, &base),
+    ) {
+        let note = if room >= pattern_core::MOST_GROWTH {
+            "  (nothing in the way)"
+        } else {
+            ""
+        };
+        println!("  {id:>12}  up to x{room:.2}{note}");
     }
 
     let motifs: Vec<_> = bank.motifs().into_iter().cloned().collect();
