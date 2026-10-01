@@ -2105,3 +2105,51 @@ carries a line: that it is seamless on all four sides, that the printer lays it
 edge to edge, and that it will look far emptier than the preview — same size on
 the cloth, fewer of them in the picture. The control's own wording was already
 accurate; what was missing was the comparison the eye was about to make.
+
+## Dreamwoven's styles are prompt instructions, not engine modes
+
+**2026-10-01.**
+
+A first draft treated style as something the engine produced — idioms the
+renderer drew in, themes built from rule-drawn grounds and mood palettes. That
+is the wrong layer. Cartoony, flat, photo-real, stickman, watercolour, a
+borrowed colour scheme: all of these are instructions to the image model, and
+the engine's job begins after the style already exists. Nothing in the renderer
+needs a case for any of them.
+
+What the engine does impose, on every prompt regardless of style, is one
+subject isolated on a flat background — because ingest mattes by paper
+measurement and alpha and there is no background-removal model — and
+quantisation onto one shared palette, which is the main thing making a dozen
+separately generated assets read as a design.
+
+Reopened if a background-removal model is added, which would lift the first
+clause, or if full-colour motifs are carried alongside indexed ones, which
+would lift the second and cost colourways.
+
+See [From brief to pattern](./from-brief-to-pattern.md).
+
+## Scatter cannot guarantee a named interest appears
+
+**2026-10-01.**
+
+Measured, not reasoned. Twelve assets from one brief in a 300 mm tile, scatter
+sampling each placement independently from the weighted mix: at density 0.30,
+seven to nine of the twelve assets appear; at 0.60, with more than twice the
+placements, still seven to nine. Density is not the variable. A hero holds
+about 3% of the mix weight, so it is absent from roughly one tile in five
+whatever the placement count.
+
+The first render of the reference brief had no unicorn in it, having been asked
+for unicorns.
+
+This is not a quality gate. A gate rejects what the sampler produced and asks
+for another seed; no reseed makes an absent asset appear, because every seed
+draws from the same independent process. It needs a coverage constraint in the
+sampler — every asset placed once before the weighted mix fills the rest — and
+that is an engine change not present in M1–M5.
+
+Not built yet: it changes `scatter`, which is load-bearing for everything, and
+the right time is alongside the order path rather than ahead of it.
+
+See [From brief to pattern](./from-brief-to-pattern.md#the-unsolved-problem-a-named-interest-can-be-absent).

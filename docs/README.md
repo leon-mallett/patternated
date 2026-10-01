@@ -1,6 +1,6 @@
 # Pattern Engine — documentation
 
-Last confirmed against: fa9e15b (2026-09-29)
+Last confirmed against: 54bf6fe (2026-10-01)
 
 Deterministic repeat-pattern engine for textile printing. Motifs in,
 print-ready seamless patterns out.
@@ -21,8 +21,9 @@ print-ready seamless patterns out.
   and no accounts.
 - [Commercialisation](./commercialisation.md) — two consumer brands over one
   engine.
-- [House styles](./house-styles.md) — the theme and idiom dials Dreamwoven's
-  buyer chooses between, in draft.
+- [From brief to pattern](./from-brief-to-pattern.md) — how a child's
+  interests become a printable repeat, and the one problem that stops an
+  order shipping.
 
 ## Checking it
 
