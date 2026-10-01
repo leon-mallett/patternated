@@ -34,6 +34,17 @@ const CANDIDATES_PER_SAMPLE: u32 = 30;
 /// ten or so motifs a single seed can land 10% either side.
 const PACKING_EFFICIENCY: f32 = 0.53;
 
+/// Darts per active sample spent trying to honour an outstanding requirement
+/// before falling back to the weighted mix.
+///
+/// A budget rather than a free hand. Spend none and a required motif relies on
+/// luck; spend all of them and one motif too large for the room left starves
+/// every other placement, because each attempt is a dart that could have gone
+/// somewhere useful. Measured against the reference brief: at one dart, eleven
+/// or twelve of twelve motifs land; at four, twelve of twelve on every seed
+/// and density tried, with no measurable cost to the scatter's density.
+const REQUIREMENT_DARTS: u32 = 4;
+
 /// One motif available to a scatter, and how often it should appear.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MotifWeight {
@@ -41,6 +52,26 @@ pub struct MotifWeight {
     /// Relative, not a probability: weights need not sum to anything. A print
     /// that is 60% cherries and 10% pineapples is written as 6 and 1.
     pub weight: f32,
+
+    /// Whether this motif must appear in the tile at least once.
+    ///
+    /// Weight is a *tendency*, and a tendency is not a guarantee: each
+    /// placement draws from the mix independently, so a motif holding a few
+    /// per cent of the weight is simply absent from roughly one tile in five,
+    /// and adding placements barely moves that. Measured, not supposed —
+    /// twelve motifs at density 0.30 put seven to nine of them in a tile, and
+    /// at 0.60, with twice the placements, still seven to nine.
+    ///
+    /// That is survivable for decoration and not for a brief. A child who
+    /// asked for unicorns and received pyjamas without one has been sold the
+    /// wrong thing, and no amount of reseeding helps, because every seed draws
+    /// from the same process.
+    ///
+    /// So this is a constraint rather than a preference. A required motif is
+    /// offered the tile while it is emptiest, and one that still could not be
+    /// placed is reported by [`scatter_with_outcome`] rather than passed over.
+    #[serde(default)]
+    pub required: bool,
     /// Needed to turn a coverage target into a separation radius, and to keep
     /// a large motif from being packed as tightly as a small one.
     pub natural_size_mm: Vec2,
@@ -138,18 +169,71 @@ fn unit_range() -> (f32, f32) {
 /// do, not a fault.
 #[must_use]
 pub fn scatter(params: &ScatterParams, tile_size_mm: Vec2, lattice: &Lattice) -> Vec<Placement> {
+    scatter_with_outcome(params, tile_size_mm, lattice).placements
+}
+
+/// What a scatter produced, and what it could not fit.
+///
+/// The second half is the point. A motif marked
+/// [`required`](MotifWeight::required) that did not make it into the tile is
+/// not a lower-quality pattern, it is the wrong pattern — and unlike a density
+/// that landed short, nothing downstream can notice on its own.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScatterOutcome {
+    pub placements: Vec<Placement>,
+    /// Motif ids that were required and could not be placed, in mix order.
+    ///
+    /// Empty in the ordinary case. Non-empty means either that the tile is too
+    /// small for everything asked of it, or that a required motif is large
+    /// enough that nothing else leaves room for it.
+    pub unplaced_required: Vec<String>,
+}
+
+/// The same scatter, saying which requirements it could not meet.
+///
+/// Mirrors [`grid_with_outcome`](crate::grid_with_outcome): the plain function
+/// is what most callers want, and the one that reports is there for the caller
+/// who must not proceed on a silent shortfall.
+#[must_use]
+pub fn scatter_with_outcome(
+    params: &ScatterParams,
+    tile_size_mm: Vec2,
+    lattice: &Lattice,
+) -> ScatterOutcome {
+    // Mix order, so the report reads in the order the caller wrote them.
+    let mut pending: Vec<usize> = params
+        .motif_mix
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| m.required && m.weight.max(0.0) > 0.0)
+        .map(|(i, _)| i)
+        .collect();
+
+    let named = |pending: &[usize]| -> Vec<String> {
+        pending
+            .iter()
+            .map(|i| params.motif_mix[*i].motif_id.clone())
+            .collect()
+    };
+
     if params.motif_mix.is_empty()
         || params.density <= 0.0
         || tile_size_mm.x <= 0.0
         || tile_size_mm.y <= 0.0
         || lattice.is_degenerate()
     {
-        return Vec::new();
+        return ScatterOutcome {
+            placements: Vec::new(),
+            unplaced_required: named(&pending),
+        };
     }
 
     let radius = separation_radius(params, tile_size_mm);
     if radius <= 0.0 {
-        return Vec::new();
+        return ScatterOutcome {
+            placements: Vec::new(),
+            unplaced_required: named(&pending),
+        };
     }
 
     // A mirror repeat is designed in part of the tile and reflected into the
@@ -158,8 +242,11 @@ pub fn scatter(params: &ScatterParams, tile_size_mm: Vec2, lattice: &Lattice) ->
     // real on the fabric as the motif is.
     let cell = params.mirror.cell_size_mm(tile_size_mm);
     let mut rng = ChaCha8Rng::seed_from_u64(params.seed);
-    let designed = poisson_disc(params, radius, cell, lattice, &mut rng);
-    reflect(&designed, tile_size_mm, params.mirror)
+    let designed = poisson_disc(params, radius, cell, lattice, &mut rng, &mut pending);
+    ScatterOutcome {
+        placements: reflect(&designed, tile_size_mm, params.mirror),
+        unplaced_required: named(&pending),
+    }
 }
 
 /// One accepted motif, with everything the separation test needs to know.
@@ -337,6 +424,7 @@ fn poisson_disc(
     cell_size_mm: Vec2,
     lattice: &Lattice,
     rng: &mut ChaCha8Rng,
+    pending: &mut Vec<usize>,
 ) -> Vec<Placement> {
     let radius_sq = radius * radius;
     let mirror = params.mirror;
@@ -357,8 +445,15 @@ fn poisson_disc(
         }
     };
 
-    let draw = |rng: &mut ChaCha8Rng, position_mm: Vec2| -> Sample {
-        let motif = choose_motif_index(&params.motif_mix, rng);
+    // `forced` names a motif that must appear, overriding the weighted draw.
+    // It deliberately consumes no randomness when it fires: a mix with nothing
+    // required walks exactly the sequence it always did, so every existing
+    // document and golden image is untouched.
+    let draw = |rng: &mut ChaCha8Rng, position_mm: Vec2, forced: Option<usize>| -> Sample {
+        let motif = match forced {
+            Some(i) => i,
+            None => choose_motif_index(&params.motif_mix, rng),
+        };
         let rotation_deg = symmetric_value(rng, params.rotation_jitter_deg);
         let scale = between_values(rng, params.scale_range.0, params.scale_range.1);
         let entry = &params.motif_mix[motif];
@@ -379,10 +474,13 @@ fn poisson_disc(
     // `self_image_distance_sq` is infinite, the first attempt always takes,
     // and the random draw is the same sequence it always was.
     let mut first = None;
-    for _ in 0..CANDIDATES_PER_SAMPLE {
+    for attempt in 0..CANDIDATES_PER_SAMPLE {
         let start = Vec2::new(unit(rng) * cell_size_mm.x, unit(rng) * cell_size_mm.y);
         let start = mount(rng, start);
-        let candidate = draw(rng, start);
+        // Only the first attempt, so a requirement that cannot be met under a
+        // mirror does not consume every try and leave the tile empty.
+        let forced = (attempt == 0).then(|| pending.first().copied()).flatten();
+        let candidate = draw(rng, start, forced);
         let touching = 2.0 * candidate.radius_mm;
         let required_sq = if params.prevent_overlap {
             radius_sq.max(touching * touching)
@@ -390,6 +488,7 @@ fn poisson_disc(
             radius_sq
         };
         if self_image_distance_sq(candidate.position_mm, lattice, mirror) >= required_sq {
+            pending.retain(|i| *i != candidate.motif);
             first = Some(candidate);
             break;
         }
@@ -407,16 +506,34 @@ fn poisson_disc(
     let mut samples = vec![first];
     let mut active = vec![0usize];
 
+    let mut round = 0usize;
     while !active.is_empty() {
         let slot = bounded(rng, active.len() as u32) as usize;
         let origin = samples[active[slot]].position_mm;
         let mut accepted = false;
 
-        for _ in 0..CANDIDATES_PER_SAMPLE {
+        // Rotated rather than taken in order: a requirement that will never
+        // fit would otherwise sit at the head of the queue and the ones behind
+        // it would never be offered a place at all.
+        let offered = if pending.is_empty() {
+            None
+        } else {
+            Some(pending[round % pending.len()])
+        };
+        round = round.wrapping_add(1);
+
+        for attempt in 0..CANDIDATES_PER_SAMPLE {
             let position =
                 fold_into_cell(origin + annulus_offset(rng, radius), cell_size_mm, mirror);
             let position = mount(rng, position);
-            let candidate = draw(rng, position);
+            // Part of each sample's budget spent on the requirement, the rest
+            // on the mix, so a motif too large for the space left costs a few
+            // darts rather than all of them.
+            let candidate = draw(
+                rng,
+                position,
+                (attempt < REQUIREMENT_DARTS).then_some(offered).flatten(),
+            );
 
             let required = |other: f32| {
                 if params.prevent_overlap {
@@ -470,6 +587,7 @@ fn poisson_disc(
                 });
 
             if fits {
+                pending.retain(|i| *i != candidate.motif);
                 index.insert(samples.len(), candidate.position_mm, candidate.radius_mm);
                 samples.push(candidate);
                 active.push(samples.len() - 1);
@@ -615,6 +733,7 @@ mod tests {
         vec![MotifWeight {
             motif_id: "cherry".into(),
             weight: 1.0,
+            required: false,
             natural_size_mm: Vec2::new(22.0, 22.0),
             radius_fraction: 1.0,
         }]
@@ -1297,7 +1416,14 @@ mod tests {
         for seed in 0..8u64 {
             let radius = 18.0;
             let mut rng = ChaCha8Rng::seed_from_u64(seed);
-            let points = poisson_disc(&probe_params(), radius, TILE, &lattice, &mut rng);
+            let points = poisson_disc(
+                &probe_params(),
+                radius,
+                TILE,
+                &lattice,
+                &mut rng,
+                &mut Vec::new(),
+            );
 
             let area = TILE.x * TILE.y;
             let hexagonal = 1.154_700_5 * area / (radius * radius);
@@ -1426,12 +1552,14 @@ mod tests {
                 MotifWeight {
                     motif_id: "cherry".into(),
                     weight: 6.0,
+                    required: false,
                     natural_size_mm: Vec2::new(30.0, 30.0),
                     radius_fraction: 1.0,
                 },
                 MotifWeight {
                     motif_id: "pineapple".into(),
                     weight: 1.0,
+                    required: false,
                     natural_size_mm: Vec2::new(30.0, 30.0),
                     radius_fraction: 1.0,
                 },
@@ -1447,6 +1575,142 @@ mod tests {
         assert!(
             (share - 6.0 / 7.0).abs() < 0.15,
             "cherries were {share:.2} of the scatter, expected about 0.86"
+        );
+    }
+
+    /// A mix where several motifs are rare enough to go missing by chance.
+    ///
+    /// Deliberately lopsided: each rare motif holds about 3% of the weight,
+    /// which is the share a child's named interest actually holds in a brief
+    /// of a dozen assets.
+    ///
+    /// **Three** of them rather than one, and that is load-bearing. The very
+    /// first sample has nothing to be tested against, so it is handed the
+    /// first outstanding requirement and always places it — a fixture with a
+    /// single requirement therefore passes without the main loop doing any
+    /// work at all. It was written that way first and proved exactly nothing;
+    /// setting the dart budget to zero left it green.
+    fn lopsided_mix(rare_are_required: bool) -> ScatterParams {
+        let rare = |id: &str| MotifWeight {
+            motif_id: id.into(),
+            weight: 1.0,
+            required: rare_are_required,
+            natural_size_mm: Vec2::new(40.0, 40.0),
+            radius_fraction: 1.0,
+        };
+        ScatterParams {
+            density: 0.3,
+            rotation_jitter_deg: 0.0,
+            scale_range: (1.0, 1.0),
+            prevent_overlap: true,
+            mirror: Mirror::None,
+            on_axis_share: 0.0,
+            motif_mix: vec![
+                MotifWeight {
+                    motif_id: "star".into(),
+                    weight: 36.0,
+                    required: false,
+                    natural_size_mm: Vec2::new(18.0, 18.0),
+                    radius_fraction: 1.0,
+                },
+                rare("unicorn"),
+                rare("dinosaur"),
+                rare("truck"),
+            ],
+            seed: 1,
+        }
+    }
+
+    const RARE: [&str; 3] = ["unicorn", "dinosaur", "truck"];
+
+    /// How many seeds in 1..=40 lose at least one of the rare motifs.
+    fn seeds_missing_something(required: bool) -> usize {
+        (1..=40u64)
+            .filter(|seed| {
+                let mut p = lopsided_mix(required);
+                p.seed = *seed;
+                let placements = scatter(&p, TILE, &Lattice::block(TILE));
+                RARE.iter()
+                    .any(|id| !placements.iter().any(|pl| pl.motif_id == *id))
+            })
+            .count()
+    }
+
+    #[test]
+    fn a_required_motif_appears_whatever_the_seed() {
+        assert_eq!(
+            seeds_missing_something(true),
+            0,
+            "a required motif was absent from at least one tile"
+        );
+        // And the report agrees. Without this the outcome could announce a
+        // shortfall that did not happen, which would send an unattended
+        // pipeline into reseeding a pattern that was already correct.
+        let outcome = scatter_with_outcome(&lopsided_mix(true), TILE, &Lattice::block(TILE));
+        assert!(
+            outcome.unplaced_required.is_empty(),
+            "placed motifs were still reported outstanding: {:?}",
+            outcome.unplaced_required
+        );
+    }
+
+    #[test]
+    fn without_the_flag_a_rare_motif_really_does_go_missing() {
+        // The test above is worth nothing unless this one holds, and a weight
+        // that happened to be generous would make it vacuous. This is the
+        // measurement the flag exists for.
+        let missing = seeds_missing_something(false);
+        assert!(
+            missing > 0,
+            "the mix is not lopsided enough to lose a rare motif, so the \
+             requirement test proves nothing"
+        );
+    }
+
+    #[test]
+    fn a_requirement_that_cannot_be_met_is_named_rather_than_dropped() {
+        // A mirror is where a motif genuinely cannot be placed: more than half
+        // the cell across and it collides with its own reflection wherever it
+        // is put. Without one, size alone does not stop a placement — the very
+        // first sample has nothing to be tested against, so a motif larger
+        // than the tile is laid down quite happily and overlaps itself across
+        // the repeat. That surprised this test before it surprised anyone.
+        let mut p = lopsided_mix(true);
+        p.mirror = Mirror::FourWay;
+        p.motif_mix[1].natural_size_mm = Vec2::new(TILE.x * 3.0, TILE.y * 3.0);
+        let outcome = scatter_with_outcome(&p, TILE, &Lattice::block(TILE));
+        assert!(
+            outcome.unplaced_required.contains(&"unicorn".to_string()),
+            "an impossible requirement has to be reported, not passed over; got {:?}",
+            outcome.unplaced_required
+        );
+    }
+
+    #[test]
+    fn spending_darts_on_a_requirement_does_not_thin_the_scatter() {
+        // The budget is the whole design: a required motif takes some of every
+        // sample's attempts, and one set too high would quietly cost the
+        // pattern its density while appearing to work.
+        let lattice = Lattice::block(TILE);
+        let loose = scatter(&lopsided_mix(false), TILE, &lattice).len() as f32;
+        let strict = scatter(&lopsided_mix(true), TILE, &lattice).len() as f32;
+        assert!(
+            strict >= loose * 0.85,
+            "requiring three motifs cost the scatter {loose} -> {strict} placements"
+        );
+    }
+
+    #[test]
+    fn a_degenerate_request_still_reports_what_it_could_not_place() {
+        // Nothing is placed, so everything required is outstanding. Reporting
+        // an empty list here would say the requirements were met.
+        let mut p = lopsided_mix(true);
+        p.density = 0.0;
+        let outcome = scatter_with_outcome(&p, TILE, &Lattice::block(TILE));
+        assert!(outcome.placements.is_empty());
+        assert_eq!(
+            outcome.unplaced_required,
+            RARE.iter().map(|s| (*s).to_string()).collect::<Vec<_>>()
         );
     }
 

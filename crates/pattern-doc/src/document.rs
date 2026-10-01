@@ -215,6 +215,12 @@ pub struct GridSpec {
 pub struct MixEntry {
     pub motif_id: String,
     pub weight: f32,
+    /// Must this motif appear in the tile at least once?
+    ///
+    /// Scatter only. See [`MotifWeight::required`](pattern_core::MotifWeight::required)
+    /// for why a weight is not a guarantee.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub required: bool,
 }
 
 /// Where one motif comes from.
@@ -522,6 +528,7 @@ impl Document {
             mix.push(MotifWeight {
                 motif_id: entry.motif_id.clone(),
                 weight: entry.weight,
+                required: entry.required,
                 natural_size_mm,
                 radius_fraction: bank
                     .get(&entry.motif_id)
@@ -572,9 +579,21 @@ impl Document {
                     entry.motif_id
                 )
             })?;
+            // Refused rather than ignored. A grid fills every cell from the
+            // weighted mix and has no mechanism for guaranteeing one appears,
+            // so honouring the flag here would be a lie and dropping it
+            // quietly would be a worse one.
+            if entry.required {
+                return Err(anyhow!(
+                    "motif '{}' is marked required, which only a scatter can honour; \
+                     a grid has no coverage guarantee to offer",
+                    entry.motif_id
+                ));
+            }
             mix.push(MotifWeight {
                 motif_id: entry.motif_id.clone(),
                 weight: entry.weight,
+                required: false,
                 natural_size_mm: motif.natural_size_mm,
                 radius_fraction: motif.indexed.coverage_radius_fraction(),
             });
@@ -1150,6 +1169,11 @@ pub fn new_from_images_noting(
         });
         mix.push(MixEntry {
             motif_id: id,
+            // Not required by default. A person dropping artwork into the tool
+            // is arranging it and can see what came out; a brief assembled
+            // without anyone looking is the case that needs the guarantee, and
+            // it asks for it explicitly.
+            required: false,
             weight: 1.0,
         });
     }
@@ -1169,6 +1193,7 @@ pub fn new_from_images_noting(
         });
         mix.push(MixEntry {
             motif_id: id,
+            required: false,
             weight: 1.0,
         });
     }

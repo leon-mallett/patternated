@@ -262,6 +262,7 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
         motif_mix: vec![MotifWeight {
             motif_id: "cherry".into(),
             weight: 1.0,
+            required: false,
             natural_size_mm: Vec2::new(26.0, 26.0),
             radius_fraction: 1.0,
         }],
@@ -311,6 +312,7 @@ pub fn mirrored_pattern_with(
         motif_mix: vec![MotifWeight {
             motif_id: "cherry".into(),
             weight: 1.0,
+            required: false,
             // The size the bank actually draws, unlike the fixture above,
             // which understates it on purpose to force overlaps. Here the
             // sampler's separation has to be the true one or motifs intersect

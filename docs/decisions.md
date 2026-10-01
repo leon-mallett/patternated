@@ -2149,7 +2149,30 @@ draws from the same independent process. It needs a coverage constraint in the
 sampler — every asset placed once before the weighted mix fills the rest — and
 that is an engine change not present in M1–M5.
 
-Not built yet: it changes `scatter`, which is load-bearing for everything, and
-the right time is alongside the order path rather than ahead of it.
+**Built, 2026-10-01**, having first been deferred here on the reasoning that
+`scatter` is load-bearing and the right moment was alongside the order path.
+That was wrong in one respect: the constraint is independent of the order path,
+and the reference brief already gave it a test. Deferring it would have meant
+carrying a known product-breaking defect for the sake of a sequencing
+preference.
 
-See [From brief to pattern](./from-brief-to-pattern.md#the-unsolved-problem-a-named-interest-can-be-absent).
+A mix entry carries `required`, defaulting false so every existing document and
+golden image is untouched — the determinism suite passes byte-identical, which
+is the check that mattered. Required motifs take part of each sample's dart
+budget, so they are placed while the tile is emptiest, and the budget is capped
+at four darts of thirty: spend none and the motif relies on luck, spend all and
+one oversized requirement starves every other placement. `scatter_with_outcome`
+names what it could not fit.
+
+Two test-design notes, because both were nearly missed:
+
+- A fixture with **one** required motif proves nothing. The first sample has
+  nothing to be tested against, so it is handed the first outstanding
+  requirement and always places it; the test passed with the dart budget set to
+  zero. Three requirements are the minimum that exercises the main loop.
+- A motif larger than the tile is still placed, for the same reason — the seed
+  sample skips the acceptance test. Genuine impossibility needs a mirror, where
+  a motif more than half the cell across collides with its own reflection
+  wherever it is put.
+
+See [From brief to pattern](./from-brief-to-pattern.md#every-named-interest-appears).

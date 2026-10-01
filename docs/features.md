@@ -868,6 +868,26 @@ And the physical size reported is the one implied by the file's pixels rather
 than the design's nominal size, because quantising the tile moves it by a
 fraction of a millimetre — see below.
 
+## A motif can be required to appear
+
+A scatter mix entry carries `required`. Weight is a tendency and a tendency is
+not a guarantee — a motif holding a few per cent of the mix is absent from
+about one tile in five, and adding placements barely moves that — so anything
+that *must* be on the cloth says so.
+
+A required motif takes part of each sample's dart budget, which places it while
+the tile is still emptiest. `scatter_with_outcome` returns the placements
+alongside `unplaced_required`: the motifs it could not fit, by name. An empty
+list is the ordinary case; a non-empty one means the tile is too small for
+everything asked of it, which the caller can act on and silence could not.
+
+A grid refuses the flag rather than ignoring it, having no coverage guarantee
+to offer.
+
+Defaults to false, so every pattern that predates it behaves exactly as it did.
+
+See [From brief to pattern](./from-brief-to-pattern.md#every-named-interest-appears).
+
 ## A repeat is for a garment
 
 A 240 mm repeat reads completely differently on an adult shirt and on a

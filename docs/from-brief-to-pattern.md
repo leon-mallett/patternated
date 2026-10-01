@@ -60,11 +60,11 @@ child, they are what makes the space between heroes look intentional, and they
 are what carries the "night time" read that the background colour alone does
 not.
 
-## The unsolved problem: a named interest can be absent
+## Every named interest appears
 
-**This is the one that stops an order shipping.** Scatter samples each
-placement independently from the weighted mix, so nothing guarantees that every
-asset appears. Measured on the brief above, twelve assets in a 300 mm tile:
+Scatter samples each placement independently from the weighted mix, so for most
+of this engine's life nothing guaranteed that a given motif appeared at all.
+Measured on the brief above, before the fix:
 
 | Density | Placements | Assets present |
 | --- | --- | --- |
@@ -72,17 +72,30 @@ asset appears. Measured on the brief above, twelve assets in a 300 mm tile:
 | 0.45 | 34–41 | 8–9 of 12 |
 | 0.60 | 46–50 | 7–9 of 12 |
 
-Doubling the placements does not improve coverage, because the problem is not
-scarcity. A hero holds about 3% of the mix weight, so its chance of being
-absent from a given tile is roughly one in five however many placements there
-are. The first render of this brief had no unicorn on it at all, and a parent
-who asked for unicorns will not accept a pattern without one.
+Doubling the placements did nothing, because scarcity was not the problem. A
+hero holds about 3% of the mix weight, so it was absent from roughly one tile
+in five however many placements there were. The first render of this brief had
+no unicorn on it.
 
-The fix is a **coverage constraint rather than a probability**: every asset
-placed at least once per tile before the weighted mix fills the remainder. That
-is an engine change, it is not in M1–M5, and it belongs with the unattended
-gates rather than alongside them — a gate can only reject what the sampler
-produced, and no amount of reseeding makes an absent unicorn appear.
+A mix entry can now be marked **required**. A required motif is offered part of
+each sample's dart budget, which means it is placed while the tile is still
+emptiest, and `scatter_with_outcome` **names any requirement it could not
+meet** rather than passing over it. Twelve of twelve now land on every seed and
+density tried.
+
+Two things about the shape of this are worth keeping:
+
+- **It is a constraint in the sampler, not a gate after it.** A gate rejects
+  what the sampler produced and asks for another seed; every seed draws from
+  the same process, so no reseed makes an absent unicorn appear.
+- **The report is as important as the constraint.** A tile can be genuinely too
+  small for everything asked of it, and that has to arrive as a named
+  shortfall — the caller can then shrink a motif, grow the tile or ask a
+  person. Silence would be indistinguishable from success.
+
+A grid refuses the flag outright rather than ignoring it: it fills every cell
+from the weighted mix and has no coverage guarantee to offer, so accepting the
+flag there would be a lie.
 
 ## Seeing it
 

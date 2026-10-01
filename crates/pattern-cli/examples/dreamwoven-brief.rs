@@ -39,8 +39,7 @@
 
 use glam::Vec2;
 use pattern_core::{
-    scatter, Color, Lattice, Mirror, MotifWeight, Palette, Pattern, ScatterParams, VectorMotif,
-    VectorShape,
+    Color, Lattice, Mirror, MotifWeight, Palette, Pattern, ScatterParams, VectorMotif, VectorShape,
 };
 use pattern_render::{render_field, MotifBank};
 use tiny_skia::{PathBuilder, Rect};
@@ -340,6 +339,18 @@ impl Tier {
             Tier::Filler => 2.6,
         }
     }
+
+    /// Must it appear at all?
+    ///
+    /// Everything generated for the order, which is to say everything the
+    /// child actually asked for. A filler is occasion dressing and turns up on
+    /// weight alone; a hero that fails to turn up is the wrong product.
+    fn required(self) -> bool {
+        match self {
+            Tier::Hero | Tier::Secondary => true,
+            Tier::Filler => false,
+        }
+    }
 }
 
 struct Asset {
@@ -466,6 +477,7 @@ fn main() {
         .map(|a| MotifWeight {
             motif_id: a.id.into(),
             weight: a.tier.weight(),
+            required: a.tier.required(),
             natural_size_mm: Vec2::splat(a.size_mm),
             radius_fraction: 0.74,
         })
@@ -489,10 +501,18 @@ fn main() {
             .unwrap_or(20261001),
     };
 
+    let outcome = pattern_core::scatter_with_outcome(&params, TILE, &lattice);
+    if !outcome.unplaced_required.is_empty() {
+        println!(
+            "COULD NOT PLACE: {} — the tile has no room for them",
+            outcome.unplaced_required.join(", ")
+        );
+    }
+
     let pattern = Pattern {
         tile_size_mm: TILE,
         lattice,
-        placements: scatter(&params, TILE, &lattice),
+        placements: outcome.placements,
         ground: None,
         palette: palette(),
         seed: 20261001,

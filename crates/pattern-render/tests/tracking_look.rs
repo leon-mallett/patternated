@@ -27,6 +27,7 @@ fn clean(seed: u64) -> Vec<Placement> {
             motif_mix: vec![MotifWeight {
                 motif_id: "cherry".into(),
                 weight: 1.0,
+                required: false,
                 natural_size_mm: Vec2::splat(30.0),
                 radius_fraction: 1.0,
             }],

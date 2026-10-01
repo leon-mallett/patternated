@@ -19,6 +19,7 @@ fn mix(size_mm: f32) -> Vec<MotifWeight> {
     vec![MotifWeight {
         motif_id: "cherry".into(),
         weight: 1.0,
+        required: false,
         natural_size_mm: Vec2::splat(size_mm),
         radius_fraction: 1.0,
     }]

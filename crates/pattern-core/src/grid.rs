@@ -301,6 +301,7 @@ mod tests {
         vec![MotifWeight {
             motif_id: "cherry".into(),
             weight: 1.0,
+            required: false,
             natural_size_mm: Vec2::new(40.0, 40.0),
             radius_fraction: 0.71,
         }]
