@@ -318,6 +318,11 @@ fn sparkle() -> VectorMotif {
 
 // ---------------------------------------------------------------------- tiers
 
+/// What kind of thing an asset is, which decides only whether it must appear.
+///
+/// It used to decide abundance too, and that was wrong: stars and moons are
+/// both occasion fillers and a night sky wants several times more stars. How
+/// many of a thing there are is per asset — see [`Asset::abundance`].
 #[derive(Clone, Copy)]
 enum Tier {
     Hero,
@@ -326,20 +331,6 @@ enum Tier {
 }
 
 impl Tier {
-    /// How often one of these turns up, relative to the others.
-    ///
-    /// Heroes are what the child asked for and are therefore the thing a
-    /// pattern must not be crowded with: six large animals per tile reads as a
-    /// toy box tipped out. Fillers are what make the gaps between heroes look
-    /// intentional.
-    fn weight(self) -> f32 {
-        match self {
-            Tier::Hero => 0.40,
-            Tier::Secondary => 0.85,
-            Tier::Filler => 2.6,
-        }
-    }
-
     /// Must it appear at all?
     ///
     /// Everything generated for the order, which is to say everything the
@@ -357,6 +348,13 @@ struct Asset {
     id: &'static str,
     tier: Tier,
     size_mm: f32,
+    /// How common this one is, relative to every other asset.
+    ///
+    /// Not a probability and not a count — weights need not sum to anything,
+    /// and the realised number in any one tile is a draw rather than a
+    /// quantity. `required` is what guarantees *at least one*; this governs
+    /// how many beyond that.
+    abundance: f32,
     art: VectorMotif,
 }
 
@@ -366,72 +364,84 @@ fn brief() -> Vec<Asset> {
             id: "sauropod",
             tier: Tier::Hero,
             size_mm: 60.0,
+            abundance: 0.4,
             art: sauropod(ink::MINT, ink::CREAM),
         },
         Asset {
             id: "stegosaur",
             tier: Tier::Hero,
             size_mm: 56.0,
+            abundance: 0.4,
             art: stegosaur(ink::LILAC, ink::CREAM),
         },
         Asset {
             id: "tyrannosaur",
             tier: Tier::Hero,
             size_mm: 58.0,
+            abundance: 0.4,
             art: tyrannosaur(ink::TEAL, ink::MINT),
         },
         Asset {
             id: "truck-amber",
             tier: Tier::Hero,
             size_mm: 54.0,
+            abundance: 0.4,
             art: monster_truck(ink::AMBER, ink::CREAM),
         },
         Asset {
             id: "truck-rust",
             tier: Tier::Hero,
             size_mm: 54.0,
+            abundance: 0.4,
             art: monster_truck(ink::RUST, ink::CREAM),
         },
         Asset {
             id: "unicorn",
             tier: Tier::Hero,
             size_mm: 56.0,
+            abundance: 0.45,
             art: unicorn(ink::CREAM, ink::PINK, ink::AMBER),
         },
         Asset {
             id: "cone-pink",
             tier: Tier::Secondary,
             size_mm: 34.0,
+            abundance: 0.85,
             art: ice_cream(ink::PINK, ink::CREAM),
         },
         Asset {
             id: "cone-mint",
             tier: Tier::Secondary,
             size_mm: 34.0,
+            abundance: 0.85,
             art: ice_cream(ink::MINT, ink::PINK),
         },
         Asset {
             id: "owl",
             tier: Tier::Secondary,
             size_mm: 36.0,
+            abundance: 0.6,
             art: owl(ink::LILAC, ink::CREAM),
         },
         Asset {
             id: "moon",
             tier: Tier::Filler,
             size_mm: 26.0,
+            abundance: 1.0,
             art: moon(),
         },
         Asset {
             id: "star",
             tier: Tier::Filler,
             size_mm: 17.0,
+            abundance: 3.4,
             art: star(),
         },
         Asset {
             id: "sparkle",
             tier: Tier::Filler,
             size_mm: 11.0,
+            abundance: 2.4,
             art: sparkle(),
         },
     ]
@@ -448,7 +458,7 @@ fn mix_of(assets: &[Asset], sizes: &[f32]) -> Vec<MotifWeight> {
         .zip(sizes)
         .map(|(a, size)| MotifWeight {
             motif_id: a.id.into(),
-            weight: a.tier.weight(),
+            weight: a.abundance,
             required: a.tier.required(),
             natural_size_mm: Vec2::splat(*size),
             radius_fraction: 0.74,

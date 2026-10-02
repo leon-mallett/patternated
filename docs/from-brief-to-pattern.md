@@ -97,6 +97,37 @@ A grid refuses the flag outright rather than ignoring it: it fills every cell
 from the weighted mix and has no coverage guarantee to offer, so accepting the
 flag there would be a lie.
 
+## How common each motif is
+
+Abundance is per motif, not per tier. `MotifWeight::weight` is a relative
+tendency — weights need not sum to anything — so a night sky can carry several
+times more stars than moons, which a tier-wide weight could not express.
+
+Measured over twelve seeds at the reference settings, with stars weighted 3.4
+against moons at 1.0:
+
+| Motif | Per tile |
+| --- | --- |
+| star | 5.7 |
+| sparkle | 4.8 |
+| cone (either flavour) | 1.9 |
+| owl | 1.7 |
+| moon | 1.3 |
+| each hero | 1.0–1.2 |
+
+**A weight is a tendency and `required` is a floor, and the floor wins.** Nine
+of the twelve assets here are required, so nine of about twenty-two placements
+are spoken for before the weighted mix draws anything — which is why the heroes
+land at 1.0 to 1.2 rather than the 0.8 their weight alone implies, and why the
+stars land a little under their share. The fewer placements a tile holds, the
+more of it the floor occupies and the less the ratios can say. Strong ratios
+need either a busier tile or a shorter required list.
+
+There is no control for an exact count. `required` guarantees *at least one*;
+beyond that a tile is a draw, not a quantity. A minimum above one would be a
+small extension to the same mechanism if an order ever wants "three dinosaurs,
+not one".
+
 ## A size control must not re-solve the layout
 
 The buyer sees the pattern and can adjust it — resize individual motifs, choose
