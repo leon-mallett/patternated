@@ -96,9 +96,14 @@ generation or style adapters ahead of their milestone, however tempting the
 adjacent code makes it. Partial implementations of later milestones are worse
 than none — they get forgotten and then trusted.
 
-M7 is gated on a written style guide and reference artwork, and on **one test
-metre** — a few motifs in the target idiom, through the engine, onto jersey at a
-real bureau, looked at by eye. Those are the gates, not the calendar.
+M7 is gated on a **prompt catalogue** — the styles offered, the prompt text for
+each, an example image for each — and on **one test metre**: a few motifs
+through the engine, onto jersey at a real bureau, looked at by eye. Those are
+the gates, not the calendar.
+
+Not a style guide. The spec asks for one because it assumed a single house
+illustration style; style is a buyer's choice expressed in the prompt, so there
+is no house style to document. See `docs/roadmap.md`.
 
 The largest thing M7 needs is not a gate at all: **there is no order path.**
 Nothing turns a brief into a finished pattern without a person driving the app.

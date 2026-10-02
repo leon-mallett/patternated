@@ -84,15 +84,36 @@ rather than as an edge case, and rates **guided categories over a free-text box*
 as the single most effective control. That is an intake design decision, so it
 wants taking before the intake is written rather than retrofitted to it.
 
-### Still gated on two things that do not exist a written style guide — line weight, fill
-treatment, level of abstraction, palette rules — and roughly twenty commissioned
-reference pieces spanning an animal, a vehicle, a food, a plant, a manufactured
-object and a figure. The written guide is the more valuable of the two, since it
-governs prompt construction, vectorisation and palette rules as well as the
-adapter, and it outlives whatever generation model is current.
+### What M7 is actually gated on
 
-Bootstrap the style with generated candidate exemplars before commissioning
-anything; that keeps outlay at zero until the approach is shown to hold.
+Not a style guide. The spec asks for one — a written description of Dreamwoven's
+single house illustration style, plus roughly twenty commissioned reference
+pieces to condition a model on — and that was right while the brand had one
+fixed style for everything it printed.
+
+It no longer does. Style is **a choice the buyer makes**, expressed as a clause
+in the generation prompt, so there is no house style to write down and nothing
+to commission twenty pieces *of*. See
+[From brief to pattern](./from-brief-to-pattern.md#style-is-set-in-the-prompt-not-in-the-engine).
+
+What replaces it is a **prompt catalogue**, and it is a much smaller thing:
+
+- the styles on offer, by the name a parent sees;
+- for each, the prompt text that reliably produces it;
+- for each, one example image, so a buyer knows what they are choosing.
+
+Drafting it is an afternoon. *Validating* it needs generation, because the only
+question that matters is empirical: does this prompt hold its look across a
+dinosaur, a monster truck and an ice cream in the same garment? The spec's
+portability argument survives the change intact — it is simply now a property
+of each option on the menu rather than of the brand. Flat vector and bold
+outline generalise across unlike subjects; fine linework and watercolour
+collapse. Expect some offered styles to fail that test and be withdrawn.
+
+The twenty commissioned pieces are not obsolete so much as **unproven as a
+need**. Reference-image conditioning wants an exemplar per style, not twenty,
+and a current model may hold a named style from text alone. Settle it by
+trying, not by commissioning.
 
 ## Carried debts
 
