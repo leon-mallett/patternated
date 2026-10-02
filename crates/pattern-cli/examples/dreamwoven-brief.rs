@@ -580,7 +580,7 @@ fn main() {
     // `BIGGER=unicorn:1.4` re-solves with one asset resized, and reports how
     // much of the first layout survived. That is the question a size slider in
     // a buyer's hands actually asks.
-    if let Ok(spec) = std::env::var("BIGGER") {
+    if let Some(spec) = std::env::var("BIGGER").ok().filter(|s| !s.is_empty()) {
         let (id, factor) = spec.split_once(':').expect("BIGGER=<motif>:<factor>");
         let factor: f32 = factor.parse().expect("factor");
         let nudged: Vec<f32> = assets
@@ -599,11 +599,17 @@ fn main() {
         // The alternative: leave every position alone and change only the
         // placement's own scale. The layout survives entirely by construction,
         // so the only question is whether anything now collides.
-        let mut in_place = pattern.placements.clone();
-        pattern_core::scale_in_place(&mut in_place, id, factor);
+        //
+        // Applied to the pattern that actually gets rendered, so the picture
+        // shows what the control does rather than a number describing it.
+        pattern_core::scale_in_place(&mut pattern.placements, id, factor);
         println!(
             "scaled in place {id} x{factor}: 100% of the layout survived, {} overlapping pairs",
-            pattern_core::overlapping_pairs(&in_place, &pattern.lattice, &mix_of(&assets, &base)),
+            pattern_core::overlapping_pairs(
+                &pattern.placements,
+                &pattern.lattice,
+                &mix_of(&assets, &base)
+            ),
         );
     }
 
@@ -642,7 +648,8 @@ fn main() {
     }
 
     let field = render_field(&pattern, &bank, 96.0, 2, 2).expect("renders");
-    let path = format!("{out}/brief.png");
+    let name = std::env::var("NAME").unwrap_or_else(|_| "brief".to_string());
+    let path = format!("{out}/{name}.png");
     field.save_png(&path).expect("write png");
     println!("{path}");
 }
