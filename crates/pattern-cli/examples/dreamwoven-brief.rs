@@ -480,17 +480,36 @@ fn solve(assets: &[Asset], sizes: &[f32], seed: u64, density: f32) -> (Pattern, 
         on_axis_share: 0.0,
         seed,
     };
-    let outcome = pattern_core::scatter_with_outcome(&params, TILE, &lattice);
+    // Reseeding rather than a single solve, which is what both a buyer's
+    // shuffle button and an unattended order do: a layout that loses a
+    // required motif or tracks too hard is thrown away and another seed tried.
+    let chosen = pattern_core::scatter_reseeding(
+        &params,
+        TILE,
+        &lattice,
+        pattern_core::ReseedLimits::default(),
+    );
+    if !chosen.acceptable {
+        println!(
+            "NOT ACCEPTABLE after {} attempts — alignment {:.2}, missing {:?}",
+            chosen.attempts, chosen.alignment, chosen.outcome.unplaced_required
+        );
+    } else if chosen.attempts > 1 {
+        println!(
+            "reseeded {} times before a layout passed",
+            chosen.attempts - 1
+        );
+    }
     (
         Pattern {
             tile_size_mm: TILE,
             lattice,
-            placements: outcome.placements,
+            placements: chosen.outcome.placements,
             ground: None,
             palette: palette(),
-            seed,
+            seed: chosen.seed,
         },
-        outcome.unplaced_required,
+        chosen.outcome.unplaced_required,
     )
 }
 

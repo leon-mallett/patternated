@@ -17,6 +17,7 @@ mod ornament;
 mod palette;
 mod pattern;
 mod placement;
+mod reseed;
 mod scatter;
 mod texture;
 mod torus;
@@ -38,6 +39,7 @@ pub use ornament::{Figure, Grid, Ornament, OrnamentField, DEEPEST, FINEST_CELL_M
 pub use palette::{Color, Palette, GROUND_SLOT};
 pub use pattern::{resolved_color_count, Pattern};
 pub use placement::{wrap_into_tile, Placement};
+pub use reseed::{scatter_reseeding, ReseedLimits, Reseeded};
 pub use scatter::{scatter, scatter_with_outcome, MotifWeight, ScatterOutcome, ScatterParams};
 pub use texture::{Growth, SlotField, Texture, MOST_CELLS, MOST_STEPS};
 pub use torus::lattice_distance_sq;

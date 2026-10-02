@@ -160,6 +160,13 @@ Not milestones, but not forgotten.
   [colour management](./features.md#colour-management). Until a bureau supplies
   one, a CMYK export cannot be produced at all, which is the honest state of
   affairs rather than a gap to paper over.
+- **Tracking rejects a layout but does not block an order.** `scatter_reseeding`
+  now throws away a layout that tracks too hard and tries another seed, which
+  is the spec's reseed-and-retry for the one gate that can be answered that
+  way. What it still is not is a *blocking* gate: a run that never clears the
+  bar returns its best attempt with `acceptable` false rather than refusing,
+  because refusing an order outright needs a confidence the measure has not
+  earned. The remainder of the original debt stands —
 - **Tracking is measured now, but as a ranking rather than a gate.** The third
   attempt discriminates where two did not, and the app warns on the worst few
   per cent; it catches roughly two in three at the level a person would reject

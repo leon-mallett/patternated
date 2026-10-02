@@ -868,6 +868,31 @@ And the physical size reported is the one implied by the file's pixels rather
 than the design's nominal size, because quantising the tile moves it by a
 fraction of a millimetre — see below.
 
+## Reseeding until the layout passes
+
+`scatter_reseeding` walks seeds upward from the one it was given, keeping the
+first layout that places every required motif and tracks below a threshold.
+`ReseedLimits` sets how many to try and where the bar is; `Reseeded` reports
+the layout, the seed that made it, how many attempts it took, and whether it
+actually cleared the bar.
+
+One loop in one place, because two callers must not disagree: a buyer pressing
+*shuffle* and an order assembling itself with nobody watching. Left to
+themselves each would invent a retry policy and the unattended one would drift
+from the one a person saw.
+
+**It returns the best attempt rather than nothing.** A run that never clears the
+bar hands back its closest effort with `acceptable` false, which is the signal
+to fetch a person. An error would throw away how close it got and in which
+direction it failed, and an unattended pipeline needs something concrete to
+escalate with.
+
+**Coverage outranks tracking.** A layout missing a motif the child asked for is
+the wrong product; one with a corridor is an ugly product. Attempts are
+compared on coverage first and tracking only to break the tie.
+
+See [From brief to pattern](./from-brief-to-pattern.md#every-named-interest-appears).
+
 ## How much a motif can grow
 
 `growth_headroom` answers, for one motif, how far it can be scaled up before
