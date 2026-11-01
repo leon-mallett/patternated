@@ -56,8 +56,14 @@ some organisations ban it outright. That is acceptable here because the
 audience is individual designers and the goal is evidence and credibility, not
 enterprise uptake.
 
-**Not yet decided. It needs Leon, and it needs deciding before anything
-ships**, because a licence is very hard to take back.
+**Decided in principle on 2026-11-01: the engine goes open, Dreamwoven stays
+all rights reserved.** AGPL is the licence that makes both true at once. The
+mechanism, what breaks it, and the four things that have to be written down are
+in [Licensing](./licensing.md#keeping-dreamwoven-closed-while-the-engine-is-open).
+
+**Not yet applied.** A licence is close to irreversible once published, so the
+act of committing the AGPL text is deliberately a separate decision from
+agreeing to it — and it is worth a solicitor's half-hour first.
 
 ### What shipping the engine actually involves
 
