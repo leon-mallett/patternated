@@ -1,56 +1,108 @@
 # Commercialisation
 
-> **2026-09-29 — Dreamwoven is the target.** Peel Club is a reference point and
-> not a destination, so the two-consumer framing below no longer describes the
-> intent. The page is kept because most of its reasoning does not depend on
-> which brand ships — the print route, the licensing position, the nightwear
-> rules and the case for selling a garment rather than software all stand.
->
-> One argument does **not** survive, and it is the load-bearing one: *"Peel Club
-> needs the engine regardless of whether anyone else would buy it, which is what
-> makes building it straightforwardly worthwhile."* With Peel Club out, the
-> engine has no guaranteed consumer, and its worth now rests entirely on
-> Dreamwoven working. That is a real change in the risk and is recorded here
-> rather than quietly dropped.
->
-> The stop-and-reassess paragraph below has been answered; see
-> [Roadmap](./roadmap.md#dreamwoven-is-the-target-2026-09-29).
+Two products over one engine, on opposite models.
 
-The engine is shared infrastructure under two consumer brands. **The product
-sold is a garment, not software.**
+- **Pattern Engine** — a free tool for anyone who makes repeat patterns. No
+  revenue, deliberately.
+- **Dreamwoven** — bespoke children's pyjamas, generated per order. The
+  business.
 
-That framing is deliberate and load-bearing. The AI pattern-generator category
-is crowded — several tools already cover prompt-to-pattern, seam fixing,
-colourways and separations — so selling this to pattern designers would be a
-weak bet against well-funded competitors. Peel Club needs the engine regardless
-of whether anyone else would buy it, which is what makes building it
-straightforwardly worthwhile.
+An earlier version of this page described two consumer *brands* sharing an
+engine, with Peel Club as the live one. That is gone; Peel Club is a reference
+point and nothing more. The page is rewritten rather than annotated because the
+model changed, not only the names.
 
-## The two consumers
+## Why the engine is free
 
-**Peel Club** — adult apparel, fruit prints, one illustrator's existing artwork.
-Live today. All of its constraints are engineering ones. Style coherence comes
-free, because one person draws everything.
+The category is crowded. Several tools already cover prompt-to-pattern, seam
+fixing, colourways and separations, and selling into that against well-funded
+competitors would be a weak bet with a small team. That argument has not
+changed; what has changed is the conclusion drawn from it. Previously the
+engine was justified because Peel Club needed it anyway. With Peel Club gone,
+the honest options were to sell it badly, keep it private, or give it away.
 
-**Dreamwoven** — bespoke children's pyjamas, motifs generated per order. A
-concept. The better business of the two if it works: a gift product with real
-emotional pull and a buyer who is rarely the wearer. Also the harder engineering
-problem, because nobody approves a print before it is made, so every quality
-check becomes automatic and blocking.
+Giving it away buys three things worth more than the revenue would be:
 
-Dreamwoven carries two risks that can stop the business rather than merely
-degrade the output — character IP, covered in [Licensing](./licensing.md#the-unresolved-one),
-and UK nightwear regulation, below.
+- **Real artwork through the pipeline.** The longest-standing weakness in this
+  project is that almost nothing has been ingested that it did not draw itself,
+  and nothing at all has gone to fabric and come back. Designers using it for
+  free generate exactly that evidence, in files nobody here would have thought
+  to make.
+- **Credibility for Dreamwoven.** A bespoke product a parent has to trust is
+  helped by an engine anybody can inspect.
+- **Reputation**, which is the only one of the three that is not measurable
+  and the only one that compounds.
 
-Peel Club prints digitally; see [Print route](#print-route--decided).
+### What "free" has to mean, specifically
 
-## Scope discipline as a commercial position
+This repository is **all rights reserved** today. Free is therefore a decision
+with consequences, not a default to drift into, and there are three distinct
+versions of it:
 
-The spec's instruction to stop and reassess after **M4, which is now
-complete**, is a commercial judgement, not an engineering one: a working tool that produces one good Peel Club range answers the product
-question better than any amount of further planning. Everything after M4 is
-explicitly optional, and the build is scoped so the first outcome alone is worth
-having.
+| Option | Designers get | A competitor gets |
+| --- | --- | --- |
+| Free binary, source closed | A tool | Nothing |
+| Open, permissive (MIT / Apache-2.0) | A tool and the source | The right to build a closed Dreamwoven competitor on it |
+| Open, copyleft (AGPL-3.0) | A tool and the source | The source, but must open anything they build on it |
+
+**The recommendation is AGPL-3.0.** Captivated owns the copyright outright, so
+it can continue using the engine inside Dreamwoven under its own terms — the
+licence binds others, not the owner. That is the standard open-core position
+and it is the only one of the three that is genuinely free to designers while
+not handing the product's foundation to whoever wants to clone it.
+
+The cost is real and should be stated: AGPL deters commercial adoption, and
+some organisations ban it outright. That is acceptable here because the
+audience is individual designers and the goal is evidence and credibility, not
+enterprise uptake.
+
+**Not yet decided. It needs Leon, and it needs deciding before anything
+ships**, because a licence is very hard to take back.
+
+### What shipping the engine actually involves
+
+The desktop app, not the crates. Nobody is going to depend on `pattern-core`
+from Cargo, and publishing crates commits to an API this project has
+deliberately kept fluid.
+
+1. A licence, applied to `LICENSE`, every `Cargo.toml` and the headers.
+2. Signing and notarising for macOS — `~/Projects/MACOS_SIGNING_NOTARIZATION.md`.
+3. Self-update on R2 — `~/Projects/TAURI_AUTO_UPDATER.md`.
+4. A landing page on a custom domain — `~/Projects/CLOUDFLARE_WORKERS_DOMAINS.md`.
+   Never a `*.pages.dev` as the canonical URL.
+5. `docs/user-guide.md`, which does not exist. Everything written so far is for
+   whoever builds this, not whoever uses it.
+6. A `CHANGELOG.md` and a release process, neither of which exists.
+
+Three things should be said plainly on the page rather than discovered:
+determinism is verified on macOS and Linux but **not Windows**; there is **no
+CMYK export** and will not be until a bureau supplies a profile; and the
+shipped window is tested by hand rather than automatically.
+
+## Dreamwoven is the business
+
+Everything commercial lives here. The shape of it, and the order, is in
+[Dreamwoven's own roadmap](../../Dreamwoven/docs/roadmap.md).
+
+One gate dominates the rest and it is not an engineering one. **What children
+like is largely licensed characters**, the intake is now free text, and nothing
+in the pipeline notices. See [Licensing](./licensing.md#the-unresolved-one).
+That needs a blocklist, a model-side check, and someone who does this properly
+— before anything is sold, not before it scales.
+
+## How the two relate
+
+Work flows one way. Improvements to the engine reach Dreamwoven for nothing,
+because it consumes the engine by path. Dreamwoven's own material — the prompt
+catalogue, the order path, the intake — stays closed, and none of it belongs in
+the engine anyway: the engine forbids network I/O, and that boundary is what
+keeps the split honest rather than merely administrative.
+
+Dreamwoven funds the engine by needing it. That is a weaker guarantee than Peel
+Club was, and the risk is stated rather than hidden: if Dreamwoven does not
+work, the engine has no consumer and its development stops being justified by
+anything but reputation.
+
 
 ## Print route — decided
 
