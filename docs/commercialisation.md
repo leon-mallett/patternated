@@ -61,9 +61,9 @@ all rights reserved.** AGPL is the licence that makes both true at once. The
 mechanism, what breaks it, and the four things that have to be written down are
 in [Licensing](./licensing.md#keeping-dreamwoven-closed-while-the-engine-is-open).
 
-**Not yet applied.** A licence is close to irreversible once published, so the
-act of committing the AGPL text is deliberately a separate decision from
-agreeing to it — and it is worth a solicitor's half-hour first.
+**Applied 2026-11-02.** The engine is AGPL-3.0-only; Dreamwoven remains all
+rights reserved and says in its own README why it is entitled to link one into
+the other.
 
 ### What shipping the engine actually involves
 

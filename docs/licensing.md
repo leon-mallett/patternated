@@ -2,20 +2,23 @@
 
 ## This repository
 
-**All rights reserved, Copyright Captivated Ltd — today.** See
-[`LICENSE`](../LICENSE).
+**AGPL-3.0-only**, Copyright Captivated Ltd. Applied 2026-11-02. See
+[`LICENSE`](../LICENSE) for the licence and [`NOTICE`](../NOTICE) for what
+Captivated reserves alongside it.
 
-That is expected to change: the plan is to make the engine free while
-Dreamwoven stays closed. See
-[Commercialisation](./commercialisation.md#why-the-engine-is-free) for why,
-and the next section for how. **Nothing has been applied yet**, because a
-licence is close to irreversible once published.
+The text in `LICENSE` is the Free Software Foundation's, fetched verbatim and
+unmodified. It is not paraphrased and must not be edited — an altered licence
+is a different licence, and nobody can tell which one they have agreed to.
+
+Why this and not a permissive licence is in
+[Commercialisation](./commercialisation.md#why-the-engine-is-free); how it
+coexists with a closed Dreamwoven is below.
 
 ## Keeping Dreamwoven closed while the engine is open
 
-*Not legal advice. The mechanism below is standard and well understood, but it
-is worth a solicitor's half-hour before anything is published, because the one
-thing you cannot do is take a licence back.*
+*Not legal advice. The mechanism below is standard and well understood. It was
+applied on Leon's explicit approval and still deserves a solicitor's
+half-hour — the recommendation stands and is simply no longer blocking.*
 
 ### The mechanism is sole ownership
 
@@ -53,7 +56,7 @@ Open-sourcing invites exactly this. Two ways to handle it:
 
 ### What has to be written down
 
-Four things, and the fourth is the one people forget:
+Four things, all now in place, and the fourth is the one people forget:
 
 1. `LICENSE` carries the AGPL-3.0 text.
 2. Every `Cargo.toml` says `license = "AGPL-3.0-only"` rather than

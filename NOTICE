@@ -1,0 +1,20 @@
+Pattern Engine
+Copyright (c) 2026 Captivated Ltd.
+
+Licensed to the public under the GNU Affero General Public License v3.0 only
+(AGPL-3.0-only). The full text is in LICENSE.
+
+Captivated Ltd reserves all other rights, including the right to license this
+software under other terms and to use it in its own products. As sole
+copyright holder it is not a licensee of its own work, and its use of this
+code — including inside closed-source products that link it — is not governed
+by the AGPL.
+
+That reservation depends on ownership remaining whole, which is why this
+project accepts issues but not code contributions. See CONTRIBUTING.md.
+
+TRADEMARKS
+
+The AGPL licenses the code and nothing else. "Pattern Engine", "Dreamwoven",
+"Captivated" and associated names and marks are not licensed by it. A fork is
+welcome; a fork using these names is not.
