@@ -2188,7 +2188,8 @@ engine. Several projects already do.
 Patternated is coined, which is the strongest category of trademark there is.
 `patternated.com` and `patternated.app` were registered 2026-11-14 through
 Cloudflare Registrar. Nothing else uses the word: both domains, the GitHub
-organisation and the npm name were all free, and no exact crate matches.
+organisation and the npm name were all free. crates.io was not confirmed — its
+API refused the exact-name lookup — but a search returned no match for it.
 
 **The cost is paid at the search box.** Search engines do not believe the word
 exists and correct it to "patterned" without being asked, so somebody typing
