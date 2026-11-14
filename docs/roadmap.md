@@ -115,6 +115,53 @@ need**. Reference-image conditioning wants an exemplar per style, not twenty,
 and a current model may hold a named style from text alone. Settle it by
 trying, not by commissioning.
 
+## Somewhere to download it from
+
+The engine is AGPL and nobody can get it. The repository is private, there are
+no tags and no releases, so "open source" is currently a licence file and an
+intention. Four things stand between here and a download page that is not
+embarrassing, and only the last is the website.
+
+**1 · The repository goes public, and pull requests close the same day.**
+Not sequential steps — the same step. Sole ownership is what lets Dreamwoven
+statically link an AGPL engine, and the first merged patch ends that
+permanently. [`CONTRIBUTING.md`](../CONTRIBUTING.md) already says issues yes,
+code no; GitHub needs to enforce it rather than the file asking politely. See
+[Licensing](./licensing.md#the-thing-that-breaks-it).
+
+**2 · Signed builds, or the download does more harm than no download.**
+An unsigned `.dmg` meets Gatekeeper on every machine it lands on, and an
+unsigned `.exe` meets SmartScreen. Both read as "this is not safe" to exactly
+the person who was about to try it. macOS goes through the Captivated Apple
+account (`~/Projects/MACOS_SIGNING_NOTARIZATION.md`); Windows goes through
+Azure Artifact Signing on the release VM (`~/Projects/CODE-SIGNING.md`). These
+do not overlap and both are needed.
+
+**3 · A tagged release, with the installers on R2.** Bucket
+`patternated-releases`, following the convention already in use for Tauri
+releases — one bucket per app, Captivated-owned domain, no egress fees. The
+signed self-updater (`~/Projects/TAURI_AUTO_UPDATER.md`) can come later; it
+reads from the same place, so nothing has to move.
+
+**4 · The site.** `patternated.com`, registered 2026-11-14 through Cloudflare
+Registrar, with `patternated.app` held alongside it. Astro on Cloudflare Pages,
+which is the house archetype.
+
+It earns its existence for one reason: **the output is visual and a README
+cannot tile.** A page can show a repeat actually repeating, at true scale, next
+to the motifs it was built from — which is the entire pitch and is unviewable
+on a code host. Everything else the site needs is small: what it is, the three
+commands that build it, the installers, and an unmissable line saying issues
+are welcome and patches are not. Say that on the page and not only in the
+repository, or it gets discovered one refused pull request at a time.
+
+**One piece of timing.** The newly-registered-domain flag is purely
+time-based — roughly two to four weeks, cleared by nothing but waiting, and it
+is what sinkholed `captivated.online` on Leon's own home network. The clock
+started 2026-11-14, so it has run out around mid-December, well before any of
+the three items above are done. Nothing to schedule around. See
+`~/Projects/NEW_DOMAIN_REPUTATION.md`.
+
 ## Carried debts
 
 Not milestones, but not forgotten.
