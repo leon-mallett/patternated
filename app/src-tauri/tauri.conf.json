@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Pattern Engine",
+  "productName": "Patternated",
   "version": "0.1.0",
-  "identifier": "online.captivated.pattern-engine",
+  "identifier": "online.captivated.patternated",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1421",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Pattern Engine",
+        "title": "Patternated",
         "width": 1320,
         "height": 900,
         "minWidth": 920,

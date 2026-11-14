@@ -1,4 +1,4 @@
-# Pattern Engine
+# Patternated
 
 Deterministic repeat-pattern engine for textile printing. Motifs in, print-ready
 seamless patterns out.
@@ -105,6 +105,11 @@ same seed gives the same bytes on a second platform.
 ## Documentation
 
 [`docs/`](./docs/) — start at [`docs/README.md`](./docs/README.md).
+
+The repository, its directory and the spec's filename still read
+`pattern-engine`, which is what this was called until 2026-11-14. The slugs are
+referenced by path from several places and renaming them buys nothing; the
+lowercase "repeat-pattern engine" is the description, not the name.
 
 The [technical spec](./docs/pattern-engine-spec.md) is the source of the
 invariants; [`CLAUDE.md`](./CLAUDE.md) states the five that are load-bearing.

@@ -2176,3 +2176,39 @@ Two test-design notes, because both were nearly missed:
   wherever it is put.
 
 See [From brief to pattern](./from-brief-to-pattern.md#every-named-interest-appears).
+
+## The engine is called Patternated, and the description is not the name
+
+"Pattern Engine" described the thing accurately, which is exactly why it was
+the wrong name. A descriptive mark is weak to unregistrable, so the reservation
+in `NOTICE` — *a fork is welcome; a fork using these names is not* — could not
+have been enforced against anybody calling their pattern engine a pattern
+engine. Several projects already do.
+
+Patternated is coined, which is the strongest category of trademark there is.
+`patternated.com` and `patternated.app` were registered 2026-11-14 through
+Cloudflare Registrar. Nothing else uses the word: both domains, the GitHub
+organisation and the npm name were all free, and no exact crate matches.
+
+**The cost is paid at the search box.** Search engines do not believe the word
+exists and correct it to "patterned" without being asked, so somebody typing
+the name from memory lands somewhere else entirely. That is the ordinary
+coined-name tax, paid off with time and signal rather than cleverness. It is
+acceptable here because the engine's traffic arrives from GitHub, from direct
+links and from Dreamwoven — not from half-remembered brand search. The same
+objection would have been disqualifying for a consumer shop.
+
+**What deliberately did not change.** The repository, its directory and
+`docs/pattern-engine-spec.md` keep their slugs: they are referenced by path
+from this repo, from Dreamwoven's docs and from both `CLAUDE.md` files, and
+renaming them buys nothing. The crate names — `pattern-core`,
+`pattern-render` — stay descriptive, which is what a crate name should be. And
+the lowercase "deterministic repeat-pattern engine for textile printing"
+survives everywhere as the tagline. Separating the description from the name is
+the entire point of the exercise.
+
+**The bundle identifier changed with the name**, to
+`online.captivated.patternated`. That had to happen before the first signed
+release: afterwards, a changed identifier breaks auto-updates and macOS treats
+the result as a different application. There are no releases yet, so it was
+free today and would not have been later.

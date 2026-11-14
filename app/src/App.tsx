@@ -533,7 +533,7 @@ export default function App() {
   if (!doc) {
     return (
       <main className="empty">
-        <h1>Pattern Engine</h1>
+        <h1>Patternated</h1>
         <p className="lede">
           Turn illustrations into repeating prints. Everything is measured in
           millimetres — a resolution is chosen only when you export.

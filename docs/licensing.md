@@ -76,9 +76,15 @@ the day it does not.
 
 ### Two things the code licence does not cover
 
-**Trademarks.** "Dreamwoven", and whatever the engine ends up called, are not
-licensed by AGPL and should be reserved explicitly in the `NOTICE`. Somebody is
-free to fork the engine; they are not free to call their fork by your name.
+**Trademarks.** "Patternated", "Dreamwoven" and "Captivated" are not licensed
+by AGPL and are reserved explicitly in the `NOTICE`. Somebody is free to fork
+the engine; they are not free to call their fork by your name.
+
+The engine was called "Pattern Engine" until 2026-11-14, and that reservation
+would not have held: a descriptive mark is weak to unregistrable, and several
+projects already call themselves a pattern engine. The rename to a coined word
+is what makes the clause enforceable — see
+[Decisions](./decisions.md#the-engine-is-called-patternated-and-the-description-is-not-the-name).
 
 **Generated artwork.** Nothing about the engine's licence says anything about
 who owns a motif a model produced for an order, which is a separate question

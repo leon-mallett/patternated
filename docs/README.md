@@ -1,4 +1,4 @@
-# Pattern Engine — documentation
+# Patternated — documentation
 
 Last confirmed against: 0521987 (2026-11-02)
 

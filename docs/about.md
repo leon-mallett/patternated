@@ -1,6 +1,6 @@
 # About
 
-Pattern Engine turns a library of illustrated motifs — one banana, one dinosaur,
+Patternated turns a library of illustrated motifs — one banana, one dinosaur,
 one cherry — into repeating patterns that can be printed onto fabric.
 
 ## The problem it solves

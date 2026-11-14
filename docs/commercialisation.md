@@ -2,7 +2,7 @@
 
 Two products over one engine, on opposite models.
 
-- **Pattern Engine** — a free tool for anyone who makes repeat patterns. No
+- **Patternated** — a free tool for anyone who makes repeat patterns. No
   revenue, deliberately.
 - **Dreamwoven** — bespoke children's pyjamas, generated per order. The
   business.

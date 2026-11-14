@@ -1,4 +1,4 @@
-# Pattern Engine — Technical Spec
+# Patternated — Technical Spec
 
 _As of 20 September 2026._
 
