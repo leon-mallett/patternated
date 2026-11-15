@@ -1,4 +1,4 @@
-# Patternated — documentation
+# Patternated documentation
 
 Last confirmed against: 5cead1a (2026-11-14)
 
@@ -7,21 +7,21 @@ print-ready seamless patterns out.
 
 ## The set
 
-- [About](./about.md) — what this is and who it is for, in plain English.
-- [Architecture](./architecture.md) — the crates, what each carries, and the
+- [About](./about.md): what this is and who it is for, in plain English.
+- [Architecture](./architecture.md): the crates, what each carries, and the
   boundaries that are load-bearing.
-- [Features](./features.md) — what exists today.
-- [Roadmap](./roadmap.md) — what does not exist yet, and in what order.
-- [Decisions](./decisions.md) — the non-obvious calls, and what would reopen them.
-- [Test strategy](./test-strategy.md) — what is tested, how, and what is
+- [Features](./features.md): what exists today.
+- [Roadmap](./roadmap.md): what does not exist yet, and in what order.
+- [Decisions](./decisions.md): the non-obvious calls, and what would reopen them.
+- [Test strategy](./test-strategy.md): what is tested, how, and what is
   deliberately not.
-- [Licensing](./licensing.md) — ownership, and the one question that needs
+- [Licensing](./licensing.md): ownership, and the one question that needs
   answering before Dreamwoven.
-- [Security](./security.md) — a short section, because the engine has no network
+- [Security](./security.md): a short section, because the engine has no network
   and no accounts.
-- [Commercialisation](./commercialisation.md) — two products over one engine,
+- [Commercialisation](./commercialisation.md): two products over one engine,
   on opposite models: the engine free, Dreamwoven the business.
-- [From brief to pattern](./from-brief-to-pattern.md) — how a child's
+- [From brief to pattern](./from-brief-to-pattern.md): how a child's
   interests become a printable repeat, and the one problem that stops an
   order shipping.
 
@@ -33,12 +33,12 @@ python3 scripts/check-docs.py
 
 Every relative link and anchor must resolve; it exits non-zero when one does
 not. The set is held together by its links, so a broken one is a real defect
-rather than a typo — and it is the thing most likely to break silently when a
+rather than a typo, and it is the thing most likely to break silently when a
 heading is renamed.
 
 ## Reference
 
-- [Technical spec](./pattern-engine-spec.md) — the full design, M1 to M7. The
+- [Technical spec](./pattern-engine-spec.md): the full design, M1 to M7. The
   source of the invariants everything else here defers to. Dated 20 September
   2026.
 

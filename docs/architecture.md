@@ -27,8 +27,8 @@ names a CLI for M1 without saying where it lives, and putting a binary in
 
 `pattern-doc` was split out at M4 for a concrete reason: a GUI cannot depend on
 a binary crate, and having it depend on one called "cli" would mislead the next
-reader. It holds what every front end needs identically — what a document
-means, how its motifs resolve, how a PNG is written — so the two cannot drift
+reader. It holds what every front end needs identically, meaning what a document
+means, how its motifs resolve and how a PNG is written, so the two cannot drift
 into disagreeing about it. It is the app layer, and it is where `anyhow` is
 allowed.
 
@@ -36,8 +36,8 @@ allowed.
 
 Two places, and they must agree:
 
-- `Lattice::neighbour_offsets` — the nine offsets the tiling draws at.
-- `torus::lattice_distance_sq` — how far apart two motifs really are, given
+- `Lattice::neighbour_offsets`, the nine offsets the tiling draws at.
+- `torus::lattice_distance_sq`, how far apart two motifs really are, given
   that each appears at every lattice translate.
 
 Both exist because the tile rectangle is not the lattice. Substituting it is
@@ -49,16 +49,16 @@ integer pixels, and mirrors the first deliberately.
 mirror repeat is not a translation, so it is not a lattice: it lives in
 `mirror::reflect`, which expands a designed cell into the whole tile, and in
 `mirror::mirror_distance_sq`, which is `lattice_distance_sq` again with the
-reflections included. The lattice under a mirror is always block — reflections
-generate translations by the tile itself — and `Pattern::validate` refuses any
+reflections included. The lattice under a mirror is always block, since reflections
+generate translations by the tile itself, and `Pattern::validate` refuses any
 other, because the failure is a break down every mirror axis rather than
 anything the renderer could notice.
 
 ## Where colour enters
 
 Exactly one place: `pattern_render::motif::resolve`, which turns slot indices
-into pixels using the pattern's palette. Everything upstream — ingest, storage,
-placement, scatter — deals in indices.
+into pixels using the pattern's palette. Everything upstream, meaning ingest,
+storage, placement and scatter, deals in indices.
 
 That is why recolouring a whole range costs one palette and no re-rendering of
 anything else, and it is the reason `palette_slot` was carried on placements
@@ -76,7 +76,7 @@ The stated reason is testability, and that is true but undersells it. Three
 consequences follow that would each be expensive to retrofit:
 
 - A pattern is a small JSON struct and the core is a pure function over it, so a
-  hosted API — which Dreamwoven eventually needs — is a thin HTTP layer rather
+  hosted API, which Dreamwoven eventually needs, is a thin HTTP layer rather
   than a rewrite.
 - Determinism is checkable. A function that reads no clock and opens no file
   cannot produce a different answer on Tuesday.
@@ -92,7 +92,7 @@ Physical units go in and pixels come out at exactly one place.
 
 1. `pattern-cli` reads a document, decodes motif PNGs, and hands
    `pattern-render` decoded pixels. The core never learns a path exists.
-2. `pattern-render` quantises the lattice to whole pixels at the requested DPI —
+2. `pattern-render` quantises the lattice to whole pixels at the requested DPI;
    see `PixelLattice`, and [Decisions](./decisions.md#quantising-the-lattice-rather-than-the-offsets)
    for why this step exists at all.
 3. Each placement is rasterised **once** into a sprite, then blitted at
@@ -131,8 +131,8 @@ somebody generated from it, which proves nothing about whether tiles join. See
   first non-Rust dependency in the tree. `moxcms` does ICC transforms between
   RGB and CMYK through an XYZ or Lab connection space in pure Rust, under
   BSD-3-Clause or Apache-2.0. Confirmed by reading its transform code rather
-  than its description — its own documentation is ambiguous about CMYK.
-- **`visioncortex`** for tracing, rather than the `vtracer` wrapper around it —
+  than its description, because its own documentation is ambiguous about CMYK.
+- **`visioncortex`** for tracing, rather than the `vtracer` wrapper around it;
   see [Decisions](./decisions.md#visioncortex-rather-than-vtracer). Notably
   `motif-ingest` has **no image-format dependency at all**: it takes decoded
   RGBA, so decoding is a choice made at the edge rather than a dependency baked

@@ -4,7 +4,7 @@
 #
 # It runs on Linux while development happens on macOS, which is deliberate
 # rather than incidental. Determinism across platforms is a stated invariant
-# and has never been verified — the golden images and the byte-identical
+# and has never been verified: the golden images and the byte-identical
 # render tests have only ever run on one machine. Running them on a second
 # architecture is the cheapest evidence available, and if they disagree that
 # is a finding rather than a reason to loosen the test.
@@ -147,7 +147,7 @@ jobs:
           cargo audit --version
 
       # Vulnerabilities fail the job; unmaintained and unsound crates are
-      # printed and do not. That is not laxity — measured on 2026-09-29 the
+      # printed and do not. That is not laxity: measured on 2026-09-29 the
       # tree carries seven such warnings and every one of them is inside
       # Tauri's own transitive dependencies: glib, proc-macro-error, the unic
       # family. Failing on them would put the job permanently red for

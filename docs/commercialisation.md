@@ -2,9 +2,9 @@
 
 Two products over one engine, on opposite models.
 
-- **Patternated** — a free tool for anyone who makes repeat patterns. No
+- **Patternated**, a free tool for anyone who makes repeat patterns. No
   revenue, deliberately.
-- **Dreamwoven** — bespoke children's pyjamas, generated per order. The
+- **Dreamwoven**, bespoke children's pyjamas, generated per order. The
   business.
 
 An earlier version of this page described two consumer *brands* sharing an
@@ -46,7 +46,7 @@ versions of it:
 | Open, copyleft (AGPL-3.0) | A tool and the source | The source, but must open anything they build on it |
 
 **The recommendation is AGPL-3.0.** Captivated owns the copyright outright, so
-it can continue using the engine inside Dreamwoven under its own terms — the
+it can continue using the engine inside Dreamwoven under its own terms, since the
 licence binds others, not the owner. That is the standard open-core position
 and it is the only one of the three that is genuinely free to designers while
 not handing the product's foundation to whoever wants to clone it.
@@ -72,9 +72,9 @@ from Cargo, and publishing crates commits to an API this project has
 deliberately kept fluid.
 
 1. A licence, applied to `LICENSE`, every `Cargo.toml` and the headers.
-2. Signing and notarising for macOS — `~/Projects/MACOS_SIGNING_NOTARIZATION.md`.
-3. Self-update on R2 — `~/Projects/TAURI_AUTO_UPDATER.md`.
-4. A landing page on a custom domain — `~/Projects/CLOUDFLARE_WORKERS_DOMAINS.md`.
+2. Signing and notarising for macOS, per `~/Projects/MACOS_SIGNING_NOTARIZATION.md`.
+3. Self-update on R2, per `~/Projects/TAURI_AUTO_UPDATER.md`.
+4. A landing page on a custom domain, per `~/Projects/CLOUDFLARE_WORKERS_DOMAINS.md`.
    Never a `*.pages.dev` as the canonical URL.
 5. `docs/user-guide.md`, which does not exist. Everything written so far is for
    whoever builds this, not whoever uses it.
@@ -93,14 +93,14 @@ Everything commercial lives here. The shape of it, and the order, is in
 One gate dominates the rest and it is not an engineering one. **What children
 like is largely licensed characters**, the intake is now free text, and nothing
 in the pipeline notices. See [Licensing](./licensing.md#the-unresolved-one).
-That needs a blocklist, a model-side check, and someone who does this properly
-— before anything is sold, not before it scales.
+That needs a blocklist, a model-side check, and someone who does this properly,
+before anything is sold rather than before it scales.
 
 ## How the two relate
 
 Work flows one way. Improvements to the engine reach Dreamwoven for nothing,
-because it consumes the engine by path. Dreamwoven's own material — the prompt
-catalogue, the order path, the intake — stays closed, and none of it belongs in
+because it consumes the engine by path. Dreamwoven's own material, meaning the prompt
+catalogue, the order path and the intake, stays closed, and none of it belongs in
 the engine anyway: the engine forbids network I/O, and that boundary is what
 keeps the split honest rather than merely administrative.
 
@@ -110,7 +110,7 @@ work, the engine has no consumer and its development stops being justified by
 anything but reputation.
 
 
-## Print route — decided
+## Print route: decided
 
 **Digital printing first**, confirmed 21 September 2026. Screen printing stays
 on the roadmap as an option rather than a requirement.
@@ -131,10 +131,10 @@ What follows from that, and it is mostly good news for the build:
   through a real ICC profile, and correct file naming.
 
 Keeping the door open costs almost nothing, because the palette-slot model is
-already exactly what separations need — one file per slot is a rendering pass
+already exactly what separations need: one file per slot is a rendering pass
 over data that already exists.
 
-## Output spec — decided
+## Output spec: decided
 
 Settled 21 September 2026. These are the requirements M5 is built against.
 
@@ -145,7 +145,7 @@ control what another printer asks for*, so the export layer is built to be told
 rather than to assume.
 
 **Colour: no proprietary profiles.** sRGB rather than Adobe RGB, and CMYK
-through an openly licensed profile. The conversion happens in this tool — a
+through an openly licensed profile. The conversion happens in this tool, because a
 designer should not need Photoshop or Illustrator to produce a CMYK file.
 
 **Format: TIFF definitely, PNG probably.** Minimal compression, flattened, no
@@ -173,7 +173,7 @@ might one day be public is a licensing decision as much as a colour one.
 | `XCMYK 2017` | CMYK, extended gamut | IDEAlliance / ColorLogic. Same unrestricted terms. |
 
 Deliberately **not** used: `ISOcoated*` from Heidelberg, which is bundleable but
-carries conditions about not charging extra for it — a needless complication
+carries conditions about not charging extra for it, a needless complication
 when equivalents are unrestricted. And anything from Adobe.
 
 **The caveat that matters more than the list.** Every one of those is an
@@ -197,8 +197,8 @@ specific printer.
 
 ### One thing worth flagging
 
-The reasoning given for resolution flexibility — that we cannot control what
-other printers ask for, ahead of the app being commercialised or made public —
+The reasoning given for resolution flexibility, that we cannot control what
+other printers ask for ahead of the app being commercialised or made public,
 points somewhere the spec argues against. Its closing note is that selling this
 to pattern designers is a weak bet in a crowded category, and that the strength
 of the position is that the engine sits under two garment brands.
@@ -209,7 +209,7 @@ bureau too, and costs nothing extra. It is only worth noticing that a
 "someone else might use this" requirement has entered the build, and that if it
 grows, it is a strategy change rather than a feature.
 
-## Regulation — UK children's nightwear
+## Regulation: UK children's nightwear
 
 Not legal advice. Confirm with someone who does this properly before Dreamwoven
 sells anything. The shape of it, from
@@ -222,7 +222,7 @@ sells anything. The shape of it, from
   red.
 - **For online and mail-order sales**, that same wording must appear next to the
   listing inside a red-sided equilateral triangle. This is a constraint on the
-  shop front, not only on the garment — worth knowing before anyone designs a
+  shop front, not only on the garment, and worth knowing before anyone designs a
   product page.
 - BS EN 14878 is recommended so suppliers meet General Product Safety
   Regulations obligations.

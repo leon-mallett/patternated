@@ -1,4 +1,4 @@
-# Patternated — Technical Spec
+# Patternated Technical Spec
 
 _As of 20 September 2026._
 
@@ -9,7 +9,7 @@ motifs into print-ready textile patterns, seamless by construction rather than b
 seam-fixing.
 
 The engine composes patterns from **individual motifs** (one banana, one dinosaur),
-not from square pattern images. Motifs arrive from three sources — hand
+not from square pattern images. Motifs arrive from three sources: hand
 illustrations scanned or exported by a designer, generated images of single objects
 on flat backgrounds, and previously ingested motifs from the library. All three take
 the identical path through the pipeline, because a motif is just a file with an
@@ -44,7 +44,7 @@ What this is not:
 
 Success for v0 is a season of coordinated Peel Club prints produced from the
 existing illustrations, at print spec. Productisation as a tool for other designers
-is a later and separate question, and a doubtful one — see the closing note under
+is a later and separate question, and a doubtful one; see the closing note under
 Out of scope.
 
 ## Core model
@@ -76,7 +76,7 @@ W and height H:
 > lattice block. See
 > [Decisions](./decisions.md#a-mirror-is-a-symmetry-of-the-tile-not-a-lattice).
 
-Half-drop is the workhorse because the vertical stagger disrupts **tracking lines** —
+Half-drop is the workhorse because the vertical stagger disrupts **tracking lines**,
 the accidental diagonal or vertical corridors the eye finds when motifs align across
 tiles. Tracking is the single most common reason an amateur pattern reads as
 amateur, and the engine should treat it as a measurable defect, not a matter of
@@ -84,14 +84,14 @@ taste.
 
 Two data types carry the whole model:
 
-1. `Lattice { u: Vec2, v: Vec2 }` — expressed in physical units (mm), never pixels.
+1. `Lattice { u: Vec2, v: Vec2 }`, expressed in physical units (mm), never pixels.
 2. `Placement { motif_id, position: Vec2, rotation: f32, scale: f32, palette_slot: u8 }`
-   — position in tile-local coordinates, always within [0, W) × [0, H).
+   with position in tile-local coordinates, always within [0, W) × [0, H).
 
 A pattern is
 `{ tile_size_mm: Vec2, lattice: Lattice, placements: Vec<Placement>, palette: Palette }`.
 That struct is the entire serialisable document format. It is small, diffable, and
-can be regenerated at any resolution — which matters, because the same pattern must
+can be regenerated at any resolution, which matters, because the same pattern must
 render as a 200 px web thumbnail and a 4 m print run from one source of truth.
 
 ## Tiling algorithm
@@ -120,7 +120,7 @@ approach:
   is baked in.
 
 One correctness note for oblique lattices. With a half-drop the neighbour set is not
-a naive ±W, ±H grid — the offsets must come from **u** and **v** themselves, as
+a naive ±W, ±H grid. The offsets must come from **u** and **v** themselves, as
 above. Hardcoding (±W, ±H) produces a pattern that tiles correctly in a preview grid
 and fails on the printer, which is an expensive way to find the bug.
 
@@ -141,7 +141,7 @@ This is the hard half of the engine. The tiling maths is a day's work; getting
 clean, recolourable, scalable motifs out of arbitrary source art is most of the
 build.
 
-Three entry points, one pipeline. Generated motifs are not a special case — they are
+Three entry points, one pipeline. Generated motifs are not a special case. They are
 an image like any other, and the moment they hit matting the origin stops mattering.
 
 ```mermaid
@@ -155,7 +155,7 @@ flowchart LR
 ```
 
 **Generation** applies to Dreamwoven only. One subject per image, isolated on a flat
-background — the single thing image models do reliably. Never ask for a pattern, a
+background, which is the single thing image models do reliably. Never ask for a pattern, a
 scene, or several objects at once. Generation is also the only stage needing a
 network call, which is why it sits outside `pattern-core` and behind a trait, so it
 can be swapped or stubbed.
@@ -171,13 +171,13 @@ aspect ratio, and store a physical reference size in mm so scale is meaningful
 before any placement happens.
 
 **Vectorise.** Trace to paths so the motif prints crisply at any size. `vtracer` is
-the pragmatic choice — Rust-native, colour-aware, no C++ build chain. Keep the
+the pragmatic choice: Rust-native, colour-aware, no C++ build chain. Keep the
 raster alongside the vector: some illustration styles (watercolour, texture, grain)
 vectorise badly and should stay raster with a high-DPI original.
 
 **Palette extract.** Quantise the motif to a small set of flat colours and store
 them as indexed **palette slots** rather than literal values. This one decision is
-what makes colourways possible later, and retrofitting it is painful — build it in
+what makes colourways possible later, and retrofitting it is painful, so build it in
 from the first commit.
 
 Motifs are immutable once ingested. Re-ingesting produces a new version rather than
@@ -204,7 +204,7 @@ Four mechanisms, in rough order of effectiveness:
 2. **Forced palette normalisation.** Quantise every motif onto one shared palette at
    ingest rather than preserving its generated colours. This costs nothing extra,
    since the palette-slot machinery already exists for colourways, and it does a
-   surprising amount of the work — much of perceived style mismatch is really colour
+   surprising amount of the work, since much of perceived style mismatch is really colour
    mismatch.
 3. **Silhouette and detail normalisation.** Enforce a target path count and stroke
    weight at vectorisation. A dinosaur rendered with 400 paths next to a football
@@ -241,8 +241,8 @@ The top two rows are also the idioms most heavily represented in children's prod
 design, so the constraint and the brand instinct point the same way.
 
 The commission is a definition exercise rather than a demonstration one. Write the
-style down explicitly first — line weight, fill treatment, level of abstraction,
-outline or none, how shading and highlights work, palette rules — then commission
+style down explicitly first, covering line weight, fill treatment, level of
+abstraction, outline or none, how shading and highlights work and palette rules, then commission
 roughly 20 reference pieces against that written spec, spanning an animal, a
 vehicle, a food, a plant, a manufactured object and a figure.
 
@@ -251,7 +251,7 @@ construction, vectorisation normalisation and palette rules as well as the adapt
 and it outlives whatever generation model is current in two years.
 
 Start with reference-image conditioning (IP-Adapter and similar) rather than a
-trained LoRA — fewer references needed, no training step, faster to iterate. Move to
+trained LoRA, since fewer references are needed, there is no training step, and it is faster to iterate. Move to
 a LoRA only if conditioning proves too weak.
 
 Bootstrap the style before commissioning anything. Flat vector children's
@@ -285,20 +285,20 @@ d(\mathbf{a}, \mathbf{b}) = \left\| \left( \left| a_x - b_x \right| \bmod W,\ \l
 ```
 
 taking the shorter path in each axis. Sample with Euclidean distance instead and
-motifs collide across the tile boundary — invisible in a single tile, obvious in the
+motifs collide across the tile boundary, invisible in a single tile, obvious in the
 3×3 view.
 
 Around that core, four controls a designer will expect:
 
-1. **Density** — target coverage as a percentage of tile area. Solve for `r` from
+1. **Density**, a target coverage as a percentage of tile area. Solve for `r` from
    coverage and mean motif area rather than exposing `r` directly; nobody thinks in
    minimum separation radii.
-2. **Rotation jitter** — a bounded random rotation per placement. Fruit reads badly
+2. **Rotation jitter**, a bounded random rotation per placement. Fruit reads badly
    when every banana points the same way, and badly again when rotation is fully
    uniform.
-3. **Scale variation** — a bounded multiplier, typically 0.8 to 1.2. Small amounts
+3. **Scale variation**, a bounded multiplier, typically 0.8 to 1.2. Small amounts
    of it do a disproportionate amount of work.
-4. **Motif mix** — relative weights across the library, so a print can be 60%
+4. **Motif mix**, relative weights across the library, so a print can be 60%
    cherries and 10% pineapples.
 
 **Tracking detection** is a first-class feature, not an afterthought. Render the 3×3
@@ -317,7 +317,7 @@ reproduce it exactly.
 ## Colourways
 
 A colourway is the same pattern in a different palette. Textile ranges sell in
-colourways, so this is not a nice-to-have — it is half of what the tool is for.
+colourways, so this is not a nice-to-have. It is half of what the tool is for.
 
 The mechanism follows from the palette-slot decision in the motif pipeline. Motifs
 store slot indices, not colours. A `Palette` is an ordered list of colours;
@@ -351,8 +351,8 @@ design.
 ## Output and print readiness
 
 The engine works in millimetres throughout and converts to pixels only at export.
-Pattern scale is a physical property — a 12 cm repeat and a 40 cm repeat are
-different designs, not different zoom levels — and tools that model scale in pixels
+Pattern scale is a physical property, in that a 12 cm repeat and a 40 cm repeat are
+different designs rather than different zoom levels, and tools that model scale in pixels
 force the designer to do the conversion arithmetic themselves, every time.
 
 ```latex
@@ -361,8 +361,8 @@ force the designer to do the conversion arithmetic themselves, every time.
 
 Repeat scale must derive from garment size, not be set once and reused. A 24 cm
 repeat reads completely differently on an adult shirt, a nine-year-old's pyjama leg
-and a three-year-old's. For Dreamwoven this has to be automatic — age maps to a size
-chart, the size chart sets a scale factor on both the tile and the motifs within it —
+and a three-year-old's. For Dreamwoven this has to be automatic, with age mapping
+to a size chart and the size chart setting a scale factor on both the tile and the motifs within it,
 or a small garment ships with one enormous dinosaur and a great deal of background.
 Peel Club needs the same mechanism across its size range, just with a human able to
 override it.
@@ -383,7 +383,7 @@ Three things to get right, in order of how often they cause reprints:
    most common complaint in fabric printing, and it is almost always an unmanaged
    conversion.
 2. **DPI and physical size in every file.** Embed the DPI, and name exports with the
-   repeat size — `peelclub-cherries-halfdrop-240mm-150dpi.tif` removes an entire
+   repeat size. `peelclub-cherries-halfdrop-240mm-150dpi.tif` removes an entire
    category of mistakes.
 3. **Bleed.** Some bureaux want the tile alone, some want bleed. Make it a toggle
    and state the convention in the export dialog.
@@ -437,7 +437,7 @@ Mitigations, layered:
 
 ### Nightwear regulations (UK)
 
-Not legal advice — confirm with someone who does this properly before selling. The
+Not legal advice, so confirm with someone who does this properly before selling. The
 shape of it:
 
 - Children's nightwear generally must meet the flammability performance requirements
@@ -452,7 +452,7 @@ shape of it:
 - BS EN 14878 is recommended for children's pyjamas so suppliers meet their General
   Product Safety Regulations obligations.
 - UK REACH restricts certain azo dyes and flame retardants, which bears directly on
-  a printed product — worth raising with the print bureau early.
+  a printed product, so it is worth raising with the print bureau early.
 
 Source: <https://www.businesscompanion.info/en/quick-guides/product-safety/new-nightwear>
 
@@ -505,37 +505,37 @@ Worth designing for, not worth building yet.
 Each milestone ends in something usable. Nothing here requires the milestone after
 it.
 
-**M1 — Bare engine.** `pattern-core` plus `pattern-render`, driven by a JSON file
+**M1: Bare engine.** `pattern-core` plus `pattern-render`, driven by a JSON file
 and a CLI. Block and half-drop lattices, structured placement, PNG output. Test: a
 hand-placed cherry tiles seamlessly in a 3×3 render. This is the milestone that
 proves the whole approach, and it is small.
 
-**M2 — Scatter.** Toroidal Poisson-disc sampling, density, rotation jitter, scale
+**M2: Scatter.** Toroidal Poisson-disc sampling, density, rotation jitter, scale
 variation, motif mix, seeded reproducibility. Test: a 40-motif scatter shows no
 clumps, no bald patches, and no visible corridors at 3×3.
 
-**M3 — Motif ingest.** Matting, trim, vectorise, palette extraction, local library.
+**M3: Motif ingest.** Matting, trim, vectorise, palette extraction, local library.
 Test: the existing Peel Club illustrations go in unmodified and come out as clean,
 recolourable motifs.
 
-**M4 — Shell.** Tauri app with a live 3×3 preview, parameter controls, motif picker,
+**M4: Shell.** Tauri app with a live 3×3 preview, parameter controls, motif picker,
 and seed reroll. Test: a designer produces a print they like without touching a
 config file. This is the first point at which the tool is worth anyone else using.
 
-**M5 — Colourways and export.** Palette management, house palettes, colour-count
+**M5: Colourways and export.** Palette management, house palettes, colour-count
 display, CMYK/ICC export, per-colour separations, correct file naming.
 
-**M6 — Mockups and tracking detection.** Garment preview at true scale; Radon-based
+**M6: Mockups and tracking detection.** Garment preview at true scale; Radon-based
 corridor detection with automatic reseed. Tracking detection is a convenience for
 Peel Club and a prerequisite for Dreamwoven, so build it properly here rather than
 as a warning badge.
 
-**M7 — Dreamwoven pipeline.** Generation behind a trait, style adapter, blocking
+**M7: Dreamwoven pipeline.** Generation behind a trait, style adapter, blocking
 quality gates, IP filtering, garment-size-driven scale. Only start this once M1–M6
 have produced a Peel Club range that went to fabric and came back right.
 
 M1 and M2 together are the interesting part and the smallest part. If they take more
-than a couple of focused sessions, something has gone wrong in the modelling — go
+than a couple of focused sessions, something has gone wrong in the modelling, so go
 back to the lattice.
 
 Stop after M4 and reassess. A working tool that produces one good Peel Club range
@@ -555,7 +555,7 @@ Deliberately not built in v0, with the reason in each case:
   all commercial textile work. Full symmetry-group support is interesting and not
   needed.
 - **Ogee, diamond and damask layouts.** Structurally these are lattices with a motif
-  frame, so they fit the model cleanly — just later.
+  frame, so they fit the model cleanly, just later.
 - **Any hosted service or API.** The pure core makes this cheap to add if it is ever
   wanted. Building it now means maintaining infrastructure for one user. Note that
   Dreamwoven, if it happens, eventually needs one.
@@ -569,7 +569,7 @@ colourways and separations. Selling this as a tool to surface pattern designers 
 therefore a weak bet.
 
 The stronger position is that the engine is shared infrastructure under two consumer
-brands — one live, one concept — where the product sold is a garment, not software.
+brands, one live and one concept, where the product sold is a garment, not software.
 Peel Club needs the engine regardless. Dreamwoven, if it works, is the better
 business of the two: a gift product with real emotional pull and a buyer who is
 rarely the wearer. Keep the build scoped so that the first outcome alone is worth it,

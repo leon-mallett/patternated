@@ -7,7 +7,7 @@
 Captivated reserves alongside it.
 
 The text in `LICENSE` is the Free Software Foundation's, fetched verbatim and
-unmodified. It is not paraphrased and must not be edited — an altered licence
+unmodified. It is not paraphrased and must not be edited, because an altered licence
 is a different licence, and nobody can tell which one they have agreed to.
 
 Why this and not a permissive licence is in
@@ -18,7 +18,7 @@ coexists with a closed Dreamwoven is below.
 
 *Not legal advice. The mechanism below is standard and well understood. It was
 applied on Leon's explicit approval and still deserves a solicitor's
-half-hour — the recommendation stands and is simply no longer blocking.*
+half-hour; the recommendation stands and is simply no longer blocking.*
 
 ### The mechanism is sole ownership
 
@@ -28,7 +28,7 @@ Captivated Ltd owns the engine outright, so it can publish it under AGPL-3.0
 licence constrains the public; it does not constrain the owner.
 
 This matters more than it might seem, because Dreamwoven **statically links**
-the engine — it depends on `pattern-core` and the rest by path, and they are
+the engine. It depends on `pattern-core` and the rest by path, and they are
 compiled into its binary. Static linking is generally treated as producing a
 combined work, so under a strict reading an AGPL engine would pull Dreamwoven
 into AGPL as well. It does not, because the owner is not a licensee of its own
@@ -39,7 +39,7 @@ of this section stays true.
 
 **Accepting a code contribution.** A contributor holds copyright in their
 patch. The moment one is merged, Captivated no longer owns the engine outright
-and can no longer relicense it unilaterally — which means it can no longer use
+and can no longer relicense it unilaterally, which means it can no longer use
 that version inside a closed Dreamwoven without the AGPL question becoming
 real.
 
@@ -83,7 +83,7 @@ the engine; they are not free to call their fork by your name.
 The engine was called "Pattern Engine" until 2026-11-14, and that reservation
 would not have held: a descriptive mark is weak to unregistrable, and several
 projects already call themselves a pattern engine. The rename to a coined word
-is what makes the clause enforceable — see
+is what makes the clause enforceable; see
 [Decisions](./decisions.md#the-engine-is-called-patternated-and-the-description-is-not-the-name).
 
 **Generated artwork.** Nothing about the engine's licence says anything about
@@ -93,7 +93,7 @@ and belongs with [the unresolved one](#the-unresolved-one).
 ### If AGPL feels like too much rope
 
 The alternative that keeps the same guarantee with less ambiguity is **not to
-open the source at all** — ship a free, signed binary and keep the repository
+open the source at all**: ship a free, signed binary and keep the repository
 private. Designers get the tool, you keep everything, and the only thing lost
 is the credibility of being inspectable.
 
@@ -119,7 +119,7 @@ M5 ships ICC profiles, which is a licensing decision as much as a colour one,
 and the terms were read rather than assumed. Every profile chosen is
 redistributable without restriction: `sRGB2014.icc` from the ICC, and the ECI
 and IDEAlliance CMYK profiles (PSO Coated, GRACoL, SWOP, CGATS21, XCMYK 2017).
-Heidelberg's `ISOcoated` series is deliberately avoided — bundleable, but with
+Heidelberg's `ISOcoated` series is deliberately avoided, being bundleable but with
 conditions about not charging extra for it, which is a needless complication
 when unrestricted equivalents exist. Nothing from Adobe.
 
@@ -134,19 +134,19 @@ clean.
 
 **They are nonetheless unavailable to Dreamwoven.** The two brands share the
 engine, the palette machinery and the pipeline, and nothing visual. Peel Club's
-artwork cannot be used as a style primer for Dreamwoven's generated motifs — not
+artwork cannot be used as a style primer for Dreamwoven's generated motifs, and not
 for want of rights, but because they are separate brands with no shared visual
 identity, and a shared style would undermine both.
 
 The consequence is a real cost on a concept-stage product: Dreamwoven needs its
 own style reference built from nothing, and that gates all of
-[M7](./roadmap.md#m7--dreamwoven-pipeline).
+[M7](./roadmap.md#m7-dreamwoven-pipeline).
 
 ## The unresolved one
 
 **Dreamwoven generates motifs from what a child likes, and what children like is
 largely licensed characters.** This is the highest commercial risk in the
-concept and it is not an edge case — expect it on a large share of orders.
+concept and it is not an edge case. Expect it on a large share of orders.
 
 Mitigations are layered, in order of effectiveness: guided category input rather
 than a free-text box, which shapes expectations before a parent types a name; a

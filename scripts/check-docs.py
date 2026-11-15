@@ -7,7 +7,7 @@ problems and exited zero, so a chain that ran it before committing duly
 reported the breakage and then committed anyway.
 
 The anchor rules match GitHub's: lowercase, drop punctuation, then turn each
-space into a hyphen — note *each*, so the double space left either side of a
+space into a hyphen, and note *each*, so the double space left either side of a
 removed em dash becomes a double hyphen. Getting that wrong reports correct
 links as broken, which is how the first attempt at this wasted a round.
 """

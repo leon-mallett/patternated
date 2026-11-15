@@ -1,7 +1,7 @@
 # About
 
-Patternated turns a library of illustrated motifs — one banana, one dinosaur,
-one cherry — into repeating patterns that can be printed onto fabric.
+Patternated turns a library of illustrated motifs, one banana, one dinosaur,
+one cherry, into repeating patterns that can be printed onto fabric.
 
 ## The problem it solves
 
@@ -22,7 +22,7 @@ because it was never broken.
 Because the pattern is stored as a list of motifs and positions rather than as
 a finished image, three things follow that matter commercially:
 
-- **It can be printed at any size** — a web thumbnail and a four-metre run come
+- **It can be printed at any size.** A web thumbnail and a four-metre run come
   from the same file, because positions are recorded in millimetres rather than
   pixels.
 - **It can be recoloured in one operation**, because motifs store colour
@@ -34,9 +34,9 @@ a finished image, three things follow that matter commercially:
 
 Two clothing brands, sharing the engine and nothing visual:
 
-- **Peel Club** — adult apparel with fruit prints, from one illustrator's
+- **Peel Club**, adult apparel with fruit prints, from one illustrator's
   existing artwork. Live today, and the reason the engine is being built.
-- **Dreamwoven** — bespoke children's pyjamas, where the motifs are generated
+- **Dreamwoven**, bespoke children's pyjamas, where the motifs are generated
   per order from a child's interests and nobody reviews the result before it is
   printed. A concept, and the harder problem.
 

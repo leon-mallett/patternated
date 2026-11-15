@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Three pop-art bananas on transparent backgrounds.
 
-The style block is shared verbatim so the three read as one illustrator —
+The style block is shared verbatim so the three read as one illustrator, for
 the same reason the earlier fruit set cohered.
 """
 import base64, json, os, sys, urllib.request

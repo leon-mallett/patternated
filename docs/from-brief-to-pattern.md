@@ -8,7 +8,7 @@ A brief is a child's interests plus an occasion:
 > I like ice cream, dinosaurs, monster trucks and unicorns. It's for pyjamas,
 > so it should be night time.
 
-That yields roughly a dozen generated motifs — several variants per interest —
+That yields roughly a dozen generated motifs, several variants per interest,
 plus a small occasion set, on a background colour. **The motifs carry the
 design. The background is a colour.** An earlier draft of this page had it
 backwards, with rule-drawn grounds carrying the character and generic motifs
@@ -18,7 +18,7 @@ not what is being sold.
 ## Style is set in the prompt, not in the engine
 
 Cartoony, flat and geometric, photo-realistic, hand-drawn doodle, stickmen,
-watercolour, or a borrowed colour scheme — these are instructions to the image
+watercolour, or a borrowed colour scheme: these are instructions to the image
 model. The engine never renders in a style. It receives whatever comes back and
 assembles it.
 
@@ -30,12 +30,12 @@ is**:
   ingest mattes by measuring the paper and by alpha, and there is no
   background-removal model. A photo-realistic dinosaur standing in a
   photo-realistic jungle cannot be cut out. The spec says the same thing from
-  the model's side — one isolated subject is the single thing image models do
+  the model's side, where one isolated subject is the single thing image models do
   reliably.
 - **Everything lands on one shared palette.** Twelve motifs generated
   separately arrive with twelve palettes; ingest quantises them all onto one.
   This is not a limitation to work around, it is the main reason a dozen
-  unlike things read as one design rather than as a sticker sheet — much of
+  unlike things read as one design rather than as a sticker sheet, since much of
   what reads as style mismatch is really colour mismatch.
 
 The second clause does bound the styles that survive well. Slots are `u8`, so a
@@ -53,7 +53,7 @@ A brief sorts its own assets, and the hierarchy is what the scatter needs:
 | --- | --- | --- | --- |
 | Hero | The child's named interests | Large | Rare |
 | Secondary | Variants that stop repetition reading as repetition | Medium | Occasional |
-| Filler | The occasion set — moon, star, sparkle | Small | Numerous |
+| Filler | The occasion set: moon, star, sparkle | Small | Numerous |
 
 Fillers are not padding. They come from the occasion rather than from the
 child, they are what makes the space between heroes look intentional, and they
@@ -90,7 +90,7 @@ Two things about the shape of this are worth keeping:
   the same process, so no reseed makes an absent unicorn appear.
 - **The report is as important as the constraint.** A tile can be genuinely too
   small for everything asked of it, and that has to arrive as a named
-  shortfall — the caller can then shrink a motif, grow the tile or ask a
+  shortfall, so the caller can then shrink a motif, grow the tile or ask a
   person. Silence would be indistinguishable from success.
 
 A grid refuses the flag outright rather than ignoring it: it fills every cell
@@ -100,7 +100,7 @@ flag there would be a lie.
 ## How common each motif is
 
 Abundance is per motif, not per tier. `MotifWeight::weight` is a relative
-tendency — weights need not sum to anything — so a night sky can carry several
+tendency, and weights need not sum to anything, so a night sky can carry several
 times more stars than moons, which a tier-wide weight could not express.
 
 Measured over twelve seeds at the reference settings, with stars weighted 3.4
@@ -117,7 +117,7 @@ against moons at 1.0:
 
 **A weight is a tendency and `required` is a floor, and the floor wins.** Nine
 of the twelve assets here are required, so nine of about twenty-two placements
-are spoken for before the weighted mix draws anything — which is why the heroes
+are spoken for before the weighted mix draws anything, which is why the heroes
 land at 1.0 to 1.2 rather than the 0.8 their weight alone implies, and why the
 stars land a little under their share. The fewer placements a tile holds, the
 more of it the floor occupies and the less the ratios can say. Strong ratios
@@ -130,7 +130,7 @@ not one".
 
 ## A size control must not re-solve the layout
 
-The buyer sees the pattern and can adjust it — resize individual motifs, choose
+The buyer sees the pattern and can adjust it, resizing individual motifs or choosing
 an arrangement. That has one hard engineering consequence, measured rather than
 guessed.
 
@@ -147,7 +147,7 @@ with a single asset resized:
 | sparkle ×1.5 | 8% | 100%, 0 overlapping pairs |
 
 A slider that re-solves is not "make the dinosaur bigger". It is "reroll the
-entire design, and also the dinosaur is bigger" — on every tick of the drag.
+entire design, and also the dinosaur is bigger", on every tick of the drag.
 
 So a size control changes [`Placement::scale`](../crates/pattern-core/src/placement.rs)
 on the placements already solved, and touches no position. The layout survives
@@ -160,7 +160,7 @@ existing layout starts to collide, which is computable from the layout in hand.
 
 Knowing the headroom exposes a second problem. `prevent_overlap` packs a tile
 until motifs nearly touch, so a layout solved at the size it is drawn has
-almost no slack in it — the heroes of the reference brief come out at **×1.01**.
+almost no slack in it: the heroes of the reference brief come out at **×1.01**.
 A "make the unicorn bigger" slider with one per cent of travel is not a
 control.
 
@@ -170,16 +170,16 @@ the layout already reserved, and shrinking was always free. At a slack of 1.3
 the heroes go from ×1.01 to about ×1.4–1.5.
 
 It is paid for in **density, and only density**. Solving at larger sizes fits
-fewer motifs — 25 placements become 14 — and the density control buys them
+fewer motifs, turning 25 placements into 14, and the density control buys them
 back: 0.30 with no slack and 0.55 at a slack of 1.3 both give 24 or 25.
 
 One claim was nearly recorded here that turned out to be false. A single render
 at slack 1.3 scored 0.54 for tracking against 0.28 without, and read as more
 regular by eye, which looked like slack buying corridors. Averaged over eight
-seeds the figures are 0.42, 0.49 and 0.34 for slack 1.0, 1.2 and 1.3 — noise,
+seeds the figures are 0.42, 0.49 and 0.34 for slack 1.0, 1.2 and 1.3, which is noise
 with no trend. One seed is not a measurement of a stochastic process.
 
-Re-solving still belongs behind an explicit control — a **shuffle** — where a
+Re-solving still belongs behind an explicit control, a **shuffle**, where a
 wholesale change is what was asked for rather than a surprise. Shuffle is also
 a reseed, which is what the tracking check wants when it fires, so the same
 button serves the buyer and the quality gate.

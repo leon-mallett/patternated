@@ -42,7 +42,7 @@ usvg = { version = "0.48.1", default-features = false }
 # Rendering SVG, as distinct from reading geometry out of it. Only for the
 # fallback: a drawing carrying a gradient has no outline that a palette slot
 # could stand for, so it is rasterised and quantised like any other artwork.
-# `text` stays off here for the same reason it is off for `usvg` — type
+# `text` stays off here for the same reason it is off for `usvg`: type
 # resolved through installed fonts would rasterise differently on another
 # machine.
 resvg = { version = "0.48.1", default-features = false }
@@ -55,7 +55,7 @@ debug = "line-tables-only"
 # The engine crates are optimised even in a development build.
 #
 # `npm run tauri dev` runs an unoptimised binary, and the preview re-renders on
-# every slider movement — so the difference between a build that feels
+# every slider movement, so the difference between a build that feels
 # immediate and one that feels stuck is entirely down to this. Measured on a
 # 1.2 m repeat of four thousand motifs: 3.4 seconds an interaction unoptimised,
 # 0.2 optimised. A designer trying the tool in dev was hitting the first one.

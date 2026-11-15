@@ -15,7 +15,7 @@ Implemented as `PixelLattice` in `pattern-render`.
 **Why.** Rasterising quantises the repeat whether or not anyone decides how. A
 240 mm tile at 150 DPI is 1417.32 px. Round the tile to 1417 px but keep
 offsetting neighbours by 1417.32 px and every repeat drifts by a third of a
-pixel — invisible in a preview, and out by a visible margin some metres down a
+pixel, invisible in a preview, and out by a visible margin some metres down a
 roll. Something has to absorb the fraction, and the tile is the only thing that
 can, because the tile is what the bureau receives.
 
@@ -30,7 +30,7 @@ tile height rounds to an odd number. The tiling stays exact; only the
 aesthetic stagger moves, by a distance no fabric records.
 
 **Would reopen if.** Vector export lands at M5 and the same question has to be
-answered again without a pixel grid to answer it with — there the answer is
+answered again without a pixel grid to answer it with. There the answer is
 probably that it does not arise, since SVG has no raster quantisation.
 
 Governs the tiling in [Features](./features.md#seamless-tiling).
@@ -74,7 +74,7 @@ already rejects a slot past the end of the palette, so a document cannot record
 something that will not resolve later.
 
 **Would reopen if.** Ingest at M3 finds that real illustrations do not quantise
-to a small slot set without unacceptable loss — in which case the raster path
+to a small slot set without unacceptable loss, in which case the raster path
 stays literal-coloured and slots apply only to vectorised motifs, which is a
 narrowing rather than a reversal.
 
@@ -92,8 +92,8 @@ turned out not to be able to use it.
 re-derives the offsets in integers. That left a public function in the core
 that looked like the tiling algorithm, was tested as though it were, and was
 called by nothing. A later reader would reasonably have trusted it. The project's
-own scope rule — that partial implementations are worse than none because they
-get forgotten and then trusted — applies to leftovers as much as to things built
+own scope rule (that partial implementations are worse than none because they
+get forgotten and then trusted) applies to leftovers as much as to things built
 early.
 
 **Would reopen if.** M6's tracking detection or an SVG renderer needs the
@@ -114,7 +114,7 @@ until the Tauri shell arrives, which also gives `anyhow` somewhere to live
 without it leaking into a library.
 
 **Would reopen if.** The Tauri shell at M4 makes the CLI redundant. More likely
-it does not — a command line is how the engine gets scripted for a range, and
+it does not. A command line is how the engine gets scripted for a range, and
 how it gets tested without a UI.
 
 ---
@@ -129,7 +129,7 @@ script that drew it.
 any machine without hunting for an original; the test suite does not break when
 artwork is redrawn; and no binary asset accumulates in history. The test motif
 is drawn deliberately lopsided, because a motif symmetric about its centre hides
-a whole class of tiling bug — a mirrored or half-shifted copy looks identical to
+a whole class of tiling bug: a mirrored or half-shifted copy looks identical to
 a correct one.
 
 **Cost.** Nothing in M1 touches a real illustration, so the first contact with
@@ -141,7 +141,7 @@ real alpha edges and real colour is at M3. Recorded as a known gap in
 ## Measuring the toroidal distance on the lattice, not the tile rectangle
 
 **Decided.** `lattice_distance_sq` reduces the separation between two points
-into one lattice cell and minimises over the nine neighbours — the same nine
+into one lattice cell and minimises over the nine neighbours, the same nine
 the tiling uses.
 
 **Why.** The spec gives the toroidal distance as wrapping each axis by the
@@ -150,7 +150,7 @@ place, and it does more damage here. On a 240 × 180 mm half-drop, motifs at
 (10, 10) and (230, 95) are 87 mm apart under the rectangle formula and 21 mm
 apart in the printed pattern, because the right-hand neighbour arrives dropped
 by half the tile height. A scatter sampled that way accepts the pair as well
-separated and prints them overlapping — and the collision lands exactly where a
+separated and prints them overlapping, and the collision lands exactly where a
 half-drop was chosen to prevent one.
 
 **Rejected.** Following the spec as written. Recorded here rather than silently
@@ -161,7 +161,7 @@ comparing the two should find the disagreement explained.
 Immaterial at the counts a textile repeat uses.
 
 **Would reopen if.** Never, for correctness. The implementation would change if
-scatter needed a spatial index — see below.
+scatter needed a spatial index; see below.
 
 Governs [scatter placement](./features.md#scatter-placement).
 
@@ -182,7 +182,7 @@ gives the same placements anywhere. Writing the bit-to-float conversion locally
 closes the other route by which the same seed could stop meaning the same thing:
 a dependency upgrade changing its sampling.
 
-**Cost.** About 41% of darts are rejected. Irrelevant — the sampler runs in
+**Cost.** About 41% of darts are rejected. Irrelevant: the sampler runs in
 milliseconds.
 
 **Enforced.** A test greps the module for trigonometric calls and fails if one
@@ -201,8 +201,8 @@ spatial index.
 
 **Why.** Bridson's algorithm is usually written with a grid of cell size
 `r/√2` indexing the tile rectangle. On an oblique lattice the rectangle is the
-wrong neighbourhood — two samples adjacent in the printed pattern can sit in
-opposite corners of it — so a correct grid would have to be built in lattice
+wrong neighbourhood (two samples adjacent in the printed pattern can sit in
+opposite corners of it), so a correct grid would have to be built in lattice
 coordinates, where the metric is sheared and the cell bounds stop being obvious.
 That is a subtle thing to get right, and getting it wrong reintroduces exactly
 the bug the lattice distance exists to prevent, in a place that is harder to
@@ -223,8 +223,8 @@ that purpose.
 the maximality bound the gap test asserts is 1.25 × the separation radius,
 measured.
 
-**Why this is in the decision log.** Both were originally written from memory —
-0.69 and 1.0 — and both were wrong, and one of them was wrong in a way that had
+**Why this is in the decision log.** Both were originally written from memory,
+as 0.69 and 1.0, and both were wrong, and one of them was wrong in a way that had
 already slipped past a test. At 0.69 the density control delivered about 77% of
 the coverage it promised, and the coverage test's tolerance was loose enough to
 pass anyway. The lesson is not about the numbers: **a constant nobody measured
@@ -234,7 +234,7 @@ The measurements are recorded beside the constants, and a test re-measures the
 packing figure on every run so a sampler change fails loudly rather than
 degrading a control nobody is watching.
 
-**Would reopen if.** The sampler changes at all — in which case the test will
+**Would reopen if.** The sampler changes at all, in which case the test will
 say so first.
 
 ---
@@ -247,7 +247,7 @@ at ingest and stores slot indices, never colours.
 **Why.** It is what makes a colourway a single swap across a whole range rather
 than a per-motif negotiation, and textile ranges sell in colourways. The spec
 asks for it on the further grounds that much of what reads as style mismatch is
-really colour mismatch — which matters for Dreamwoven later, but costs nothing
+really colour mismatch, which matters for Dreamwoven later, but costs nothing
 to have now.
 
 **Rejected.** Each motif keeping its own extracted palette, which preserves
@@ -262,7 +262,7 @@ wrong. So ingest measures the fit and reports it, and
 `QuantisationReport::is_poor_fit` is how anyone finds out.
 
 **Would reopen if.** Real Peel Club artwork turns out not to quantise onto any
-single palette without unacceptable loss — in which case the likely answer is
+single palette without unacceptable loss, in which case the likely answer is
 more slots rather than more palettes.
 
 Governs [colourways](./features.md#colourways).
@@ -279,8 +279,8 @@ through the second.
 rendered, which is the best argument for having built it. Quantisation decides
 which *slot* a pixel belongs to, so it has to run against the palette the
 artwork was drawn for. Running it against the colourway asks which of an
-unrelated set of colours the artwork is nearest to — a red cherry measured
-against apricot and mint — which is a different question and a meaningless one.
+unrelated set of colours the artwork is nearest to, a red cherry measured
+against apricot and mint, which is a different question and a meaningless one.
 
 A library never had this problem: it holds one palette, quantises once at
 ingest, and every colourway is a swap at render. `design_palette` is how a
@@ -320,7 +320,7 @@ the JSON unnoticed.
 wrapper around it.
 
 **Why.** `vtracer` 0.6.5 was proposed and approved first, on the basis that it
-was stable, permissively licensed and pure Rust — all true. Vetting it after
+was stable, permissively licensed and pure Rust, all true. Vetting it after
 approval showed it also bundles a CLI it does not feature-gate, bringing 110
 crates and four RUSTSEC advisories (`atty` unmaintained and unsound, `ansi_term`
 and `adler` unmaintained) and a 2021-era image stack. `visioncortex` is the
@@ -342,7 +342,7 @@ not its description.
 the file's existing alpha. No BiRefNet, no SAM, no ONNX runtime.
 
 **Why.** The spec observes that hand illustrations on white paper are better
-served without one — a threshold is faster and more faithful — and generated
+served without one, since a threshold is faster and more faithful, and generated
 motifs are asked for on flat backgrounds precisely so that this holds. A model
 would bring a large runtime dependency, a downloaded weights file, and
 non-determinism, to solve a problem this project does not yet have.
@@ -365,12 +365,12 @@ Once motifs became slot-indexed it had no remaining meaning, and the renderer
 never read it.
 
 It was not harmless. The colour-count report was reading it, and so reported
-**one colour for an eight-colour print** — which is the number somebody would
+**one colour for an eight-colour print**, which is the number somebody would
 quote a screen printer from. A dead field is not neutral when something else
 still trusts it.
 
 **Rejected.** Keeping it as a per-placement colour override, which is a real
-feature — a scatter where some cherries are gold — but one nothing has asked
+feature (a scatter where some cherries are gold), but one nothing has asked
 for and no milestone specifies. Same reasoning as `draw_operations` in M1:
 partial implementations get forgotten and then trusted.
 
@@ -386,7 +386,7 @@ a purpose.
 figures, and warns in its own words when a third or more of a motif lands on
 slot 0.
 
-**Why.** Observed, not predicted — or rather, predicted and then mis-rated. A
+**Why.** Observed, not predicted; or rather, predicted and then mis-rated. A
 comment in `palette.rs` had already noted that a motif whose colour is nearest
 the ground would resolve to it, and called that faithful. A yellow lemon
 ingested onto cream, red and green put 98% of its pixels on the ground and came
@@ -423,7 +423,7 @@ background varies by under 1%, where a 5.5% margin erases a pale subject.
 obvious approach:
 
 *Dilating the block measurements*, so paper level reaches blocks containing no
-paper, over-estimates on a gradient — a shadowed corner inherits the brightness
+paper, over-estimates on a gradient: a shadowed corner inherits the brightness
 of its sunnier neighbours and keeps itself as motif.
 
 *Any local operator*, because none of them reaches the middle of a large motif.
@@ -432,7 +432,7 @@ which is where a wrong estimate does most damage. A global surface extrapolates
 *through* the motif instead.
 
 **Known limit.** A plane models gradual falloff, not a hard-edged cast shadow.
-That case is detected rather than silently wrong — see `border_retained` — and
+That case is detected rather than silently wrong (see `border_retained`), and
 the honest advice is a better photograph.
 
 **Would reopen if.** Real scans routinely carry hard shadows, in which case the
@@ -456,7 +456,7 @@ covered pixel while only 672 held more than twenty.
 
 **Rejected.** Requiring covered neighbours, which removes isolated speckle but
 not clumped speckle. And trimming by cumulative alpha mass, which clips thin
-features — a tendril carries very little mass per row and would be cut off
+features: a tendril carries very little mass per row and would be cut off
 part-way along.
 
 Connectedness is what actually separates the two: a stem is joined to the motif
@@ -467,7 +467,7 @@ in size, which the 2% floor allows; something tiny and detached is treated as
 debris.
 
 **Would reopen if.** A motif style appears with deliberate fine speckle as part
-of the artwork — spatter, stippling — where the distinction stops holding.
+of the artwork, such as spatter or stippling, where the distinction stops holding.
 
 ---
 
@@ -499,15 +499,15 @@ colourways needed it.
 palette from the artwork, scatter at a starting density.
 
 **Why.** M4 shipped able to open a document and unable to make one, so the only
-route in was hand-writing JSON — which is exactly what the milestone exists to
+route in was hand-writing JSON, which is exactly what the milestone exists to
 remove. Its stated acceptance test is that a designer produces a print without
 touching a config file, and the first thing the app asked for was a config file.
 That was caught by someone opening it, not by any test, which is the honest
 lesson: **an empty state is a feature, and it is the one most likely to be
 tested only by the person who cannot see it fresh.**
 
-**Derived, not guessed.** The palette comes from the artwork. Everything else —
-240 × 180 mm, half-drop, 30% coverage, 50 mm motifs — is a starting point meant
+**Derived, not guessed.** The palette comes from the artwork. Everything else
+(240 × 180 mm, half-drop, 30% coverage, 50 mm motifs) is a starting point meant
 to be changed within seconds. A guessed *palette* is different in kind: it is
 how a motif ends up quantised onto colours it does not contain, and the failure
 is not obvious on screen.
@@ -524,8 +524,8 @@ separation radius and the sum of their own radii. On by default, and
 switchable off.
 
 **Why.** Reported from the app: at a plausible coverage the motifs visibly
-intersected. The sampler was doing exactly what it promised — a minimum distance
-between *centres*, solved from a coverage target — and that promise says nothing
+intersected. The sampler was doing exactly what it promised, a minimum distance
+between *centres* solved from a coverage target, and that promise says nothing
 about edges. This was half-noticed at M2, where a test fixture was observed
 overlapping and filed as a stress case rather than as a defect.
 
@@ -543,12 +543,12 @@ spacing and then placing another.
 **Rejected.** Spacing by the bounding box, which is simpler and wrong by a lot:
 a round motif fills a square box to about 0.71 of the diagonal, so every pattern
 would sit 40% looser than it needs. The radius is measured from the artwork's
-own alpha instead, and is rotation-invariant by construction — a bound that
+own alpha instead, and is rotation-invariant by construction; a bound that
 changed as a motif turned would let overlaps back in at some angles.
 
 **Carried to the grid afterwards, which it should not have needed.** The guard
 shipped working for the scatter and doing nothing for grid layouts, with its
-control rendered inside a panel that grid layouts hide — so it looked absent and
+control rendered inside a panel that grid layouts hide, so it looked absent and
 was absent. A control that appears general and silently covers half the cases is
 the partial implementation this project's rules are about, and the milestone
 rule ("do not implement ahead") does not excuse implementing *behind*: a feature
@@ -573,8 +573,8 @@ Governs [scatter placement](./features.md#scatter-placement).
 window that is itself a repeating unit.
 
 **Why.** Reported from the app: the preview's opposite edges did not line up.
-The check was the right one — holding two edges of a swatch together is how
-anybody tests a repeat — and the diagnosis was nearly right. The *tile* was
+The check was the right one, since holding two edges of a swatch together is
+how anybody tests a repeat, and the diagnosis was nearly right. The *tile* was
 seamless, which is what the export sends and what the tiling tests prove. The
 *window* was not.
 
@@ -586,7 +586,7 @@ left and right edges of a 3-wide window, against 1.7 for a 2-wide one.
 **Solved from the lattice rather than special-cased.** The condition is that
 translating across the window lands on a lattice point, which falls out of the
 same inverse the toroidal distance uses. A half-drop needs an even column
-count, a quarter-drop a multiple of four, a brick an even row count — and a
+count, a quarter-drop a multiple of four, a brick an even row count, and a
 lattice nobody anticipated still gets a window that holds together, or is told
 that none is within reach.
 
@@ -595,7 +595,7 @@ thing a designer judges the tool by, and one that fails the obvious test
 teaches them not to trust it.
 
 **A note on the test**, because the first version was wrong in an instructive
-way. It compared the outermost columns of pixels — which are *adjacent*
+way. It compared the outermost columns of pixels, which are *adjacent*
 columns in the pattern, not the same column, so it measured how fast the
 artwork changes in one pixel and reported a perfectly good block repeat as
 broken. The working version reuses the argument the tile tests already make,
@@ -614,7 +614,7 @@ steps by: even height for a half-drop, a multiple of four for a quarter-drop,
 even width for a brick, nothing for a block.
 
 **Why.** Found by measuring an exported sheet rather than by reasoning. A
-240 × 180 mm repeat at 150 DPI is 1417 × 1063 px — and 1063 is odd, so a
+240 × 180 mm repeat at 150 DPI is 1417 × 1063 px, and 1063 is odd, so a
 half-drop's step of half the tile height rounds to 532. Four columns then
 accumulate 2128 against two tiles' 2126, and the sheet comes back two pixels
 adrift. Butting two copies together gave a seam of 2.79 mean channel difference
@@ -623,7 +623,7 @@ against an interior step of 0.73; afterwards, 0.84.
 **What was not broken.** A single tile, at any resolution. Its own neighbour
 offsets are consistent with each other, which is what the seamlessness tests
 check and why they passed throughout. What breaks is anything that
-*accumulates* the lattice — a pre-repeated sheet, and a printer stepping the
+*accumulates* the lattice: a pre-repeated sheet, and a printer stepping the
 tile themselves.
 
 **Cost.** The repeat moves by at most a pixel: 0.17 mm on 180 mm. That is the
@@ -632,7 +632,7 @@ step further, and a test pins it so it cannot grow unnoticed.
 
 **A note on how it was found.** The unit tests, the seamlessness tests and the
 golden images were all green. The defect appeared only when a written file was
-opened and measured — which is an argument for testing the artefact a project
+opened and measured, which is an argument for testing the artefact a project
 exists to produce, not only the code that produces it.
 
 Governs [export](./features.md#export).
@@ -650,7 +650,7 @@ and it had been that way since save was written.
 
 Two rules were each right and together wrong. Saving writes the placements the
 scatter produced, so that a print reopens exactly as approved even if the
-sampler changes — **a seed is a recipe, and a recipe is not a record**. And the
+sampler changes: **a seed is a recipe, and a recipe is not a record**. And the
 loader refuses a document carrying both placements and a generator, because a
 hand-edited one is genuinely ambiguous and silently discarding either half would
 be worse than failing.
@@ -663,7 +663,7 @@ plainly wants a new print.
 document. Not by the feature's own tests, which only ever saved. The saving path
 and the loading path each had tests; the round trip had none.
 
-**Would reopen if.** Never — but the shape is worth remembering: two components
+**Would reopen if.** Never, but the shape is worth remembering: two components
 that are individually correct can still be incompatible at their join, and only
 a test that crosses the join will say so.
 
@@ -675,7 +675,7 @@ a test that crosses the join will say so.
 None is bundled.
 
 **Why.** The licensing was researched and several CMYK profiles are free to
-redistribute without restriction — ECI's PSO Coated, IDEAlliance's GRACoL and
+redistribute without restriction: ECI's PSO Coated, IDEAlliance's GRACoL and
 SWOP. Any of them could have shipped. All of them describe an **offset litho
 press**, and a digital textile press is not one.
 
@@ -686,7 +686,7 @@ that the numbers mean something. A conversion through the wrong profile is a
 formula with extra steps.
 
 The bureau has the correct profile. Asking for it is a one-line email, and the
-[question list](./commercialisation.md#output-spec--decided) asks
+[question list](./commercialisation.md#output-spec-decided) asks
 for it already.
 
 **Rejected.** Bundling one with a warning. Warnings are read once and the file
@@ -711,7 +711,7 @@ the older cannot.
 
 **Verified before building on it.** A probe converted white to almost no ink,
 black to 87% on the black plate, and red to magenta and yellow rather than
-cyan — because a colour library that compiles is not the same as one that
+cyan, because a colour library that compiles is not the same as one that
 converts correctly, and its own documentation was ambiguous about whether CMYK
 was supported at all.
 
@@ -728,7 +728,7 @@ shipped behind a threshold that does not work.
 
 *The spec's approach*: render the field to a low-resolution mask and measure how
 unevenly coverage spreads along each of fifteen integer directions, scoring the
-worst against the others. On synthetic masks it works cleanly — evenly spread
+worst against the others. On synthetic masks it works cleanly: evenly spread
 blobs score 1.3, a field with one corridor added scores 9.0, hard stripes score
 191 to 320. On real patterns it does not. Forty-five good scatters across three
 lattices, three densities and five seeds scored **1.66 to 6.57**; eight of the
@@ -737,7 +737,7 @@ same patterns with a line of motifs walked through them scored **2.57 to 6.61**.
 *Measuring positions instead of pixels*: for each direction, project every motif
 centre and its eight lattice copies onto the perpendicular, and find the
 fullest band. Cheaper, exact, and more directly a measure of alignment. Clean
-scatters scored **2.09 to 3.99**; corridored ones **2.58 to 3.49** — entirely
+scatters scored **2.09 to 3.99**; corridored ones **2.58 to 3.49**, entirely
 inside the clean range.
 
 **Why both fail.** A repeat is not a field of independently placed motifs. A
@@ -749,7 +749,7 @@ corridor. Poisson-disc sampling makes it worse, not better: it produces a
 characteristic spacing, which is itself structure.
 
 **Why it was removed rather than left behind a flag.** The spec makes this a
-*blocking gate* for Dreamwoven — a pattern fails it and is regenerated with no
+*blocking gate* for Dreamwoven: a pattern fails it and is regenerated with no
 human in the loop. A gate built on a measurement that does not discriminate
 would pass and fail prints at random, and would be trusted precisely because
 nobody could see it working. The project's rule that a partial implementation is
@@ -759,13 +759,13 @@ worse than none was written for exactly this.
 nothing: the frequency domain. Tracking is periodic structure at frequencies
 the lattice does not explain, which is what a two-dimensional power spectrum
 shows and what neither of these spatial measures can isolate. It needs an FFT,
-which brings transcendental arithmetic — acceptable for a warning, and needing
+which brings transcendental arithmetic, acceptable for a warning, and needing
 thought before a *seed* is chosen from the result, since that would make a
 chosen print platform-dependent.
 
 **Also worth knowing:** the synthetic fixtures said it worked. Both approaches
 passed every unit test written against hand-made masks. Only calibrating
-against output from the real pipeline showed the distributions overlapping —
+against output from the real pipeline showed the distributions overlapping,
 the same lesson as the export defect, arrived at from the other end.
 
 ---
@@ -777,8 +777,8 @@ alpha and measuring its paper. Every route that mattes calls it.
 
 **Why.** The choice was being made in two places. Creating a pattern from images
 chose correctly; deriving a palette from the same images always measured the
-paper. Given artwork with a transparent background — which has no paper, so the
-brightest thing in frame is the subject — the second removed the whole image and
+paper. Given artwork with a transparent background, which has no paper, so the
+brightest thing in frame is the subject, the second removed the whole image and
 returned a palette containing only its ground.
 
 Both call sites were written weeks apart and neither referenced the other. **A
@@ -797,13 +797,13 @@ no separate background colour anywhere in the model.
 
 **Why it is worth recording as a decision at all.** Asked whether the background
 could be set in the app, the true answer was that it already could and nobody
-would have guessed — the ground sat in an undifferentiated row of swatches with
+would have guessed: the ground sat in an undifferentiated row of swatches with
 a hover tooltip.
 
 The fix was a label and a heading, and that is the point. Because the ground was
 made slot 0 back at M1 rather than a field of its own, it recolours with a
 colourway, swaps with a motif colour, exports correctly, and resolves through
-the same code as everything else — for free. A separate `background: Color`
+the same code as everything else, for free. A separate `background: Color`
 would have needed all of that written again, and would have drifted.
 
 **The lesson is about the gap between the two**, not the model: a thing that
@@ -821,8 +821,8 @@ cell of placements into the whole tile; the lattice stays `Lattice::block`. No
 was wrong about where the work lived.
 
 **Why.** `Lattice` is a pair of translation vectors, and reflections are not
-translations. Every other classic repeat — block, brick, half-drop,
-quarter-drop — is the same tile slid somewhere else, which is why one type
+translations. Every other classic repeat (block, brick, half-drop,
+quarter-drop) is the same tile slid somewhere else, which is why one type
 describes all four. Writing a mirror as a lattice would have meant either
 lying about what `u` and `v` mean, or giving `Lattice` a mode flag that half
 its methods would have to honour and the other half quietly ignore.
@@ -832,7 +832,7 @@ handles it: export writes the tile, mockups fill a garment with it, colourways
 recolour it, the seamlessness test compares two independent renders of it, and
 none of them needed changing.
 
-**Consequences accepted.** The tile is not doubled — the designed cell is half
+**Consequences accepted.** The tile is not doubled: the designed cell is half
 or a quarter of the repeat the designer set, because repeat size is a decision
 about the print rather than about construction. A mirror requires a block
 lattice, and the combination with an oblique one is refused by
@@ -845,9 +845,9 @@ have to honour the flag, and the seamlessness test would lose the thing that
 makes it worth having: two routes to the same field that were written
 independently.
 
-**Rejected.** Folding the reflection into `rotation_deg`. It is expressible —
-a reflected rotation is a sign flip under one convention and an addition of 180
-degrees under another — and that is precisely the objection. The two
+**Rejected.** Folding the reflection into `rotation_deg`. It is expressible, in
+that a reflected rotation is a sign flip under one convention and an addition
+of 180 degrees under another, and that is precisely the objection. The two
 conventions disagree in the cases nobody checks, and a pair of flags cannot be
 wrong in that way.
 
@@ -864,7 +864,7 @@ tile_size_mm`, using the tile's quantised pixel size, rather than
 **Why.** `PixelLattice` had already decided that the rounded integer tile *is*
 the repeat, and derived the lattice vectors from it rather than rounding them
 separately. Positions were still being scaled by `k`, so they lived in a tile a
-fraction of a pixel wider than the one they were drawn into — an inconsistency
+fraction of a pixel wider than the one they were drawn into, an inconsistency
 with no visible consequence until a mirror arrived.
 
 **What made it visible.** Reflect a position across a mirror axis and the two
@@ -875,7 +875,7 @@ and a designer checks one by flipping it. After the change, every mirrored tile
 measured is its own reflection **exactly**, at every resolution tried.
 
 **Cost.** Motif *sizes* are still scaled by `k`, so position spacing and motif
-size differ by whatever the tile rounding absorbed — under 0.1%. The golden
+size differ by whatever the tile rounding absorbed, by under 0.1%. The golden
 image was regenerated: of fifteen motifs, thirteen were unmoved and two moved a
 single pixel, and the two renders are indistinguishable by eye.
 
@@ -893,7 +893,7 @@ is measured over the reflections as well as the translations.
 
 **Why.** A motif astride a mirror axis intersects its own reflection, and no
 pairwise test can see it: the sampler never compares a candidate with a copy
-that does not exist yet. The first accepted sample was worse — it skipped the
+that does not exist yet. The first accepted sample was worse: it skipped the
 acceptance test entirely, which is harmless without a mirror and drops a
 doubled motif on an axis with one.
 
@@ -901,7 +901,7 @@ doubled motif on an axis with one.
 radius wide. With a motif large against its repeat that band reads as a bare
 corridor, and a four-way mirror loses roughly two thirds of its cell to axis
 clearance, so the coverage control under-delivers and says so. The remedies are
-a smaller motif, a larger repeat, or turning overlap prevention off — which
+a smaller motif, a larger repeat, or turning overlap prevention off, which
 lets motifs cross the axes and is what a designer reaching for a mirror often
 wants.
 
@@ -929,21 +929,21 @@ position snapped onto the nearer mirror line.
 have had to mean "allow them *near* the axes" too, and near is the case worth
 refusing: a motif straddling a line by an arbitrary amount is cut and doubled
 lopsidedly, which is the butterfly nobody asked for. Exactly on the line is a
-different thing — the motif is halved and its own reflection completes it,
+different thing: the motif is halved and its own reflection completes it,
 symmetrically. Distinguishing the two by whether the reflection *moves* the
 motif costs one comparison and gets the four-way case right for free: a motif
 mounted on the vertical line still has to clear its top-to-bottom reflection,
 because that reflection does move it.
 
 **Only one coordinate snaps**, the one already nearer a line. Snapping both
-would put every mounted motif on a corner where four reflections meet — a much
+would put every mounted motif on a corner where four reflections meet, a much
 stronger and rarer ornament than a designer asking for motifs on the lines has
 in mind.
 
 **Both lines get ornaments**, the one through the middle of the tile and the
 one along its edge. Mounting only on the interior line would have been simpler
-— the edge one involves a coordinate of exactly `W`, which wraps to zero if
-anything wraps it — but it would have left the corridor on every second line,
+(the edge one involves a coordinate of exactly `W`, which wraps to zero if
+anything wraps it) but it would have left the corridor on every second line,
 which is the defect this exists to remove.
 
 **Cost.** The realised share is below the one asked for, because an axis
@@ -962,7 +962,7 @@ at all.
 
 **Why.** Drawing a motif and its whole reflection over each other is not a
 mirror. Source-over compositing is not commutative, so wherever the two overlap
-the result takes its colour from whichever was painted last — and reflection
+the result takes its colour from whichever was painted last, and reflection
 reverses that order, so the picture is not symmetrical. It cost nothing while
 every motif was kept clear of the axes, because nothing overlapped; it became
 the whole problem the moment a motif was allowed to sit on one.
@@ -973,7 +973,7 @@ line rather than sitting on it.
 
 **The trap inside it.** An unreflected axis must be left *unbounded*, not
 clipped to the tile. A repeat is periodic, so a motif near one edge legitimately
-draws past the opposite one — that overhang is how a tile's edges join at all.
+draws past the opposite one; that overhang is how a tile's edges join at all.
 Clipping every copy to its own tile removed it and broke all three golden
 images at once.
 
@@ -984,7 +984,7 @@ costs at most one pixel of repeat, which is the trade the lattice divisor
 already makes.
 
 **Verified to fail.** Removing the clip leaves six of the seven mirror tests
-green and breaks exactly the one that renders a mounted motif — which is the
+green and breaks exactly the one that renders a mounted motif, which is the
 right shape, and the reason that test is worth more than it looks.
 
 ---
@@ -1007,7 +1007,7 @@ symptom subtler without fixing it, which is worse.
 
 **Rejected.** Box-filtering straight to the exact target size per placement. It
 is the better filter, and it costs the full source area for every placement on
-every preview — a dozen megapixels per slider movement. The chain is built once
+every preview, a dozen megapixels per slider movement. The chain is built once
 per motif and shared.
 
 **Cost.** About a third of each motif's memory again, and the final step is
@@ -1031,7 +1031,7 @@ palette and re-quantises every motif.
 **Why.** Six was hardcoded when the app first needed a number, and it is too
 few for artwork with any shading: a pale interior finds no colour of its own
 and lands on the ground slot, which is invisible until the ground changes and
-then becomes a hole. But the answer is not simply "more" — screen printing
+then becomes a hole. But the answer is not simply "more": screen printing
 charges by the colour and digital printing does not, so the right count is a
 commercial decision that differs between the two brands this engine serves.
 A constant cannot express that and a default cannot either.
@@ -1040,8 +1040,8 @@ A constant cannot express that and a default cannot either.
 reported defect and left the decision in the wrong place.
 
 **Rejected.** A linear slider from 2 to 64. Three quarters of its travel would
-sit between counts nobody chooses. The control steps through a list — 2, 3, 4,
-5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64 — so the useful range gets the
+sit between counts nobody chooses. The control steps through a list (2, 3, 4,
+5, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48, 64) so the useful range gets the
 travel it deserves.
 
 **Consequence accepted.** Colourways are discarded when the slot count changes,
@@ -1059,12 +1059,12 @@ Described in [Features](./features.md#palette-size).
 
 ## A motif's ground share is worth reporting on its own
 
-**Decided.** `IndexedMotif::ground_share` — the share of a motif's ink that
-resolves to the ground slot — is computed in the core and reported per motif in
+**Decided.** `IndexedMotif::ground_share`, the share of a motif's ink that
+resolves to the ground slot, is computed in the core and reported per motif in
 the app above 8%.
 
 **Why the existing check was not enough.** `QuantisationReport` already tracked
-this and warned above a third, which catches a motif that has vanished — the
+this and warned above a third, which catches a motif that has vanished: the
 lemon that came out as cream in the shape of a lemon. It does not catch a motif
 with a *hole* in it. A peeled banana put 18% of its ink on the ground, scored a
 mean error of 0.05, and passed every check while its interior was the
@@ -1075,7 +1075,7 @@ detector of a contiguous, focal region being wrong, and the share crossing a
 "mostly gone" threshold is a different question from "is any of this
 invisible". Reporting the number beats tuning the threshold, because 20% of a
 motif being ground-coloured is a defect in one design and the entire point of
-another — a white star on a navy ground is exactly this.
+another. A white star on a navy ground is exactly this.
 
 **One definition, two callers.** `quantise` asks the motif rather than counting
 again, because the same number is wanted in the app where there is no report to
@@ -1089,8 +1089,8 @@ disagree with itself.
 **Decided.** `Session` keeps the document as it stood when last written or
 opened, serialised, and compares against it. There is no dirty flag.
 
-**Why.** A flag has to be set at every site that changes the document —
-parameters, palette slots, colourways, colour count, layout — and the cost of
+**Why.** A flag has to be set at every site that changes the document, meaning
+parameters, palette slots, colourways, colour count and layout, and the cost of
 missing one is telling a designer their work is safe when it is not. That is
 the one direction this must not be wrong in. Comparison cannot miss a site,
 because there is nothing to remember to do at a site.
@@ -1122,7 +1122,7 @@ Described in [Features](./features.md#getting-back-out).
 
 **Why.** Every scaffolded Tauri app takes 1420, and this machine runs several
 of them. Whichever starts second dies with "Port 1420 is already in use" and no
-indication of which project is holding it — which is how this was found, with
+indication of which project is holding it, which is how this was found, with
 `~/Projects/unpack` holding the port and pattern-engine refusing to start.
 
 **The alternative was worse than it looks.** Freeing the port means killing
@@ -1143,7 +1143,7 @@ it in the first place. That reasoning is unchanged; only the number moved.
 lattice. `GridParams` gained `col_offset`, the vertical counterpart of
 `row_offset`. No grid preset chooses an oblique lattice any more.
 
-**Why.** Each preset used to pair an offset with a lattice — a diagonal was a
+**Why.** Each preset used to pair an offset with a lattice: a diagonal was a
 shifting grid on a half-drop. Measured over a field of tiles, that lattice was
 never doing anything useful: **wherever it produced a regular field, the point
 set was identical to the same grid on a block lattice**, and wherever it did
@@ -1152,7 +1152,7 @@ harmful.
 
 **How it showed.** A diagonal grid with five rows had a visible break running
 down the middle of the preview. Every tile was drawn correctly and the tiling
-was exact — the seamlessness tests were right — but a half-drop moves the
+was exact, and the seamlessness tests were right, but a half-drop moves the
 neighbouring column of tiles by half a tile, which is two and a half cells of a
 five-row grid, so the grid's own rhythm arrived at the join out of step.
 
@@ -1194,14 +1194,14 @@ rather than against every sample placed so far.
 with the condition "worth doing only if the live preview turns out to need it".
 A 1.2 m canvas of small motifs made it a hang. The condition was met.
 
-Measured in the unoptimised build a designer actually runs, per interaction —
+Measured in the unoptimised build a designer actually runs, per interaction,
 and the preview re-renders on every slider movement:
 
 | motifs | before | after |
 | --- | --- | --- |
 | 1,081 | 4.0 s | 0.03 s |
 | 4,342 | 66.6 s | 0.12 s |
-| 17,375 | 1,194.7 s | — |
+| 17,375 | 1,194.7 s | n/a |
 
 Twenty minutes for one drag of a slider. The release figures below are the
 same work with the optimiser on; both changes landed together, and the
@@ -1210,7 +1210,7 @@ unoptimised column is the one that describes what was reported.
 **Why it was not done sooner, and why that was right.** The objection in the
 debt was real rather than neglect: the grid this algorithm is usually written
 with indexes the *tile rectangle*, and on an oblique lattice the rectangle is
-the wrong neighbourhood — two motifs a whole tile apart may be adjacent in the
+the wrong neighbourhood: two motifs a whole tile apart may be adjacent in the
 pattern. A rectangle-indexed grid would have been fast and quietly wrong, which
 is worse than slow. Indexing the lattice is what the objection was asking for.
 
@@ -1218,7 +1218,7 @@ is worse than slow. Indexing the lattice is what the objection was asking for.
 more; everything it offers still goes through the exact distance test. So the
 accept and reject decisions are identical to the brute-force scan, the random
 draw is therefore identical, and the placements are unchanged. The golden
-image — itself a scatter — is what holds that to account, and
+image, itself a scatter, is what holds that to account, and
 `the_index_never_hides_a_neighbour` tests the superset property directly
 against the distance function rather than against a second copy of the index.
 
@@ -1235,8 +1235,8 @@ each bucket. A fixed cap of 4096 buckets, tried first, made the
 forty-eight-thousand-motif case six times slower.
 
 **Verified to fail.** Rounding the search span down instead of up breaks the
-superset test and five separation tests. A separate mutation — removing a
-bucket of slack — changed nothing, which showed the slack was redundant rather
+superset test and five separation tests. A separate mutation, removing a
+bucket of slack, changed nothing, which showed the slack was redundant rather
 than that the test was weak.
 
 Described in [Features](./features.md#finding-neighbours-without-comparing-everything).
@@ -1251,7 +1251,7 @@ crates and for all dependencies. The app crate itself stays unoptimised.
 **Why.** `npm run tauri dev` runs an unoptimised binary and the preview
 re-renders on every slider movement, so the difference between a tool that
 feels immediate and one that feels stuck is entirely this. On a 1.2 m repeat of
-four thousand motifs: 3.4 seconds an interaction unoptimised, 0.29 optimised —
+four thousand motifs: 3.4 seconds an interaction unoptimised, 0.29 optimised,
 the same work a release build does in 0.22. A designer trying the tool in dev
 was meeting the first number and reasonably calling it a hang.
 
@@ -1261,7 +1261,7 @@ Incremental rebuilds stay at 1.7 seconds for an app edit and 2.9 for an engine
 edit.
 
 **No effect on determinism.** Optimisation levels do not change `f32`
-semantics in Rust — there is no fast-math — so the same seed gives the same
+semantics in Rust, and there is no fast-math, so the same seed gives the same
 bytes at any `opt-level`. CI compiles at the default and would notice if that
 were ever untrue.
 
@@ -1292,8 +1292,8 @@ recording:
   is proven next door.
 
 This is the lesson this project already paid for once, with `vtracer`: prefer
-the version other people have actually run. Neither choice costs anything here
-— both do exactly what is needed — so the only thing being bought is the
+the version other people have actually run. Neither choice costs anything here,
+since both do exactly what is needed, so the only thing being bought is the
 absence of being the first to find out.
 
 **Mocked at our own seam, not the framework's.** `api.ts` is the single module
@@ -1302,7 +1302,7 @@ rest stay real. Mocking Tauri's internals would have meant a much larger
 surface and a test that breaks when Tauri changes something we never touched.
 
 **What this tier still cannot do** is see a layout. Every control can be
-present, labelled and correctly enabled while sitting on top of its neighbour —
+present, labelled and correctly enabled while sitting on top of its neighbour;
 the playbook has a scar from exactly that. An anchor-driven test proves
 behaviour; only a picture proves layout.
 
@@ -1310,8 +1310,8 @@ behaviour; only a picture proves layout.
 
 ## Bands are a ground treatment, not a kind of motif
 
-**Decided.** `Pattern` carries an optional `Bands` — two sequences of coloured
-bands and a list of crossings — rendered between the ground fill and the
+**Decided.** `Pattern` carries an optional `Bands`, two sequences of coloured
+bands and a list of crossings, rendered between the ground fill and the
 motifs.
 
 **Why not a motif.** A stripe can be faked as a tall thin motif on a grid, and
@@ -1333,8 +1333,8 @@ windowpane and tartan, and says what it does.
 **The constraint the tests found.** Bands need a block lattice. A sequence
 lives in the tile and repeats with it, so on a half-drop the neighbouring
 column arrives half a tile down and the stripes step at every join. The
-seamlessness test caught it immediately — a million pixels of disagreement
-between the two render routes, not a subtle seam — and it is refused rather
+seamlessness test caught it immediately, with a million pixels of disagreement
+between the two render routes rather than a subtle seam, and it is refused rather
 than rendered.
 
 **The same shape, a third time.** A rectangle of tiles has to be a repeating
@@ -1350,14 +1350,14 @@ Described in [Features](./features.md#stripes-checks-and-ginghams).
 ## A crossing blends, because cloth is not ink
 
 **Decided.** Where two bands cross, the default is the **average** of the two
-colours. Multiplying — what a second pass of translucent ink does — is offered
+colours. Multiplying, which is what a second pass of translucent ink does, is offered
 as "overprint", and "across-band wins" adds no colour at all.
 
 **Why, and how it was found.** Crossings multiplied first, on what seemed like
 solid reasoning: a crossing is ink over ink, and multiplying gives a two-colour
 check its third tone. The first tartan rendered came out very nearly black,
 because multiplying navy by navy is far darker than navy. In cloth, half the
-threads at a crossing are each colour — so the answer is their average, and a
+threads at a crossing are each colour, so the answer is their average, and a
 thread crossing itself stays itself.
 
 **The model said nothing.** Every test passed, the slots were allocated
@@ -1366,7 +1366,7 @@ visible in the first picture and in nothing else, which is the argument for
 rendering a real example before believing a colour model.
 
 **What the correction exposed.** Under blending, a check needs **two threads
-rather than a thread and a gap** — a gap has nothing to blend with, so an ink
+rather than a thread and a gap**. A gap has nothing to blend with, so an ink
 and a gap give two tones. An ink and a pale thread give three, which is what a
 gingham is. The preset writes a pale thread now.
 
@@ -1383,13 +1383,13 @@ ground's slots are always the tail of the palette, so rebuilding one is a
 truncate and an append.
 
 **Why.** The alternative is tracking indices that would have to stay in step
-with every other palette operation — the colour count, colourways, slot edits.
+with every other palette operation: the colour count, colourways, slot edits.
 A tail needs no bookkeeping: its length is `bands.slots_used().len()`, and
 everything before it belongs to the motifs.
 
 **The bug this invariant caught.** Crossing colours are de-duplicated so that a
 thread crossing itself does not add a slot. Searching the *whole* palette for a
-match let a crossing borrow a motif's slot — and since the tail is what the
+match let a crossing borrow a motif's slot, and since the tail is what the
 next rebuild truncates, changing the ground would have taken a motif's colour
 with it. The search is confined to the tail.
 
@@ -1403,9 +1403,9 @@ instead of coming back referring to slots that no longer exist.
 ## A ground is a kind, not a band sequence with options
 
 **Decided.** `Pattern.ground` is an enum, `Ground`, tagged by `kind` in JSON.
-Bands are one variant; a grown texture is another. Everything downstream —
-palette resolution, colourways, colour counting, seamlessness, the lattice
-check — stops knowing which it is.
+Bands are one variant; a grown texture is another. Everything downstream,
+meaning palette resolution, colourways, colour counting, seamlessness and the
+lattice check, stops knowing which it is.
 
 **Why.** The interface a ground needs is small and was already there in bands:
 a function from a point in the tile to a slot, or to nothing where the fabric
@@ -1435,25 +1435,25 @@ coral. Quantised onto palette slots like everything else.
 visible grid in it. A tossed layout still repeats on a lattice and the eye
 finds it; a grown field has no lattice to find, only the tile's own period.
 
-**Why it tiles.** The field lives on a torus — every Laplacian reads its
+**Why it tiles.** The field lives on a torus: every Laplacian reads its
 neighbours modulo the grid, so the left column's left neighbour *is* the right
 column, in the same simulation. Seamless by construction rather than fixed up
 at the edges afterwards, which is the only thing that could work here: a blend
 or a mirror at the seam would be visible precisely because the interior has no
-straight lines to hide it in. The unit test states it as an equality — the same
+straight lines to hide it in. The unit test states it as an equality, in that the same
 seed patch, started ten cells along, must give the same field ten cells along,
 bit for bit.
 
 **Parameters, never the field.** A 192-cell grid is 36,864 floats. The document
 stores the growth, the scale, the step count and the seed; the field is grown
 when the ground is laid on a tile. That is also why `Ground::laid_over` exists
-at all — no ground can be sampled without knowing its tile, and bands had the
+at all. No ground can be sampled without knowing its tile, and bands had the
 same obligation without it being named.
 
 **The published rates are for a different Laplacian.** Every write-up quotes
 feed and kill rates against the bare five-point stencil. This uses the
 normalised nine-point one, which is about four times smaller for the same
-field, so the diffusion rate has to rise to match — and the live region of the
+field, so the diffusion rate has to rise to match, and the live region of the
 parameter space moves with it. At the cited rates for "worms" this model is
 dead within a few hundred steps. The six named growths were found by sweeping
 the space and looking at the renders, and a test walks all six and fails any
@@ -1466,21 +1466,21 @@ version and it printed as a staircase: a cell is eighteen pixels at print
 resolution, so every curve stepped, and raising the cell count to hide it made
 the shapes smaller instead. Bilinear-then-threshold gives an edge that stays
 smooth at any output resolution and gives the cell count back its only
-meaning — how large the shapes are. The interpolation wraps on the torus, so
+meaning, which is how large the shapes are. The interpolation wraps on the torus, so
 the last half-cell of the tile blends with the first cell of the next rather
 than with a clamped copy of its own edge.
 
 **A memo, not a faster simulation.** Laying a ground on a tile is a pure
 function of two arguments and the most expensive thing in a render. The
 renderer remembers the last one, so a preview that changes the motif density
-does not grow the field again, and the interface's own look at the field —
-what share each level covered — shares the same one. Texture edits are
+does not grow the field again, and the interface's own look at the field, which
+reports what share each level covered, shares the same one. Texture edits are
 additionally coalesced in front of the control, the way previews already were.
 Band edits are not, deliberately: `mirrored` is a one-shot instruction, and
 coalescing a reflect with the edit after it would cancel the pending send and
 lose the reflection.
 
-**Determinism.** The step is `+`, `-` and `*` on `f32` and nothing else — no
+**Determinism.** The step is `+`, `-` and `*` on `f32` and nothing else: no
 `exp`, no `powf`, nothing whose last bit is allowed to differ between
 platforms. A pinned field checksum stands in for a golden image, and CI is
 Linux while development is macOS, so the claim is checked somewhere other than
@@ -1500,7 +1500,7 @@ at 3.1693 mm is the same question and not the same arithmetic; near a cell or
 band boundary the two answers can differ.
 
 **How it was found.** A grown ground disagreed with itself in ninety pixels at
-150 DPI and in none at 96 — the seamlessness test compares two independent
+150 DPI and in none at 96. The seamlessness test compares two independent
 routes to the same field, and they take different paths to the same
 millimetre. Bands had carried the identical hazard from the start and had never
 been unlucky enough to show it. Taking the remainder in *pixels* is exact,
@@ -1516,12 +1516,12 @@ deliberately the opposite pole from reaction–diffusion rather than more of it.
 
 **Why this and not an L-system or an IFS.** An L-system's turtle needs
 headings, and headings need trigonometry, whose last bit is not guaranteed
-across platforms — the determinism invariant would have had to be weakened or
+across platforms, so the determinism invariant would have had to be weakened or
 worked around with stored constants. An IFS attractor does not tile: wrapping a
 chaos game into a torus destroys the structure that made it worth plotting. A
 grid of rule-drawn cells tiles by construction, needs no transcendental beyond
 `sqrt` (which IEEE 754 *does* require to be correctly rounded), and lands on
-the ornamental family — strapwork, clamshell, square fractals — that a repeat
+the ornamental family (strapwork, clamshell, square fractals) that a repeat
 print actually uses.
 
 **An integer hash, not a stream.** The per-cell choices come from SplitMix64
@@ -1534,7 +1534,7 @@ in it, so it is if anything harder to make non-deterministic than the sampler.
 
 **What the tests found.** Two real defects, both from stating a property rather
 than looking at a picture. The Weave was drawn corner to corner, which meets
-the cell at its corners where a neighbour has nothing to meet it — the render
+the cell at its corners where a neighbour has nothing to meet it, so the render
 looked like a plausible maze and was full of broken stubs. And `slot_at`
 divided a far-off coordinate by a cell size before reducing it into the tile,
 which is the same `f32` precision trap the renderer hit the day before, in a
@@ -1548,7 +1548,7 @@ second place.
 on the grid, not by the seamlessness suite, and the suite's fixture says so.
 
 **Why.** Both render routes reduce a coordinate into the tile before sampling,
-so both ask the ground the same question — a ground that disagrees with its own
+so both ask the ground the same question: a ground that disagrees with its own
 repeat disagrees identically down both routes and the comparison sees nothing.
 That suite catches route-dependent faults: fitting, rounding, sampling,
 compositing order. It cannot catch a figure whose rhythm breaks at the join.
@@ -1560,7 +1560,7 @@ have discriminated would not have.
 
 **And the hazard test was vacuous too.** The first version compared the top
 sliver of the tile against the bottom sliver, which differ for a correct
-clamshell as much as for a broken one — it asserted something true either way.
+clamshell as much as for a broken one, so it asserted something true either way.
 The replacement measures where the scallops of the first and last rows sit and
 requires them to be half a cell apart, which is exactly what the alternation is
 for.
@@ -1591,22 +1591,22 @@ motif drawing and PNG encoding.
 **Why sRGB.** To match how the motif layer composites. Blending the two layers
 in different spaces would trade a visible inconsistency for a subtler one.
 
-**What the test says.** Not a golden — a property. A two-colour ground whose
+**What the test says.** Not a golden but a property. A two-colour ground whose
 pixels are only ever one of those two colours has decided each pixel rather
 than drawn it; and the count of *distinct* tones tells four samples from two,
 where the share of edge pixels cannot. The hazard test computes the same ground
 once per pixel and asserts it produces no intermediate tone at all.
 
-**A gap this exposed.** No golden image covers a ground of any kind — all three
-are motif-only — which is why a change to every ground's edges broke no golden.
+**A gap this exposed.** No golden image covers a ground of any kind, since all
+three are motif-only, which is why a change to every ground's edges broke no golden.
 Recorded in the roadmap rather than fixed in passing.
 
 ---
 
 ## Controls that cannot act are not shown
 
-**Decided.** A pattern with no artwork in it does not get the Layout panel —
-arrangement, overlap guard, rows and columns — nor the readouts that count
+**Decided.** A pattern with no artwork in it does not get the Layout panel,
+meaning arrangement, overlap guard, rows and columns, nor the readouts that count
 motifs and coverage. A pattern with a ground does not get offered the three
 oblique repeats, which the engine would refuse.
 
@@ -1643,11 +1643,11 @@ priority in the other.
 
 **Three things this turned up.** The palette-size control re-derives colours
 from the artwork, so on a ground-only design asking for sixteen returns the two
-it had and changes nothing — the most confusing thing a control can do. A
+it had and changes nothing, which is the most confusing thing a control can do. A
 section headed "Motifs" carried the note explaining that there were none, which
 is the same fault as the panel it was explaining; that note now opens the ground
 panel, where it is both the first thing seen and the thing to do about it. And
-"Motif colours" held the colourway derivations — shift hue, swap ground — which
+"Motif colours" held the colourway derivations, shift hue and swap ground, which
 have nothing to do with motifs: a tartan has a palette too. They moved to
 Colourways, where what they make is what the section is about.
 
@@ -1668,7 +1668,7 @@ not move.
 
 **It was doing exactly what it is for.** Measured through the app layer: with
 one motif, a weight of 1 and a weight of 8 both give eighteen placements, and
-they always will — the weight is a share of a mix and a single motif is the
+they always will, because the weight is a share of a mix and a single motif is the
 whole of it however the slider is set. With several, raising one takes from the
 others and the total holds. A test now pins both halves, including that raising
 every share together changes nothing.
@@ -1679,7 +1679,7 @@ explanation was a sentence below every row. A percentage that moves when its
 neighbours move says what kind of control it is without being read.
 
 **And the count is set somewhere else, differently per layout.** On a scatter
-it is Coverage — and motif size, because coverage is a share of the fabric
+it is Coverage, and motif size, because coverage is a share of the fabric
 rather than a count, so smaller motifs means more of them. On a grid it is rows
 times columns, and neither the size nor the share can move it. That is almost
 certainly the case reported: on a grid, both of the controls tried are inert
@@ -1687,7 +1687,7 @@ for the purpose they were being tried for. The hint now says which, and changes
 with the layout.
 
 **The general rule.** A control whose effect is relative must display the
-relation, not the operand. A number on its own — a weight of 6 — is
+relation, not the operand. A number on its own, a weight of 6, is
 indistinguishable from an absolute one, and will be read as absolute.
 
 ---
@@ -1698,7 +1698,7 @@ indistinguishable from an absolute one, and will be read as absolute.
 panel below the preview, and the button that writes the file is *Save as…*
 rather than *Choose a file…*.
 
-**Why a modal.** Exporting is a decision with a dozen settings and an end — a
+**Why a modal.** Exporting is a decision with a dozen settings and an end: a
 file written. Below the preview it pushed the image out of view exactly when a
 designer wanted to look at it, and read as one more panel of the same kind as
 the controls beside it, which are all live edits to the document. It is not one
@@ -1706,12 +1706,12 @@ of those: nothing it does changes the pattern.
 
 **Why not the platform's `<dialog>`.** It would give the backdrop, the Escape
 key and a focus trap for nothing, and in the shipped WKWebView it is fully
-supported. But jsdom — which the component tests run in — still does not
+supported. But jsdom, which the component tests run in, still does not
 implement `showModal` at version 30, so a native dialogue could only be driven
 in a test behind a shim faking the very thing being claimed: the tests would
 pass over a dialogue that was never modal. Thirty lines of our own, all of it
-exercised — Escape, focus on open, focus returned to the opener on close, and
-Tab kept inside — was the better trade. Worth reconsidering when jsdom
+exercised (Escape, focus on open, focus returned to the opener on close, and
+Tab kept inside) was the better trade. Worth reconsidering when jsdom
 implements it; platform focus handling is better than anybody's.
 
 **Why the label.** *Choose a file* describes picking one of the files that
@@ -1729,7 +1729,7 @@ import, as it always has.
 **Why not rasterise at import.** It was the smaller change by a long way, and
 it throws away the only reason the file was vector. Measured: a disc drawn from
 outlines has a soft rim over 0.0037 of its area at 600 DPI; the same disc
-sampled at import to 512 px and scaled up has 0.0185 — five times as much, and
+sampled at import to 512 px and scaled up has 0.0185, five times as much, and
 that is what a designer sees as a soft, slightly wrong edge on a large print.
 
 **How it fits without a second motif type downstream.** A vector motif is a
@@ -1737,13 +1737,13 @@ that is what a designer sees as a soft, slightly wrong edge on a large print.
 each render wants, so the sprite cache, the mip chain, the overlap radius and
 the colourway all go on working on the one representation they always had. The
 bank also keeps one reference rasterisation for the measurements that are only
-ever asked in fractions — the coverage radius, the slots used — and that
+ever asked in fractions, the coverage radius and the slots used, and that
 reference is never printed.
 
 **Why not resvg.** It was approved, and then not needed. Rendering an SVG
 faithfully is a different job from finding the shapes a press can put ink into:
 once every fill is quantised to a palette slot, what is left is geometry, which
-`usvg` parses and `tiny-skia` — already ours — fills. Taking the smaller
+`usvg` parses and `tiny-skia`, already ours, fills. Taking the smaller
 dependency was the better trade, and it made the refusals explicit rather than
 silently rendering things that cannot be printed.
 
@@ -1753,8 +1753,8 @@ rasterise differently elsewhere, which would quietly retire the engine's
 central promise. Text must be outlined before import, and the app says so.
 
 **The slot of a pixel two shapes share** is the shape covering most of it, and
-its coverage is what both laid down. That keeps a flat interior exactly flat —
-what the split channels exist for — while an edge between two colours stays
+its coverage is what both laid down. That keeps a flat interior exactly flat,
+which is what the split channels exist for, while an edge between two colours stays
 soft. Ties go to the later shape, because shapes arrive in painter's order; a
 test caught that being strictly-greater, which rendered a drawing with its
 layers reversed.
@@ -1778,7 +1778,7 @@ and is answerable to neither. It is also the file nobody remembers to edit,
 because adding an import is the visible act and granting a permission is not.
 
 **And the failure hid where it mattered.** Close works perfectly with nothing
-unsaved — the confirmation is only reached when there is something to lose, so
+unsaved, since the confirmation is only reached when there is something to lose, so
 the path that fails is exactly the path a designer meets at the worst moment.
 
 **The general shape.** A declared permission, capability or manifest that some
@@ -1795,7 +1795,7 @@ sequence matches, by comparing it, rather than remembering a choice or reading
 "has any bands" as "has been edited".
 
 **What was reported.** Choosing Pinstripe showed *Custom* immediately, and so
-did every preset but Plain — an intentional choice looked as though it had not
+did every preset but Plain, so an intentional choice looked as though it had not
 taken.
 
 **Why comparison rather than a remembered choice.** The same reasoning as
@@ -1805,10 +1805,10 @@ nothing about a document that was *opened* rather than built. A comparison
 names a reopened stripe correctly, and is right by construction.
 
 **What counts as the same.** The widths, the direction, whether each band is an
-ink or a gap, and — only where both directions paint — the crossing rule.
+ink or a gap, and, only where both directions paint, the crossing rule.
 Colours are deliberately excluded: a preset describes an arrangement, and
 recolouring a stripe leaves it a stripe. Whether a band is a gap *is* compared,
-because that is arrangement — a gingham is two threads where a stripe is a
+because that is arrangement: a gingham is two threads where a stripe is a
 thread and a gap.
 
 **A tartan needed care.** Its preset names four bands and asks for a
@@ -1834,8 +1834,8 @@ spacing contributes the shortest displacement between them *on the lattice*.
 What is asked of those directions is the strength of the **fourth harmonic** of
 their angular distribution.
 
-**Why the fourth and not the second.** The second harmonic — a single preferred
-axis — was written first and is blind here. A field of rivers has both
+**Why the fourth and not the second.** The second harmonic, which finds a
+single preferred axis, was written first and is blind here. A field of rivers has both
 along-river and across-river neighbours, at right angles, and doubling the
 angle maps those onto opposite points where they cancel. It scored a perfect
 square grid 1.4, barely above a clean scatter. Before that, a histogram's
@@ -1843,8 +1843,8 @@ tallest bin was tried and measured mostly counting noise: a few hundred pairs
 over thirty-six bins is five to a bin, and Poisson scatter alone puts the peak
 two or three times the mean.
 
-**What it can and cannot do.** Calibrated on 600 scatters — three lattices,
-five densities, forty seeds — against the same patterns pulled toward parallel
+**What it can and cannot do.** Calibrated on 600 scatters (three lattices,
+five densities, forty seeds) against the same patterns pulled toward parallel
 lines by a known amount:
 
 | Score above | Clean flagged | Blatant caught | At the level a designer rejects |
@@ -1860,7 +1860,7 @@ pull the banding is faint, at 50% there are clear rivers with empty lanes, at
 **The experiment that decided it, and that neither previous attempt ran.**
 Scoring a synthetic corridor proves only that a measure notices the
 construction that made it. So three hundred *unmodified* scatters were scored
-and the extremes rendered. The highest — 0.95, 0.95, 0.80 — visibly track, with
+and the extremes rendered. The highest, at 0.95, 0.95 and 0.80, visibly track, with
 lanes running through them. The lowest look evenly strewn. The measure's
 ranking agrees with the eye on output nobody interfered with, which is the
 claim the previous two could never make.
@@ -1868,8 +1868,8 @@ claim the previous two could never make.
 **Why a ranking rather than a gate.** At the level where a person rejects a
 print it catches roughly two in three at best, and it is blind to faint
 tracking. An unattended gate built on it would pass most of the borderline
-cases, and the project's own rule — that a partial implementation is worse than
-none — applies to a gate that is trusted precisely because nobody can see it
+cases, and the project's own rule, that a partial implementation is worse than
+none, applies to a gate that is trusted precisely because nobody can see it
 working. As a warning it is honest: a high score is reliably worth looking at.
 
 **The threshold is set low on purpose.** 0.8 flags about one scatter in
@@ -1887,12 +1887,12 @@ reproducible as the placements it measures.
 **A known weakness, left visible.** What the measure reports depends on which
 families of neighbour fall inside the reach. A 5×5 grid in a 240×180 tile puts
 its diagonals inside it as well as its rows and columns, and those partly
-cancel, so it scores 0.78 — below the warning threshold. The grid test is
+cancel, so it scores 0.78, below the warning threshold. The grid test is
 comparative rather than absolute, and says why.
 
 **What would make it a gate.** Carrying the *radial* dimension as well as the
-angular one — a corridor is regular spacing along a direction, not only a
-direction — and a labelled corpus of real patterns rather than synthetic pulls.
+angular one, since a corridor is regular spacing along a direction and not only a
+direction, and a labelled corpus of real patterns rather than synthetic pulls.
 Neither is needed for a warning.
 
 ---
@@ -1903,8 +1903,8 @@ Neither is needed for a warning.
 arrived as outlines is `pattern_core::VectorMotif`. They were briefly both
 called `VectorMotif`, in the same crate.
 
-**Merging them was considered and would have been wrong.** They look alike —
-slotted outlines — and are opposites in use. One is a *tracing of a bitmap*,
+**Merging them was considered and would have been wrong.** They look alike, both
+being slotted outlines, and are opposites in use. One is a *tracing of a bitmap*,
 produced for vector export and kept alongside the raster, never instead of it,
 because textured artwork traces badly and the spec says those ship as raster.
 The other *is* the artwork, held so the renderer can draw it at whatever
@@ -1931,11 +1931,11 @@ already reports.
 **Measured against counted.** Everything in millimetres moves. A texture's cell
 count is how many fit across the tile, so it follows the tile already and
 doubling it would halve the pattern instead of keeping it. Getting that
-distinction wrong is silent — the render still looks like a texture, just the
+distinction wrong is silent: the render still looks like a texture, just the
 wrong one.
 
-**From the reference, not compounded.** The alternative — multiply whatever the
-sizes currently are — drifts a little on every change, and a control that loses
+**From the reference, not compounded.** The alternative, multiplying whatever the
+sizes currently are, drifts a little on every change, and a control that loses
 something each time you touch it is one a designer learns not to touch. A test
 walks four sizes and back and requires the design to return.
 
@@ -1945,7 +1945,7 @@ silently resize somebody's work the first time they opened the control.
 
 **Separate from the garment preview**, which shows a print on a body without
 changing it. One is a lens and the other is a decision, so they are different
-controls in different places — the preview in the header, the cut beside the
+controls in different places: the preview in the header, the cut beside the
 millimetres it changes.
 
 ---
@@ -1957,13 +1957,13 @@ them as `Note`s and the caller decides what to do with them; the desktop app
 shows them above the preview, dismissible.
 
 **What this was actually costing.** These are the two faults most likely to
-reach a printer unnoticed — most of a motif dissolving into the fabric colour,
-and a shadow kept as ink — and the desktop app could not see either. A library
+reach a printer unnoticed, most of a motif dissolving into the fabric colour
+and a shadow kept as ink, and the desktop app could not see either. A library
 that writes to stderr has decided its caller is a terminal. Ours mostly is not.
 
 **Two methods rather than one changed signature.** `load_motifs` keeps its
 shape and delegates; `load_motifs_noting` takes a sink. Of fifteen callers,
-thirteen genuinely have nobody to tell — a render, a test, an export — and
+thirteen genuinely have nobody to tell, being a render, a test or an export, and
 making all of them thread an empty vector through would be ceremony for the two
 that do.
 
@@ -1981,8 +1981,8 @@ deliberately.
 
 ## A garment has a cut, and its width is not a chest
 
-**Decided.** `Garment` carries an explicit `Cut` — panel, top, legs,
-dungarees, hat, tote, pyjamas — and its width is `across_mm`.
+**Decided.** `Garment` carries an explicit `Cut` (panel, top, legs,
+dungarees, hat, tote, pyjamas) and its width is `across_mm`.
 
 **Why a cut.** The shape used to be inferred from whether `sleeve_mm` was
 greater than one, which worked for exactly the two shapes there were and could
@@ -1990,7 +1990,7 @@ not express a third. A hat has no sleeve length to be zero.
 
 **Why not `chest_mm`.** It is the number a repeat is scaled against, so it has
 to mean the same thing for every shape, and a hat has no chest. `across_mm` is
-named for what it is *for* — the width the print reads across — rather than for
+named for what it is *for*, the width the print reads across, rather than for
 one garment's anatomy.
 
 **Pyjamas are one shape, not two garments.** The outline is two contours in one
@@ -2006,8 +2006,8 @@ A hat's brim overshot the hem by ten millimetres. Every number was right in all
 three; each was obvious the moment the shape was drawn.
 
 **So two tests now say what the pictures said.** Every silhouette must fit the
-frame its own extent describes — the extent decides the canvas, so anything
-past it is clipped silently — and no two cuts may cover the same share of their
+frame its own extent describes, since the extent decides the canvas and anything
+past it is clipped silently, and no two cuts may cover the same share of their
 frame. The share is measured by *drawing* the silhouette, because the first
 attempt compared bounding boxes and a pair of legs and a pair of dungarees both
 fill theirs exactly.
@@ -2033,8 +2033,8 @@ from the screen.
 **Why it hid.** Every layer added context correctly and the chain was built
 properly. Nothing was missing until the last format string, and a single `#`
 was the whole difference between a message somebody can act on and one that
-tells them a file exists. The command line was never affected — `anyhow`'s
-`Termination` prints the chain — so the fault lived only where the errors were
+tells them a file exists. The command line was never affected, because `anyhow`'s
+`Termination` prints the chain, so the fault lived only where the errors were
 put into words by hand.
 
 **Not a logging decision.** These are what the app *shows*, and the more
@@ -2055,7 +2055,7 @@ and come back, which is work the tool can do itself.
 then declined on the grounds that once every fill is a palette slot, what is
 left is geometry. That holds for reading outlines and does not cover this: a
 gradient is not geometry, and the fallback is *rendering* SVG, which is what
-`resvg` is for. Two new crates — `resvg` and `rgb` — because `usvg` was already
+`resvg` is for. Two new crates, `resvg` and `rgb`, because `usvg` was already
 carrying the rest.
 
 **`text` stays off**, so live text is still refused rather than rendered. Type
@@ -2070,7 +2070,7 @@ would trade the whole drawing's sharpness and still show no text.
 
 **The subtler half.** It fires when a drawing *mostly* reads as outlines too. A
 gradient among flat shapes reads perfectly well and yields a motif with a shape
-missing — the wrong picture rather than a softer one, and only one of those is
+missing: the wrong picture rather than a softer one, and only one of those is
 visible on screen. Both halves are mutation-checked; the first version of the
 test only covered the drawing that failed outright, and removing the partial
 case's guard broke nothing.
@@ -2084,25 +2084,25 @@ trade is made and is named as a constant so it is obvious where.
 ## The preview counts tiles; the export writes what was asked for
 
 **Reported as a curiosity.** An exported file looked like a much smaller
-viewport than the preview — the same motifs, three or four times the size,
+viewport than the preview: the same motifs, three or four times the size,
 far fewer of them.
 
 **Nothing was wrong.** The preview shows a field of tiles, four by three here,
 so that tracking can be judged; the export's default writes **one tile**,
 because that is what a printer repeats. Checked rather than assumed: at 150 DPI
 the same document renders 1063 × 798 px as a tile and 4252 × 2394 as a four-by-
-three field — exactly four and exactly three times, so a motif is the same
+three field, which is exactly four and exactly three times, so a motif is the same
 number of pixels and the same millimetres in both.
 
 **But the interface said neither thing clearly.** The header read
 *"untitled · 4×3 repeat"*, which parses as though the design were a 4×3 repeat
-rather than as a count of what is on screen — and the repeat's real size,
+rather than as a count of what is on screen, and the repeat's real size,
 240 × 180 mm, was in a readout below. So an export of one tile looked like a
 crop. It says *"showing 4×3 tiles"* now.
 
 **And the export says what a tile will look like.** Choosing *One tile* now
 carries a line: that it is seamless on all four sides, that the printer lays it
-edge to edge, and that it will look far emptier than the preview — same size on
+edge to edge, and that it will look far emptier than the preview: same size on
 the cloth, fewer of them in the picture. The control's own wording was already
 accurate; what was missing was the comparison the eye was about to make.
 
@@ -2110,7 +2110,7 @@ accurate; what was missing was the comparison the eye was about to make.
 
 **2026-10-01.**
 
-A first draft treated style as something the engine produced — idioms the
+A first draft treated style as something the engine produced, with idioms the
 renderer drew in, themes built from rule-drawn grounds and mood palettes. That
 is the wrong layer. Cartoony, flat, photo-real, stickman, watercolour, a
 borrowed colour scheme: all of these are instructions to the image model, and
@@ -2118,8 +2118,8 @@ the engine's job begins after the style already exists. Nothing in the renderer
 needs a case for any of them.
 
 What the engine does impose, on every prompt regardless of style, is one
-subject isolated on a flat background — because ingest mattes by paper
-measurement and alpha and there is no background-removal model — and
+subject isolated on a flat background, because ingest mattes by paper
+measurement and alpha and there is no background-removal model, and
 quantisation onto one shared palette, which is the main thing making a dozen
 separately generated assets read as a design.
 
@@ -2146,7 +2146,7 @@ for unicorns.
 This is not a quality gate. A gate rejects what the sampler produced and asks
 for another seed; no reseed makes an absent asset appear, because every seed
 draws from the same independent process. It needs a coverage constraint in the
-sampler — every asset placed once before the weighted mix fills the rest — and
+sampler, so that every asset is placed once before the weighted mix fills the rest, and
 that is an engine change not present in M1–M5.
 
 **Built, 2026-10-01**, having first been deferred here on the reasoning that
@@ -2157,7 +2157,7 @@ carrying a known product-breaking defect for the sake of a sequencing
 preference.
 
 A mix entry carries `required`, defaulting false so every existing document and
-golden image is untouched — the determinism suite passes byte-identical, which
+golden image is untouched, and the determinism suite passes byte-identical, which
 is the check that mattered. Required motifs take part of each sample's dart
 budget, so they are placed while the tile is emptiest, and the budget is capped
 at four darts of thirty: spend none and the motif relies on luck, spend all and
@@ -2170,7 +2170,7 @@ Two test-design notes, because both were nearly missed:
   nothing to be tested against, so it is handed the first outstanding
   requirement and always places it; the test passed with the dart budget set to
   zero. Three requirements are the minimum that exercises the main loop.
-- A motif larger than the tile is still placed, for the same reason — the seed
+- A motif larger than the tile is still placed, for the same reason: the seed
   sample skips the acceptance test. Genuine impossibility needs a mirror, where
   a motif more than half the cell across collides with its own reflection
   wherever it is put.
@@ -2181,29 +2181,29 @@ See [From brief to pattern](./from-brief-to-pattern.md#every-named-interest-appe
 
 "Pattern Engine" described the thing accurately, which is exactly why it was
 the wrong name. A descriptive mark is weak to unregistrable, so the reservation
-in `NOTICE` — *a fork is welcome; a fork using these names is not* — could not
+in `NOTICE` (*a fork is welcome; a fork using these names is not*) could not
 have been enforced against anybody calling their pattern engine a pattern
 engine. Several projects already do.
 
 Patternated is coined, which is the strongest category of trademark there is.
 `patternated.com` and `patternated.app` were registered 2026-11-14 through
 Cloudflare Registrar. Nothing else uses the word: both domains, the GitHub
-organisation and the npm name were all free. crates.io was not confirmed — its
-API refused the exact-name lookup — but a search returned no match for it.
+organisation and the npm name were all free. crates.io was not confirmed, since its
+API refused the exact-name lookup, but a search returned no match for it.
 
 **The cost is paid at the search box.** Search engines do not believe the word
 exists and correct it to "patterned" without being asked, so somebody typing
 the name from memory lands somewhere else entirely. That is the ordinary
 coined-name tax, paid off with time and signal rather than cleverness. It is
 acceptable here because the engine's traffic arrives from GitHub, from direct
-links and from Dreamwoven — not from half-remembered brand search. The same
+links and from Dreamwoven, not from half-remembered brand search. The same
 objection would have been disqualifying for a consumer shop.
 
 **What deliberately did not change.** The repository, its directory and
 `docs/pattern-engine-spec.md` keep their slugs: they are referenced by path
 from this repo, from Dreamwoven's docs and from both `CLAUDE.md` files, and
-renaming them buys nothing. The crate names — `pattern-core`,
-`pattern-render` — stay descriptive, which is what a crate name should be. And
+renaming them buys nothing. The crate names, `pattern-core` and
+`pattern-render`, stay descriptive, which is what a crate name should be. And
 the lowercase "deterministic repeat-pattern engine for textile printing"
 survives everywhere as the tagline. Separating the description from the name is
 the entire point of the exercise.

@@ -3,10 +3,10 @@
 Deterministic repeat-pattern engine for textile printing. Motifs in, print-ready
 seamless patterns out.
 
-**Dreamwoven is what this is for** — bespoke children's pyjamas, motifs
+**Dreamwoven is what this is for**: bespoke children's pyjamas, motifs
 generated per order, no human approving an order.
 
-**Peel Club** — adult apparel, existing fruit-print illustrations — appears
+**Peel Club**, adult apparel built on existing fruit-print illustrations, appears
 throughout the spec as the first consumer and is now a *reference point only*.
 Where the spec sequences work Peel Club first, `docs/roadmap.md` supersedes it.
 Do not treat a Peel Club need as a reason to build something.
@@ -24,7 +24,7 @@ Breaking any of these produces output that looks correct in preview and fails at
 the printer. Treat them as load-bearing.
 
 1. **Physical units throughout.** All geometry in millimetres. Convert to pixels
-   only inside the export layer. Never store or reason about a pattern in pixels —
+   only inside the export layer. Never store or reason about a pattern in pixels:
    a 12 cm repeat and a 40 cm repeat are different designs, not different zoom
    levels.
 
@@ -35,7 +35,7 @@ the printer. Treat them as load-bearing.
 
 3. **`pattern-core` is pure.** No I/O, no async, no network, no logging, no clock.
    It is a function from parameters to placements. If something in there needs a
-   file handle, the design has gone wrong — move it out.
+   file handle, the design has gone wrong, so move it out.
 
 4. **Determinism is a feature.** `rand_chacha` with an explicit seed, never
    `thread_rng`. Same seed plus same parameters must give byte-identical output
@@ -50,7 +50,7 @@ the printer. Treat them as load-bearing.
 
 ```
 crates/
-  pattern-core/     lattice, placement, tiling, colourways — pure
+  pattern-core/     lattice, placement, tiling, colourways; pure
   pattern-render/   raster and vector rendering at any DPI
   motif-ingest/     matting, trim, vectorise, palette extraction
   pattern-io/       export, colour management, file naming
@@ -70,7 +70,7 @@ cd app && npm run tauri dev             # app shell
 ## Testing
 
 Tiling correctness is the thing that matters. Every lattice type needs a test that
-renders a 3×3 field and asserts edge continuity — sample pixels either side of each
+renders a 3×3 field and asserts edge continuity: sample pixels either side of each
 tile boundary and assert they match. A single tile that looks fine proves nothing.
 
 Determinism tests: same seed, same parameters, assert identical bytes.
@@ -94,10 +94,10 @@ The spec runs M1 to M7. M1–M5 are built; M6 is built but for corridor
 detection, and M7 is gated on things that do not exist yet. Do not implement
 generation or style adapters ahead of their milestone, however tempting the
 adjacent code makes it. Partial implementations of later milestones are worse
-than none — they get forgotten and then trusted.
+than none, because they get forgotten and then trusted.
 
-M7 is gated on a **prompt catalogue** — the styles offered, the prompt text for
-each, an example image for each — and on **one test metre**: a few motifs
+M7 is gated on a **prompt catalogue**, meaning the styles offered, the prompt
+text for each and an example image for each, and on **one test metre**: a few motifs
 through the engine, onto jersey at a real bureau, looked at by eye. Those are
 the gates, not the calendar.
 
@@ -113,5 +113,5 @@ Explicitly out of bounds right now:
 - Generative image calls (M7, and behind a trait when they arrive)
 - Any network I/O at all
 - Cloud sync, multi-user, hosted API
-- CMYK export, until a bureau supplies a profile — see
+- CMYK export, until a bureau supplies a profile; see
   `docs/features.md#colour-management` for why shipping one would be a guess
