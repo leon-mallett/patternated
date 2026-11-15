@@ -1,6 +1,6 @@
 # Patternated documentation
 
-Last confirmed against: 5cead1a (2026-11-14)
+Last confirmed against: 66e6ea7 (2026-11-15)
 
 Deterministic repeat-pattern engine for textile printing. Motifs in,
 print-ready seamless patterns out.
