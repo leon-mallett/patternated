@@ -12,7 +12,7 @@ use crate::torus::lattice_distance_sq;
 ///
 /// The other half of the spec's placement model: structured placement puts a
 /// few motifs at fixed points and lets the lattice do the work. Cheap,
-/// predictable, and right for spot patterns and geometrics — where a scatter
+/// predictable, and right for spot patterns and geometrics, where a scatter
 /// reads as untidy rather than as hand-strewn.
 ///
 /// The classic repeats a designer asks for by name are this plus a choice of
@@ -35,7 +35,7 @@ pub struct GridParams {
     /// to its left, as a fraction of the row spacing.
     ///
     /// This is what a half-drop *is* on a grid, and until it existed the
-    /// preset faked one by putting a brick on a half-drop lattice — which
+    /// preset faked one by putting a brick on a half-drop lattice, which
     /// produced a brick, and broke wherever the lattice's drop was not a whole
     /// number of cells. A repeat's drop belongs to the cells, not to the tile.
     #[serde(default)]
@@ -52,7 +52,7 @@ pub struct GridParams {
     /// A grid's cells are fixed by its rows and columns, so a motif larger than
     /// the gap between neighbours overlaps them and no amount of reseeding
     /// helps. Rather than silently drawing over its neighbours, the motif is
-    /// scaled down to fit — which is visible, undoable, and tells a designer
+    /// scaled down to fit, which is visible, undoable, and tells a designer
     /// what to change.
     #[serde(default = "prevent_overlap_default")]
     pub prevent_overlap: bool,
@@ -85,7 +85,7 @@ pub struct GridOutcome {
 ///
 /// A row offset walks the motifs sideways and wraps at the tile edge. For the
 /// walk to continue into the next tile rather than jump, the accumulated shift
-/// over a whole tile — `rows * row_offset` — has to come out a whole number of
+/// over a whole tile, `rows * row_offset`, has to come out a whole number of
 /// columns. A third of a column over five rows does not, so the diagonal
 /// arrives at the join one and two thirds of a column out and the field breaks
 /// along every tile edge. Six rows does, and it runs clean.
@@ -94,7 +94,7 @@ pub struct GridOutcome {
 ///
 /// Solved rather than special-cased, so an offset nobody anticipated still
 /// gets a grid that holds together, and returns the request unchanged when
-/// nothing within reach works — the caller can compare and say so.
+/// nothing within reach works, so the caller can compare and say so.
 ///
 /// This is [`Lattice::repeating_window`](crate::Lattice::repeating_window) one
 /// level down: there a rectangle of tiles has to be a repeating unit, here a
@@ -128,7 +128,7 @@ fn unit_range() -> (f32, f32) {
 ///
 /// Positions are exact; only the choice of motif, and any rotation or scale
 /// jitter, come from the seed. A grid with no jitter is therefore identical
-/// whatever the seed, which is what "classic" means here — rerolling changes
+/// whatever the seed, which is what "classic" means here: rerolling changes
 /// which motif sits where, not where the cells are.
 #[must_use]
 pub fn grid(params: &GridParams, tile_size_mm: Vec2, lattice: &Lattice) -> Vec<Placement> {
@@ -174,7 +174,7 @@ pub fn grid_with_outcome(
     for row in 0..rows {
         for col in 0..cols {
             // The shifts accumulate and wrap, so an offset of a half
-            // alternates and a third walks steadily across — both from the
+            // alternates and a third walks steadily across, both from the
             // same number, and the same in both axes.
             let shift = params.row_offset * row as f32;
             let drop = params.col_offset * col as f32;
@@ -216,7 +216,7 @@ pub fn grid_with_outcome(
 ///
 /// The limit is the closest any two positions come *on the lattice torus*, not
 /// the cell size. For a square grid those are the same; for a brick or diagonal
-/// offset they are not, because the nearest neighbour is then a staggered one —
+/// offset they are not, because the nearest neighbour is then a staggered one,
 /// and for any of them the closest pair may be across a tile edge, which is
 /// where an overlap would be least visible and most expensive.
 ///
@@ -329,7 +329,7 @@ mod tests {
     /// join can be visible; if they differ, the difference is the break.
     ///
     /// A radius rather than a count of nearest neighbours: a grid is full of
-    /// ties — four diagonal neighbours at the same distance — and "the six
+    /// ties, with four diagonal neighbours at the same distance, and "the six
     /// nearest" picks arbitrarily among them, which makes identical
     /// neighbourhoods look different. That mistake reported a plain square
     /// grid as broken while this was being written.
@@ -377,7 +377,7 @@ mod tests {
     fn a_diagonal_grid_is_one_unbroken_field() {
         // Reported from the app: a diagonal grid broke along a line down the
         // middle of the preview. Every tile was drawn correctly and the tiling
-        // was exact — what did not line up was the diagonal's own rhythm,
+        // was exact. What did not line up was the diagonal's own rhythm,
         // which arrived at the join part of a column out.
         for rows in [3u32, 4, 5, 6, 7] {
             let (field, cell) = field_of(rows, 4, 1.0 / 3.0, 0.0);
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn a_third_offset_walks_across_to_make_a_diagonal() {
         // Each row is the row above it, shifted. The shift wraps at the tile
-        // edge — which is not an inconvenience but the reason the diagonal
+        // edge, which is not an inconvenience but the reason the diagonal
         // tiles at all, so the property is stated modulo the tile width rather
         // than as "each row starts further right".
         let cols = 3;

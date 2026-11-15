@@ -58,7 +58,7 @@ import {
  *
  * Three, and not adjustable. A single tile says nothing about whether a pattern
  * tracks, and three by three is the smallest field where the eye finds
- * corridors — so it is the default the tool should make hard to avoid.
+ * corridors, so it is the default the tool should make hard to avoid.
  */
 const FIELD = 3;
 
@@ -316,7 +316,7 @@ export default function App() {
     setStatus(null);
   }
 
-  /// Start a pattern with no artwork — a tartan, a stripe, a ground.
+  /// Start a pattern with no artwork: a tartan, a stripe, a ground.
   async function onNewPlain() {
     try {
       adopt(await newPlain(), "Started a plain ground");
@@ -336,7 +336,7 @@ export default function App() {
     const files = Array.isArray(chosen) ? chosen : chosen ? [chosen] : [];
     if (files.length === 0) return;
     try {
-      // 50 mm is a starting point, not a decision — every motif gets its own
+        // 50 mm is a starting point, not a decision. Every motif gets its own
       // size control the moment the pattern is on screen.
       const opened = await newFromImages(files, 50);
       adopt(opened, `Started a pattern from ${files.length} image${files.length > 1 ? "s" : ""}`);
@@ -456,7 +456,7 @@ export default function App() {
       setStatus(
         cut.factor === 1
           ? `These measurements are now recorded as ${garment}.`
-          : `Cut for ${garment} — everything scaled by ${cut.factor.toFixed(2)}.`,
+          : `Cut for ${garment}: everything scaled by ${cut.factor.toFixed(2)}.`,
       );
       await refresh();
     } catch (e) {
@@ -536,7 +536,7 @@ export default function App() {
         <h1>Patternated</h1>
         <p className="lede">
           Turn illustrations into repeating prints. Everything is measured in
-          millimetres — a resolution is chosen only when you export.
+          millimetres, and a resolution is chosen only when you export.
         </p>
         <div className="start">
           <button className="primary" onClick={onNew}>
@@ -550,7 +550,7 @@ export default function App() {
         <p className="hint start-hint">
           Start with one or more images, each showing a single motif. A{" "}
           <strong>PNG</strong> can have a transparent background or sit on
-          plain paper — the background is measured away either way. An{" "}
+          plain paper, and the background is measured away either way. An{" "}
           <strong>SVG</strong> keeps its outlines and is drawn afresh at
           whatever size it is printed, so it stays sharp however far it is
           scaled up; convert any text in it to outlines first. A palette is
@@ -570,13 +570,13 @@ export default function App() {
 
         {/* What the ingest wanted to say. It used to say it to stderr from
             inside the engine, where nothing could show it. Dismissible
-            because it is about artwork that *did* come in — a warning that
+            because it is about artwork that *did* come in, and a warning that
             cannot be put away is one that gets ignored. */}
         {notes.length > 0 && (
           <div className="notes" data-testid="ingest-notes">
             {notes.map((note, i) => (
               <p className="hint warn" key={i}>
-                <strong>{note.about}</strong> — {note.says}
+                <strong>{note.about}</strong>: {note.says}
               </p>
             ))}
             <button data-testid="dismiss-notes" onClick={() => setNotes([])}>
@@ -616,9 +616,9 @@ export default function App() {
                   })
                 }
               >
-                <option value="bands">Bands — stripes, checks, tartans</option>
-                <option value="texture">Texture — grown, no lattice in it</option>
-                <option value="ornament">Ornament — drawn by rule on a grid</option>
+                <option value="bands">Bands: stripes, checks, tartans</option>
+                <option value="texture">Texture: grown, no lattice in it</option>
+                <option value="ornament">Ornament: drawn by rule on a grid</option>
               </select>
             </label>
 
@@ -791,7 +791,7 @@ export default function App() {
                       Blending is what cloth does: half the threads at a crossing
                       are each colour, so two threads give a third tone and a
                       thread crossing itself stays itself. Overprinting multiplies
-                      instead, which is what a second pass of ink does — right for
+                      instead, which is what a second pass of ink does, right for
                       a design built from overlapping bands, and much darker.
                       Letting the across-band win adds no colours at all.
                     </p>
@@ -816,7 +816,7 @@ export default function App() {
           <div>
             <strong>{doc.name}</strong>
             {/* "4×3 repeat" read as though the design were a 4×3 repeat,
-                rather than as a count of how many are on screen — and then an
+                rather than as a count of how many are on screen, and then an
                 export of one tile looked like a cropped preview. The repeat's
                 actual size is in the readout below; this says what is being
                 looked at. */}
@@ -893,13 +893,13 @@ export default function App() {
         {error && <p className="error">{error}</p>}
         {/* What the ingest wanted to say. It used to say it to stderr from
             inside the engine, where nothing could show it. Dismissible
-            because it is about artwork that *did* come in — a warning that
+            because it is about artwork that *did* come in, and a warning that
             cannot be put away is one that gets ignored. */}
         {notes.length > 0 && (
           <div className="notes" data-testid="ingest-notes">
             {notes.map((note, i) => (
               <p className="hint warn" key={i}>
-                <strong>{note.about}</strong> — {note.says}
+                <strong>{note.about}</strong>: {note.says}
               </p>
             ))}
             <button data-testid="dismiss-notes" onClick={() => setNotes([])}>
@@ -939,7 +939,7 @@ export default function App() {
               <Readout
                 label="Tracking"
                 value="worth a look"
-                hint="The motifs' near neighbours line up more than most scatters do, which is what makes corridors appear across a repeat. Look at the field before printing, and reroll the seed if you see lanes. A low score is not a guarantee — this catches the obvious cases, not the faint ones."
+                hint="The motifs' near neighbours line up more than most scatters do, which is what makes corridors appear across a repeat. Look at the field before printing, and reroll the seed if you see lanes. A low score is not a guarantee: this catches the obvious cases, not the faint ones."
               />
             )}
             {preview.size_limited_to < 0.999 && (
@@ -954,7 +954,7 @@ export default function App() {
       </section>
 
       {/* Over the whole window rather than under the preview. Exporting is a
-          decision with a dozen settings in it and an end — a file written —
+          decision with a dozen settings in it and an end, a file written,
           and it was tucked below the image, where it pushed the preview out of
           view and read as one more panel of the same kind as the others. */}
       {exporting && (
@@ -973,7 +973,7 @@ export default function App() {
       <aside className="controls">
         {!hasArtwork && groundPanel}
 
-        {/* Everything in Layout arranges motifs — where they sit, how many to
+        {/* Everything in Layout arranges motifs: where they sit, how many to
             a row, whether they may touch. A pattern with no artwork in it has
             none of that to decide, and a panel of controls that do nothing is
             worse than a shorter panel: they get moved, nothing happens, and
@@ -994,9 +994,9 @@ export default function App() {
           </label>
           <p className="hint">
             {isMirrorLayout(layout)
-              ? "Keeps motifs from intersecting — including with their own reflections, which is what stops a motif on a mirror line coming back doubled."
+              ? "Keeps motifs from intersecting, including with their own reflections, which is what stops a motif on a mirror line coming back doubled."
               : layout === "tossed"
-                ? "Keeps motifs from intersecting. Asking for more coverage than fits simply stops adding motifs — the coverage readout shows what was reached."
+                ? "Keeps motifs from intersecting. Asking for more coverage than fits simply stops adding motifs, and the coverage readout shows what was reached."
                 : "Keeps motifs from intersecting. A grid's cells are fixed, so motifs too large for them are shrunk to fit rather than drawn over each other."}
           </p>
           <label>
@@ -1015,8 +1015,8 @@ export default function App() {
           </label>
           {isMirrorLayout(layout) && (
             <p className="hint">
-              Only part of the tile is designed — half for a single mirror, a
-              quarter for a four-way — and the rest is its reflection. The
+              Only part of the tile is designed, half for a single mirror and a
+              quarter for a four-way, and the rest is its reflection. The
               repeat stays the size you set; a mirror divides it rather than
               enlarging it. Motifs are kept clear of the mirror lines, so a
               large motif in a small repeat leaves less room than it would
@@ -1111,7 +1111,7 @@ export default function App() {
           <p className="hint" data-testid="cut-for-hint">
             {drawnFor === null
               ? "A repeat reads completely differently on an adult shirt and on a three-year-old's. Choosing a size here records what these millimetres are for; it does not resize anything yet, because there is nothing to scale from."
-              : `These measurements are for ${drawnFor}. Choosing another size scales the repeat and the motifs together, from this one — so going back and forth returns the design rather than drifting.`}
+              : `These measurements are for ${drawnFor}. Choosing another size scales the repeat and the motifs together, from this one, so going back and forth returns the design rather than drifting.`}
           </p>
 
           <NumberField
@@ -1176,7 +1176,7 @@ export default function App() {
                     How often a motif is placed <em>on</em> a mirror line
                     rather than clear of one. A motif there is cut at the line
                     and completed by its own reflection, so it comes out
-                    symmetrical — which is how a damask fills the corridor a
+                    symmetrical, which is how a damask fills the corridor a
                     plain mirror leaves. At zero every motif stays clear of the
                     lines.
                   </p>
@@ -1238,7 +1238,7 @@ export default function App() {
               <p className="hint">
                 {isScatterLayout(layout)
                   ? "The same seed and settings always give the same print, so one you like can be returned to."
-                  : "On a grid the cells do not move — rerolling changes which motif sits where."}
+                  : "On a grid the cells do not move, so rerolling changes which motif sits where."}
               </p>
             </Group>
 
@@ -1265,7 +1265,7 @@ export default function App() {
                 {(motifs ?? doc.motifs).length > 1 &&
                   "Shares are relative to each other: six against one is six times as common, and raising them all together changes nothing. "}
                 {isScatterLayout(layout)
-                  ? "How many motifs there are is set by Coverage — and by their size, since coverage is a share of the fabric rather than a count, so smaller motifs means more of them."
+                  ? "How many motifs there are is set by Coverage, and by their size, since coverage is a share of the fabric rather than a count, so smaller motifs means more of them."
                   : "How many motifs there are is Rows × Columns. On a grid the cells are fixed, so neither the size nor the share changes the count."}
               </p>
             </Group>
@@ -1312,7 +1312,7 @@ export default function App() {
           {dropped.length > 0 && (
             <p className="hint warn">
               Discarded {dropped.length === 1 ? "colourway" : "colourways"}{" "}
-              {dropped.join(", ")} — a colourway names a colour per slot, and
+              {dropped.join(", ")}: a colourway names a colour per slot, and
               there is a different number of slots now.
             </p>
           )}
@@ -1323,7 +1323,7 @@ export default function App() {
                 {Math.round(m.ground_share * 100)}% of <strong>{m.id}</strong>{" "}
                 is the background colour. It will look solid on this ground and
                 turn into a hole on any other. Usually there is no colour in
-                the palette close to that part of the artwork — try more.
+                the palette close to that part of the artwork, so try more.
               </p>
             ))}
         </Group>
@@ -1349,7 +1349,7 @@ export default function App() {
                 <p className="hint">
                   The colour of the unprinted fabric. It is slot 0 of the
                   palette rather than a special case, which is why inverting a
-                  print to a dark ground costs nothing — and why it recolours
+                  print to a dark ground costs nothing, and why it recolours
                   with a colourway like everything else.
                 </p>
               </>
@@ -1391,7 +1391,7 @@ export default function App() {
 
         <Group title="Colourways">
           {/* These derive a whole palette from the one in hand, which has
-              nothing to do with motifs — a tartan or a Truchet has a palette
+              nothing to do with motifs: a tartan or a Truchet has a palette
               too. They lived under "Motif colours" and moved here, where what
               they make is what the panel is about. */}
           <div className="derive" data-testid="derive-colourway">
@@ -1441,7 +1441,7 @@ export default function App() {
           </button>
           <p className="hint">
             A range sells in colourways, so they live in one document rather
-            than in copies of it — which is also what stops them drifting apart.
+            than in copies of it, which is also what stops them drifting apart.
           </p>
         </Group>
 
@@ -1470,7 +1470,7 @@ function Readout({
   hint?: string;
 }) {
   // The anchor is derived from the label rather than passed in. A readout has
-  // no behaviour to get wrong, so the handle only has to be findable — and one
+  // no behaviour to get wrong, so the handle only has to be findable, and one
   // derived from what it already says cannot drift out of step with it.
   const id = `readout-${label.toLowerCase().replace(/\s+/g, "-")}`;
   return (
@@ -1508,7 +1508,7 @@ function OrnamentEditor({
 }: {
   ornament: OrnamentSpec;
   /// What the engine actually fitted, which is rarely exactly what was asked
-  /// for — the grid has to close over the tile.
+  /// for, because the grid has to close over the tile.
   grid: FittedGrid | null;
   onChange: (o: OrnamentSpec) => void;
 }) {
@@ -1669,7 +1669,7 @@ function OrnamentEditor({
       <p className="hint">
         Drawn by rule rather than grown, and the opposite of a texture in every
         way: all lattice, no accident. The line figures meet each cell edge at
-        its middle, which is why neighbours join however they were turned — and
+        its middle, which is why neighbours join however they were turned, and
         why the repeat joins too.
       </p>
     </>
@@ -1689,7 +1689,7 @@ function TextureEditor({
 }: {
   texture: TextureSpec;
   /// What each level covered, measured from the field the engine actually
-  /// grew. Shown because a level can come out empty — the thresholds are
+  /// grew. Shown because a level can come out empty: the thresholds are
   /// evenly spaced by concentration, and the field may not reach between two
   /// of them.
   shares: number[];
@@ -1821,7 +1821,7 @@ function TextureEditor({
 
       <p className="hint">
         Two chemicals spreading across the tile and consuming each other. It is
-        grown on a torus, so it meets itself at every edge — which is also why
+        grown on a torus, so it meets itself at every edge, which is also why
         it needs a block repeat. Nothing is placed, so there is no lattice in
         it for the eye to find.
       </p>
@@ -1940,7 +1940,7 @@ function MotifRow({
     <div className="motif">
       <div className="motif-name">{motif.id}</div>
       {/* Shown as the share it works out to, not as the raw weight. It was
-          labelled "How often", which reads as a frequency — and was reported
+          labelled "How often", which reads as a frequency, and was reported
           as doing nothing, because it is relative: raising it alone takes from
           the others and raising them all together changes nothing at all.
           A percentage that moves when its neighbours move says that by
@@ -1959,7 +1959,7 @@ function MotifRow({
               ? "off"
               : total > 0
                 ? `${Math.round((v / total) * 100)}% of the mix`
-                : "—"
+                : "n/a"
           }
           onChange={onWeight}
         />
@@ -1982,7 +1982,7 @@ function MotifRow({
 ///
 /// Built here rather than with the browser's own `<dialog>`, which would give
 /// the backdrop, the Escape key and a focus trap for nothing. The reason is
-/// that jsdom — which the component tests run in — still does not implement
+/// that jsdom, which the component tests run in, still does not implement
 /// `showModal`, so a native dialogue could only be driven in a test behind a
 /// shim that fakes the very thing being claimed: the tests would pass over a
 /// dialogue that was never modal. Everything asserted here is really done.
@@ -2026,7 +2026,7 @@ function Modal({
     if (e.key !== "Tab") return;
     // Keep Tab inside. Without this the next Tab leaves for the controls
     // behind the backdrop, which are visible, unreachable by mouse, and still
-    // in the tab order — the worst of the three states.
+    // in the tab order, which is the worst of the three states.
     const stops = focusable();
     if (stops.length === 0) return;
     const first = stops[0];
@@ -2113,8 +2113,8 @@ function ExportPanel({
             value={request.shape}
             onChange={(e) => set("shape", e.target.value as "tile" | "sheet")}
           >
-            <option value="tile">One tile — the printer repeats it</option>
-            <option value="sheet">A repeated sheet — ready to print</option>
+            <option value="tile">One tile, for the printer to repeat</option>
+            <option value="sheet">A repeated sheet, ready to print</option>
           </select>
         </label>
 
@@ -2122,7 +2122,7 @@ function ExportPanel({
           <p className="hint" data-testid="one-tile-note">
             One tile is the whole design: it is seamless on all four sides, and
             the printer lays it edge to edge. It will look far emptier than the
-            preview, which shows several side by side — same size on the cloth,
+            preview, which shows several side by side: same size on the cloth,
             fewer of them in the picture.
           </p>
         )}
@@ -2162,8 +2162,8 @@ function ExportPanel({
                 : onPickProfile()
             }
           >
-            <option value="rgb">RGB — the bureau separates</option>
-            <option value="cmyk">CMYK — converted here</option>
+            <option value="rgb">RGB, for the bureau to separate</option>
+            <option value="cmyk">CMYK, converted here</option>
           </select>
         </label>
         {request.cmyk_profile && (
@@ -2190,7 +2190,7 @@ function ExportPanel({
             checked={request.compress}
             onChange={(e) => set("compress", e.target.checked)}
           />
-          <span>Compress (LZW — lossless, about a third the size)</span>
+          <span>Compress (LZW, lossless, about a third the size)</span>
         </label>
       )}
 
@@ -2210,14 +2210,14 @@ function ExportPanel({
 
           {plan.width_verdict === "wide" && (
             <p className="hint">
-              {(plan.width_mm / 1000).toFixed(2)} m wide — past a standard{" "}
+              {(plan.width_mm / 1000).toFixed(2)} m wide, past a standard{" "}
               {(request.roll_width_mm / 1000).toFixed(1)} m fabric roll. Wide-format
               printers take this; most do not.
             </p>
           )}
           {plan.width_verdict === "too-wide" && (
             <p className="error">
-              {(plan.width_mm / 1000).toFixed(2)} m wide — past grand format, so this is
+              {(plan.width_mm / 1000).toFixed(2)} m wide, past grand format, so this is
               unlikely to be printable as one piece. Export the tile instead and let the
               printer repeat it.
             </p>

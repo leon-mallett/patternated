@@ -26,14 +26,14 @@
 //! The brief produces a hierarchy on its own, and it is the structure the
 //! scatter needs:
 //!
-//! - **Heroes** — the child's named interests. Large, few, heavy.
-//! - **Secondaries** — the variants that stop repetition reading as repetition.
-//! - **Fillers** — the occasion set. Small, numerous, and what actually makes
+//! - **Heroes**, the child's named interests. Large, few, heavy.
+//! - **Secondaries**, the variants that stop repetition reading as repetition.
+//! - **Fillers**, the occasion set. Small, numerous, and what actually makes
 //!   a scatter look designed rather than sparse.
 //!
 //! # Knobs
 //!
-//! Density and seed are overridable from the environment — `D=0.45 S=3` — because
+//! Density and seed are overridable from the environment, as `D=0.45 S=3`, because
 //! what this example exists to ask is what *varies* with them, and the answer for
 //! asset coverage turned out to be "nothing".
 
@@ -66,7 +66,7 @@ mod ink {
 
 fn palette() -> Palette {
     Palette::new(vec![
-        Color::new(20, 28, 58),    // 0 cloth — the night
+        Color::new(20, 28, 58),    // 0 cloth, the night
         Color::new(245, 233, 200), // 1 cream
         Color::new(238, 143, 168), // 2 pink
         Color::new(127, 209, 185), // 3 mint
@@ -270,7 +270,7 @@ fn owl(body: u8, face: u8) -> VectorMotif {
 ///
 /// Not two circles with `even_odd`. Even-odd fills what is covered an odd
 /// number of times, which subtracts one disc from another only while the
-/// biting disc lies wholly inside the other — and a crescent needs it to
+/// biting disc lies wholly inside the other, and a crescent needs it to
 /// overlap the edge, so the part hanging outside gets *filled* rather than
 /// removed. That turned the moon into a ring, and since the bite also reached
 /// past the view box, the stray arc was clipped flat on the right as well.
@@ -322,7 +322,7 @@ fn sparkle() -> VectorMotif {
 ///
 /// It used to decide abundance too, and that was wrong: stars and moons are
 /// both occasion fillers and a night sky wants several times more stars. How
-/// many of a thing there are is per asset — see [`Asset::abundance`].
+/// many of a thing there are is per asset; see [`Asset::abundance`].
 #[derive(Clone, Copy)]
 enum Tier {
     Hero,
@@ -350,7 +350,7 @@ struct Asset {
     size_mm: f32,
     /// How common this one is, relative to every other asset.
     ///
-    /// Not a probability and not a count — weights need not sum to anything,
+    /// Not a probability and not a count, since weights need not sum to anything,
     /// and the realised number in any one tile is a draw rather than a
     /// quantity. `required` is what guarantees *at least one*; this governs
     /// how many beyond that.
@@ -450,7 +450,7 @@ fn brief() -> Vec<Asset> {
 /// Build the pattern for a given set of asset sizes.
 ///
 /// Split out so the same brief can be solved twice and the two layouts
-/// compared — which is the only way to answer what a size slider in a buyer's
+/// compared, which is the only way to answer what a size slider in a buyer's
 /// hands would actually do to the picture.
 fn mix_of(assets: &[Asset], sizes: &[f32]) -> Vec<MotifWeight> {
     assets
@@ -491,7 +491,7 @@ fn solve(assets: &[Asset], sizes: &[f32], seed: u64, density: f32) -> (Pattern, 
     );
     if !chosen.acceptable {
         println!(
-            "NOT ACCEPTABLE after {} attempts — alignment {:.2}, missing {:?}",
+            "NOT ACCEPTABLE after {} attempts: alignment {:.2}, missing {:?}",
             chosen.attempts, chosen.alignment, chosen.outcome.unplaced_required
         );
     } else if chosen.attempts > 1 {
@@ -582,7 +582,7 @@ fn main() {
     //
     // The picture is the same and the slider is not. Solved at the size it is
     // drawn, a motif in a tile packed by `prevent_overlap` has essentially no
-    // room — the heroes of this brief come out at ×1.01 — so "make the unicorn
+    // room (the heroes of this brief come out at ×1.01) so "make the unicorn
     // bigger" would be a control with no travel. Solving at the largest size
     // anything may reach and drawing below it means every motif can grow back
     // to where the layout already has space for it, and shrinking was always
@@ -601,7 +601,7 @@ fn main() {
     }
     if !unplaced.is_empty() {
         println!(
-            "COULD NOT PLACE: {} — the tile has no room for them",
+            "COULD NOT PLACE: {}, for which the tile has no room",
             unplaced.join(", ")
         );
     }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 /// An 8-bit-per-channel opaque colour.
 ///
 /// Spelled the American way to match `tiny-skia` and the rest of the graphics
-/// ecosystem. The domain concept built on top of it — a colourway — keeps the
+/// ecosystem. The domain concept built on top of it, a colourway, keeps the
 /// British spelling, since nothing upstream claims that word.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Color {

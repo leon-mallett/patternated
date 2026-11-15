@@ -11,7 +11,7 @@ use visioncortex::{BinaryImage, PathSimplifyMode, PointI32};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SlotPath {
     pub slot: u8,
-    /// SVG path data — the `d` attribute, without the element around it.
+    /// SVG path data: the `d` attribute, without the element around it.
     pub d: String,
 }
 
@@ -23,7 +23,7 @@ pub struct SlotPath {
 ///
 /// - This is a **tracing of a bitmap**, produced for *export*. It is kept
 ///   alongside the raster and never instead of it, because some illustration
-///   styles — watercolour, grain, anything with texture — trace badly, and the
+///   styles (watercolour, grain, anything with texture) trace badly, and the
 ///   spec is explicit that those ship as raster with a high-resolution
 ///   original. Stored as SVG path data, because a library serialises it.
 /// - `pattern_core::TracedOutlines` is artwork that *arrived* as outlines, held
@@ -120,7 +120,7 @@ impl Default for VectoriseOptions {
 ///
 /// Works from the indexed raster rather than from the original artwork, which
 /// is the whole reason this step is simple. Tracing normally has to *discover*
-/// regions of similar colour — the hard, parameter-heavy part of any
+/// regions of similar colour, the hard, parameter-heavy part of any
 /// vectoriser. Quantisation has already decided them, so each slot is traced as
 /// a plain binary mask and the result cannot disagree with the raster about
 /// what colour anything is.

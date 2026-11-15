@@ -3,7 +3,7 @@
 //! For the first three kinds of ground this question did not arise. A stripe's
 //! edges are axis-aligned, and one sample per pixel puts them exactly where
 //! they belong. A Truchet arc and a grown blob are curves, and one sample per
-//! pixel puts a staircase along every one of them — next to motifs that
+//! pixel puts a staircase along every one of them, next to motifs that
 //! tiny-skia draws with filtering, so the two layers of the same print did not
 //! look as though they had been made by the same tool.
 //!
@@ -26,7 +26,7 @@ const DPI: f32 = 96.0;
 /// How the tile's pixels divide into the two named colours and everything else.
 ///
 /// Returns the share that is exactly one of the two, the share that is neither
-/// — which for a two-colour ground can only be an edge — and how many distinct
+/// (which for a two-colour ground can only be an edge) and how many distinct
 /// tones there are in total.
 ///
 /// The count matters as much as the share. The *number* of edge pixels is
@@ -153,8 +153,8 @@ fn a_curved_ground_carries_intermediate_tones_along_its_edges() {
 #[test]
 fn deciding_each_pixel_once_is_what_the_complaint_looked_like() {
     // Kept so the test above is known to be measuring something that can fail.
-    // Sampling the middle of each pixel and taking the answer — which is what
-    // this did until it was reported — can only ever produce the palette's own
+    // Sampling the middle of each pixel and taking the answer, which is what
+    // this did until it was reported, can only ever produce the palette's own
     // colours, so there is nothing along an edge but a step.
     for (name, pattern) in [("truchet", truchet()), ("pebbles", pebbles())] {
         assert_eq!(

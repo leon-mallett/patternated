@@ -9,8 +9,8 @@
 //!
 //! Two earlier measures were built, calibrated against real output, found not
 //! to discriminate, and removed. Both are recorded in `docs/decisions.md`; the
-//! short of it is that a repeat is not a field of independent motifs — nine
-//! copies of one tile repeat whatever structure that tile has — so the
+//! short of it is that a repeat is not a field of independent motifs, because nine
+//! copies of one tile repeat whatever structure that tile has, so the
 //! variation between *good* patterns swamped the signal from a corridor.
 //!
 //! This measures the **directions between near neighbours**. Every pair closer
@@ -19,7 +19,7 @@
 //! directions is how far they depart from being spread evenly.
 //!
 //! Specifically the **fourth harmonic** of their angular distribution. The
-//! second — a single preferred axis — was tried first and is blind here: a
+//! second, which finds a single preferred axis, was tried first and is blind here: a
 //! field of rivers has both along-river and across-river neighbours, which sit
 //! at right angles, and doubling the angle maps those onto opposite points
 //! where they cancel. It scored a perfect square grid 1.4, barely above a
@@ -40,7 +40,7 @@
 //! It is **blind to faint tracking** and it is *not* a pass-or-fail gate: at
 //! the level where a person would reject a print it catches roughly two in
 //! three at best. What it is good for is ranking. Rendered, the highest-
-//! scoring scatters out of three hundred — with nothing done to them — show
+//! scoring scatters out of three hundred, with nothing done to them, show
 //! visible rivers, and the lowest look evenly strewn. So a high score is worth
 //! looking at and a low score is not a guarantee, which is what
 //! [`WORTH_A_LOOK`] says and no more.
@@ -234,13 +234,13 @@ mod tests {
         // Left as a comparison rather than tuned away, because it is a true
         // thing about the measure: what it reports depends on which families
         // of neighbour fall inside the cutoff. A ruled grid is also not what
-        // the threshold is for — nobody needs telling that a grid lines up.
+        // the threshold is for; nobody needs telling that a grid lines up.
     }
 
     #[test]
     fn pulling_a_scatter_into_rivers_raises_it() {
         // The property the whole thing exists for, across seeds rather than on
-        // one — a single pair proves only that two numbers differ.
+        // one, since a single pair proves only that two numbers differ.
         let lattice = Lattice::half_drop(TILE);
         let mut raised = 0;
         for seed in [1u64, 7, 42, 99, 20_260_928] {

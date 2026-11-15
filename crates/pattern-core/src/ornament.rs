@@ -1,7 +1,7 @@
 //! Pattern by rule: a grid of cells, each carrying a figure, some of which
 //! contain smaller copies of themselves.
 //!
-//! The other generated ground in this engine grows — two chemicals spreading
+//! The other generated ground in this engine grows: two chemicals spreading
 //! across the tile until structure appears, with no lattice in it anywhere.
 //! This one is the opposite pole. It is all lattice: a cell size, a figure, and
 //! a rule for what a figure contains. Interlocking curves, strapwork, and the
@@ -10,7 +10,7 @@
 //!
 //! # Why it tiles
 //!
-//! The grid is fitted to the tile — a whole number of cells each way, by the
+//! The grid is fitted to the tile, a whole number of cells each way, by the
 //! same arithmetic that fits a band sequence, and for the same reason. Every
 //! cell is then evaluated in its own coordinates and knows nothing of its
 //! neighbours, so the tile's last column and its first are two ordinary cells
@@ -24,7 +24,7 @@
 //!
 //! # Why it is deterministic
 //!
-//! Integer arithmetic, comparison, multiply, add, and `sqrt` — which IEEE 754
+//! Integer arithmetic, comparison, multiply, add, and `sqrt`, which IEEE 754
 //! requires to be correctly rounded, unlike the transcendentals this engine
 //! avoids everywhere else. No trigonometry: a quarter arc is a distance
 //! compared against a radius, not an angle swept.
@@ -87,7 +87,7 @@ impl Figure {
     /// The line figures are one level and stay that way. A subdivided Truchet
     /// cell would present connection points at a sixth and five sixths of each
     /// edge as well as at the middle, and an undivided neighbour has nothing to
-    /// meet them with — the lines would end in stubs along the join. Multi-
+    /// meet them with, so the lines would end in stubs along the join. Multi-
     /// scale Truchet designs solve that with dedicated connector tiles, which
     /// is a different and much larger thing than this.
     #[must_use]
@@ -104,7 +104,7 @@ impl Figure {
     /// Whether alternate rows are shifted half a cell.
     ///
     /// A scallop only reads as one when the row below breaks the joint of the
-    /// row above, which is a brick offset — and a brick offset closes over the
+    /// row above, which is a brick offset, and a brick offset closes over the
     /// tile only if there is an **even** number of rows, because it is the row
     /// index's parity that decides the shift. An odd count puts two unshifted
     /// rows against each other at the join, which is a visible line straight
@@ -167,7 +167,7 @@ pub struct Ornament {
     pub stroke_mm: f32,
     /// How often a cell departs from the strict figure, between 0 and 1.
     ///
-    /// At zero every cell is the classical figure and the seed does nothing —
+    /// At zero every cell is the classical figure and the seed does nothing:
     /// a Sierpinski carpet is a Sierpinski carpet. Above it, a block here and
     /// there is left whole instead of being divided, which is what turns a
     /// diagram into something that looks drawn.
@@ -232,7 +232,7 @@ impl Ornament {
     /// The same arithmetic that fits a band sequence, and the same reason.
     /// Cells come out near-square rather than exactly square, because a tile
     /// is whatever size the design is and two whole-number divisions of it
-    /// rarely agree — at a 240 x 180 mm repeat and a 10 mm cell they agree
+    /// rarely agree. At a 240 x 180 mm repeat and a 10 mm cell they agree
     /// exactly, and at 300 x 225 they differ by two per cent.
     #[must_use]
     pub fn grid_on(&self, tile_width_mm: f32, tile_height_mm: f32) -> Grid {
@@ -356,7 +356,7 @@ impl OrnamentField {
 
         let hit = match self.ornament.figure {
             // Two quarter arcs, one about each of a pair of opposite corners,
-            // each of radius half a cell — so both meet the cell edge at its
+            // each of radius half a cell, so both meet the cell edge at its
             // middle, and a neighbour meets them there whichever way it turned.
             Figure::Truchet => {
                 let near = |ox: f32, oy: f32| {
@@ -371,7 +371,7 @@ impl OrnamentField {
             }
             // The straight version: the same two connections Truchet makes,
             // drawn as segments rather than arcs. Corner to corner was the
-            // first attempt and is wrong — a diagonal meets the cell at its
+            // first attempt and is wrong: a diagonal meets the cell at its
             // *corners*, where a neighbour has nothing to meet it, and the
             // lines broke at every edge whose two cells had turned opposite
             // ways. These cut the corners instead, so both ends land on edge
@@ -404,7 +404,7 @@ impl OrnamentField {
 
         let (mut u, mut v) = (u, v);
         // Absolute cell coordinates at each level, so that the hash addresses a
-        // block rather than a position within its parent — two blocks in the
+        // block rather than a position within its parent, since two blocks in the
         // same place at different levels must not draw the same coin.
         let (mut bx, mut by) = (col * 3, row * 3);
 
@@ -442,7 +442,7 @@ fn near_segment(px: f32, py: f32, ax: f32, ay: f32, bx: f32, by: f32, half: f32)
     if len2 <= 0.0 {
         return false;
     }
-    // Clamped, so the ends are round caps rather than an infinite line — a
+    // Clamped, so the ends are round caps rather than an infinite line: a
     // segment that ran on would paint straight through the neighbouring cell.
     let t = (((px - ax) * ex + (py - ay) * ey) / len2).clamp(0.0, 1.0);
     let (dx, dy) = (px - (ax + t * ex), py - (ay + t * ey));
@@ -557,7 +557,7 @@ mod tests {
         // chevrons: an arc meets the edge at a right angle, so the painted set
         // either side of the join is the same set. A chevron meets it at
         // forty-five degrees and paints a little above the middle on one side
-        // and a little below on the other — the line is continuous and its
+        // and a little below on the other. The line is continuous and its
         // footprint is not, which is why the test above states the property
         // the way it does rather than as an equality for both.
         let f = field(Figure::Truchet, |_| {});
@@ -611,7 +611,7 @@ mod tests {
     /// Where the scallops of a row sit, as an offset within one cell.
     ///
     /// Read near the bottom of the cell, where only a narrow band around each
-    /// scallop's centre is painted — at the top every column is inside one, so
+    /// scallop's centre is painted. At the top every column is inside one, so
     /// there would be nothing to see.
     fn scallop_offset(f: &OrnamentField, row: u32) -> f32 {
         let grid = f.grid();
@@ -629,7 +629,7 @@ mod tests {
     fn an_odd_row_count_is_what_the_hazard_looks_like() {
         // Kept so that the rounding above is known to be preventing something.
         //
-        // The failure is not a broken edge — every row is a complete band of
+        // The failure is not a broken edge: every row is a complete band of
         // scallops and the pixels at the join line up fine. It is the *rhythm*:
         // the shift is the row index's parity, so with an odd count the last
         // row and the first row are both unshifted, and stacking two tiles
@@ -698,7 +698,7 @@ mod tests {
     #[test]
     fn every_figure_draws_something_and_no_two_draw_the_same() {
         // A rule that paints nothing, or everything, is a ground that is not
-        // there — and two figures that come out identical mean a mask or a
+        // there, and two figures that come out identical mean a mask or a
         // match arm is wrong rather than that the engine has six looks.
         let mut seen: Vec<(Figure, f32)> = Vec::new();
         for figure in Figure::all() {
@@ -741,7 +741,7 @@ mod tests {
             let cell = shallow.grid();
 
             // The top-left ninth, which survives in all three figures except
-            // Cross — so take the middle ninth for that one.
+            // Cross, so take the middle ninth for that one.
             let (bx, by) = if figure == Figure::Cross {
                 (1.0, 1.0)
             } else {
@@ -765,8 +765,8 @@ mod tests {
     #[test]
     fn the_seed_moves_a_varied_figure_and_leaves_a_strict_one_alone() {
         // `variation` is what the seed is for. At zero the figure is the
-        // classical one and asking for another of the same is meaningless — a
-        // Sierpinski carpet is a Sierpinski carpet — so the control should be
+        // classical one and asking for another of the same is meaningless,
+        // a Sierpinski carpet being a Sierpinski carpet, so the control should be
         // seen to do nothing there rather than appearing to work.
         let strict = |seed: u64| {
             field(Figure::Carpet, |o| {
@@ -792,7 +792,7 @@ mod tests {
         // Pinned like the texture's field and for the same reason: this is a
         // claim about machines that are not this one. Integer arithmetic and
         // `sqrt` throughout, so there is nothing here a platform is allowed to
-        // round differently — but the way to know that is to check it
+        // round differently, but the way to know that is to check it
         // somewhere else, and CI is Linux while this is macOS.
         //
         // Recorded 2026-09-24, aarch64-apple-darwin.
@@ -847,7 +847,7 @@ mod tests {
     fn only_the_levels_a_figure_reaches_cost_a_colour() {
         // A screen printer charges by the colour. A figure that does not
         // recurse has one level however many were named, and a recursive one
-        // has as many as its depth — counting the rest would quote for screens
+        // has as many as its depth. Counting the rest would quote for screens
         // that are never cut.
         let deep = Ornament {
             figure: Figure::Carpet,

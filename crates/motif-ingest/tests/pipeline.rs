@@ -184,7 +184,7 @@ fn transparent_pixels_do_not_count_toward_quantisation_error() {
 fn a_derived_palette_finds_the_colours_actually_used() {
     // Five slots, not four. Median cut allocates buckets by population, and a
     // motif's edge ramp is a large population of intermediate tones spanning a
-    // long distance in colour space — so it competes for slots with real
+    // long distance in colour space, so it competes for slots with real
     // colours. A stem that is 7% of the artwork loses that competition when
     // the budget is three derived colours, which is a property of median cut
     // rather than a defect to fix here. The practical lesson, and the reason
@@ -515,7 +515,7 @@ fn every_substantial_slot_gets_at_least_one_outline() {
     // The vector and the raster are two views of one motif and must not
     // disagree about what is in it. A slot covering a real area of the motif
     // with no path traced for it means that colour vanishes from any vector
-    // export — invisible until somebody opens the SVG.
+    // export, and is invisible until somebody opens the SVG.
     let matted = matte(&illustration_on_paper(128), MatteMethod::default());
     let (cropped, _) = trim(&matted, 8).expect("subject");
     let (indexed, _) = quantise(&cropped, &house_palette()).expect("should quantise");
@@ -581,7 +581,7 @@ fn ring(size: u32, outer: f32, inner: f32) -> SourceImage {
 fn a_hollow_motif_keeps_its_hole_when_traced() {
     // The spec's motifs include rings, slices and anything drawn as an
     // outline. If tracing returns only the outer boundary, a bagel prints as a
-    // disc — correct in the raster, wrong in every vector export, and nothing
+    // disc: correct in the raster, wrong in every vector export, and nothing
     // in the pipeline would say so.
     let matted = matte(&ring(256, 0.86, 0.45), MatteMethod::default());
     let (cropped, _) = trim(&matted, 8).expect("subject");
@@ -625,7 +625,7 @@ fn a_hollow_motif_keeps_its_hole_when_traced() {
 ///
 /// The three properties that broke a fixed threshold, in one fixture: a base
 /// brightness well below white, a gradient across the sheet, and pixel-level
-/// texture. Deterministic — a hash of the coordinates rather than a random
+/// texture. Deterministic, being a hash of the coordinates rather than a random
 /// source, so a failure can be reproduced exactly.
 fn scanned_paper(size: u32, base: f32, tilt: f32, grain: f32) -> SourceImage {
     let mut img = SourceImage::filled(size, size, [255, 255, 255, 255]);
@@ -660,7 +660,7 @@ fn ink_blob(paper: &mut SourceImage, cx: f32, cy: f32, r: f32, colour: [u8; 4]) 
 #[test]
 fn cream_paper_is_recognised_as_background() {
     // Photographed watercolour paper measured 0.895 under even light, below
-    // the 0.92 a fixed threshold cut above — so the paper survived as motif
+    // the 0.92 a fixed threshold cut above, so the paper survived as motif
     // and the crop came back as the whole sheet.
     let mut img = scanned_paper(256, 0.89, 0.0, 0.02);
     ink_blob(&mut img, 0.5, 0.5, 0.22, [90, 40, 50, 255]);

@@ -94,7 +94,7 @@ fn a_drawing_is_rasterised_at_the_resolution_it_is_drawn_at() {
     );
     assert!(
         b < a / 8.0,
-        "the rim was {a:.4} of the motif at 48 DPI and {b:.4} at 600 — a fall of \
+        "the rim was {a:.4} of the motif at 48 DPI and {b:.4} at 600, a fall of \
          {:.1}, where drawing from outlines gives about eleven and enlarging a \
          fixed raster about four",
         a / b
@@ -120,7 +120,7 @@ fn a_print_resolution_render_is_drawn_not_enlarged() {
 #[test]
 fn the_measurements_do_not_depend_on_the_reference_raster() {
     // The bank rasterises once for measuring. That raster must not leak into
-    // what is printed — if it did, this would be the size everything came out.
+    // what is printed; if it did, this would be the size everything came out.
     let mut bank = MotifBank::new();
     let pattern = one_motif(&mut bank);
     let motif = bank.get("disc").expect("in the bank");

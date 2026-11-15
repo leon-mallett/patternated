@@ -2,7 +2,7 @@
 //!
 //! The engine's other motif representation, [`IndexedMotif`](crate::IndexedMotif),
 //! is a palette slot and a coverage value per pixel, and it is the right shape
-//! for artwork that arrives as artwork — a drawing, a scan, a generated image.
+//! for artwork that arrives as artwork: a drawing, a scan, a generated image.
 //! Vector artwork arrives as the thing a bitmap is a sample of, and sampling it
 //! once at import throws away the only reason it was vector: a motif drawn at
 //! 20 mm and exported at 300 DPI wants 236 pixels, and the same motif on a
@@ -16,7 +16,7 @@
 //!
 //! Each shape carries a palette slot, exactly as a pixel does, so a colourway
 //! recolours vector and raster motifs by the same mechanism. It is cleaner
-//! here than in a bitmap — a fill is one flat colour by construction, so the
+//! here than in a bitmap, because a fill is one flat colour by construction, so the
 //! quantisation that a photograph needs is a lookup.
 //!
 //! # What a shape is not
@@ -24,7 +24,7 @@
 //! A filled outline and nothing else. Strokes are converted to outlines when
 //! the artwork is read, so that everything after that point is one kind of
 //! thing. Gradients, patterns, embedded images and filters have no slot to
-//! resolve to and are refused at import rather than approximated — a gradient
+//! resolve to and are refused at import rather than approximated. A gradient
 //! quantised to its midpoint is a print nobody asked for.
 
 use serde::{Deserialize, Serialize};
@@ -121,7 +121,7 @@ pub enum Unprintable {
     NotAFlatColour,
     /// A bitmap placed inside the vector file.
     EmbeddedImage,
-    /// Live text, which needs a font to have a shape at all — and the font
+    /// Live text, which needs a font to have a shape at all, and the font
     /// installed on *this* machine, which is why it cannot be allowed.
     LiveText,
     /// A filter, clip or mask: the shape drawn is not the shape described.
@@ -133,12 +133,12 @@ impl Unprintable {
     /// this.
     ///
     /// A gradient has no outline a palette slot can stand for, and a renderer
-    /// draws it perfectly well — so rasterising and quantising is a real
+    /// draws it perfectly well, so rasterising and quantising is a real
     /// answer, and the same one a designer would reach by exporting a PNG.
     ///
     /// The other two are not answers. Live text needs a font, and the renderer
     /// is built without font support on purpose, so rendering would drop it
-    /// exactly as reading it did — and would trade the whole drawing's
+    /// exactly as reading it did, and would trade the whole drawing's
     /// sharpness for nothing. An embedded bitmap is the same: this engine's
     /// renderer cannot decode one either, so falling back would lose the
     /// outlines and still not show the image.
@@ -157,7 +157,7 @@ impl Unprintable {
         match self {
             Unprintable::NotAFlatColour => {
                 "uses a gradient or a pattern fill. A print is flat colours, and there is no \
-                 single colour this could become — replace it with flat shapes, or accept it \
+                 single colour this could become. Replace it with flat shapes, or accept it \
                  as artwork and export a PNG instead."
             }
             Unprintable::EmbeddedImage => {

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 /// A pattern plus the motif files it refers to.
 ///
-/// The [`Pattern`] itself stays free of file paths — it is the portable
+/// The [`Pattern`] itself stays free of file paths. It is the portable
 /// document, and a path is a fact about one machine. This wrapper is the app
 /// layer's business and lives here with the rest of the I/O.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,7 +30,7 @@ pub struct Document {
     /// was drawn for; rendering then resolves those slots through whatever
     /// palette this colourway uses. Quantising against the colourway instead
     /// asks which of an unrelated set of colours the artwork is nearest to,
-    /// which is a different and meaningless question — a red cherry measured
+    /// which is a different and meaningless question: a red cherry measured
     /// against apricot and mint.
     ///
     /// A library needs none of this: it holds one palette, motifs are
@@ -46,7 +46,7 @@ pub struct Document {
     /// Named alternative palettes for this same pattern.
     ///
     /// A colourway is the same print in different colours, and a range sells in
-    /// several — so they belong in one document rather than in copies of it.
+    /// several, so they belong in one document rather than in copies of it.
     /// Keeping them together is also what stops them drifting: a placement
     /// edited in one copy and not the others is a range that no longer
     /// coordinates.
@@ -65,7 +65,7 @@ pub struct Document {
     ///
     /// Both are stored, and they have to be told apart. A saved document keeps
     /// its placements so that the print reopens exactly as approved even if the
-    /// sampler changes — a seed is a recipe, and a recipe is not a record. But
+    /// sampler changes: a seed is a recipe, and a recipe is not a record. But
     /// a document carrying hand-placed motifs *and* a generator is genuinely
     /// ambiguous and is refused, because silently discarding either would be
     /// the worse failure.
@@ -225,8 +225,8 @@ pub struct MixEntry {
 
 /// Where one motif comes from.
 ///
-/// Two routes, and they are the same pipeline. A `file` is ingested on the spot
-/// — matted, trimmed and quantised onto the pattern's own palette — which is
+/// Two routes, and they are the same pipeline. A `file` is ingested on the spot,
+/// matted, trimmed and quantised onto the pattern's own palette, which is
 /// what lets a document be written by hand against loose artwork. Without one,
 /// the motif is taken from the document's `library`, already ingested and
 /// immutable, which is what a real range uses.
@@ -308,7 +308,7 @@ impl Document {
     /// Remember the palette the motifs are quantised against.
     ///
     /// Without this, switching colourway on a document whose motifs come from
-    /// loose files would re-quantise the artwork against the colourway — asking
+    /// loose files would re-quantise the artwork against the colourway, asking
     /// which of an unrelated set of colours a red cherry is nearest to, which
     /// is the mistake `design_palette` exists to prevent. Pinning it the first
     /// time a document is opened makes every later switch a swap rather than a
@@ -371,8 +371,8 @@ impl Document {
 
     /// Re-derive the design palette at a different number of colours.
     ///
-    /// The count is a commercial decision as much as an aesthetic one — screen
-    /// printing charges by the colour, and digital printing does not — so it
+    /// The count is a commercial decision as much as an aesthetic one, since
+    /// screen printing charges by the colour and digital printing does not, so it
     /// belongs to the designer rather than being fixed at six because that was
     /// a reasonable guess when the app first needed a number.
     ///
@@ -382,7 +382,7 @@ impl Document {
     /// not.
     ///
     /// Colourways describing the old palette cannot survive a change of slot
-    /// count — they would be a list of colours for slots that no longer exist —
+    /// count, since they would be a list of colours for slots that no longer exist,
     /// so they are dropped and named in the result rather than left to fail
     /// later, which would be a document that no longer opens.
     pub fn set_palette_size(
@@ -433,7 +433,7 @@ impl Document {
         }
 
         // The ground's slots live at the tail of the palette, and the palette
-        // has just been replaced wholesale — so its colours are carried across
+        // has just been replaced wholesale, so its colours are carried across
         // and its sequence renumbered. Without this a striped document would
         // come back from a colour-count change referring to slots that no
         // longer exist, and stop rendering at all.
@@ -662,7 +662,7 @@ impl Document {
     /// As [`Self::load_motifs`], collecting anything worth telling a person.
     ///
     /// Two methods rather than one changed signature, because most callers
-    /// genuinely have nobody to tell — a render, a test, an export — and
+    /// genuinely have nobody to tell, being a render, a test or an export, and
     /// making all fifteen of them thread an empty vector through would be
     /// ceremony for the two that do.
     ///
@@ -689,7 +689,7 @@ impl Document {
                 Some(file) if is_drawing(file) => {
                     // A drawing keeps its outlines: the bank rasterises it at
                     // whatever size each render needs rather than at one size
-                    // chosen when it was imported. Unless it cannot — see
+                    // chosen when it was imported. Unless it cannot; see
                     // `drawing_or_artwork`.
                     let path = base.join(file);
                     let size = m.natural_size_mm.ok_or_else(|| {
@@ -784,7 +784,7 @@ pub enum Drawn {
 ///
 /// Outlines are what makes an SVG worth having: the motif is drawn afresh at
 /// whatever size it is printed. But a gradient has no outline a palette slot
-/// could stand for, and reading one as outlines quietly leaves the shape out —
+/// could stand for, and reading one as outlines quietly leaves the shape out:
 /// a motif missing a piece, which is worse than a motif that will not sharpen.
 ///
 /// So where something was left out that a renderer *would* have drawn, the
@@ -818,7 +818,7 @@ pub fn drawing_or_artwork(path: &Path, id: &str, notes: &mut Vec<Note>) -> Resul
         Ok(source) => {
             notes.push(Note::new(
                 id,
-                "This drawing uses something no outline can carry — a gradient, or a filter — \
+                "This drawing uses something no outline can carry, a gradient or a filter, \
                  so it was drawn and its colours read from the picture, as artwork is. It will \
                  not sharpen any further when printed large; flat shapes would."
                     .to_string(),
@@ -871,7 +871,7 @@ impl Document {
     ///
     /// The scale factor is the ratio of the two chest widths, applied to the
     /// repeat, to everything the ground measures in millimetres, and to every
-    /// motif's natural size — the spec's requirement that a size chart sets a
+    /// motif's natural size, which is the spec's requirement that a size chart sets a
     /// factor "on both the tile and the motifs within it", because scaling the
     /// tile alone would leave one enormous dinosaur on a small garment, which
     /// is the failure it names.
@@ -916,7 +916,7 @@ impl Document {
 /// library that writes to stderr has decided that its caller is a terminal:
 /// the desktop app could not show these at all, so a designer never learned
 /// that most of a motif had dissolved into the fabric colour or that a shadow
-/// had been kept as ink — the two faults most likely to reach a printer.
+/// had been kept as ink, the two faults most likely to reach a printer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Note {
     /// The motif or file it concerns, so a list of them can be read.
@@ -952,7 +952,7 @@ fn ingest_file(
     )
 }
 
-/// The same, for artwork already in hand — a rendered drawing, say.
+/// The same, for artwork already in hand, such as a rendered drawing.
 fn ingest_source(
     source: SourceImage,
     id: &str,
@@ -973,7 +973,7 @@ fn ingest_source(
             id,
             format!(
                 "{:.0}% of this motif became the ground colour and it will barely show. The \
-                 palette has no colour for what it mostly is — try more colours.",
+                 palette has no colour for what it mostly is, so try more colours.",
                 report.ground_share * 100.0
             ),
         ));
@@ -1010,7 +1010,7 @@ pub fn ingest_to_library(
         .with_context(|| format!("ingesting '{id}'"))?;
 
     println!(
-        "{} v{} — {} x {} px, {:.0} x {:.0} mm, {} slots, {} outlines",
+        "{} v{}: {} x {} px, {:.0} x {:.0} mm, {} slots, {} outlines",
         stored.id,
         stored.version,
         stored.indexed.width,
@@ -1023,14 +1023,14 @@ pub fn ingest_to_library(
     if stored.border_retained > 0.15 {
         println!(
             "  warning: {:.0}% of the frame edge survived matting. Background has been kept as \
-             motif — usually a hard shadow across the paper.",
+             motif, usually a hard shadow across the paper.",
             stored.border_retained * 100.0
         );
     }
     if stored.quantisation.dissolves_into_ground() {
         println!(
             "  WARNING: {:.0}% of this motif became the ground colour. It will be close to \
-             invisible on the fabric — the palette has no colour for what this mostly is.",
+             invisible on the fabric: the palette has no colour for what this mostly is.",
             stored.quantisation.ground_share * 100.0
         );
     } else if stored.quantisation.is_poor_fit() {
@@ -1076,7 +1076,7 @@ fn note_if_background_kept(id: &str, matted: &SourceImage, notes: &mut Vec<Note>
         notes.push(Note::new(
             id,
             format!(
-                "{:.0}% of the frame edge survived matting. Background has been kept as motif — \
+                "{:.0}% of the frame edge survived matting. Background has been kept as motif, \
                  usually a hard shadow across the paper, which the illumination estimate cannot \
                  model. Re-shoot with even light, or cut the subject out first.",
                 retained * 100.0
@@ -1088,7 +1088,7 @@ fn note_if_background_kept(id: &str, matted: &SourceImage, notes: &mut Vec<Note>
 /// Build a document from loose image files, with nothing else to hand.
 ///
 /// The starting point M4 was missing. The app could open a document and had no
-/// way to make one, so the only route in was hand-writing JSON — which is
+/// way to make one, so the only route in was hand-writing JSON, which is
 /// precisely what the milestone exists to remove.
 ///
 /// Everything here is a default meant to be changed immediately: a 240 x 180 mm
@@ -1233,7 +1233,7 @@ pub fn new_from_images_noting(
 
 /// A document with no artwork in it at all.
 ///
-/// The engine never needed motifs — a tartan or a procedural ground is a
+/// The engine never needed motifs. A tartan or a procedural ground is a
 /// pattern with nothing placed on it, and renders perfectly well with an empty
 /// bank. What needed them was the way *in*: the only route to a document was
 /// `new_from_images`, so a ground-only print could be written by hand and not
@@ -1310,7 +1310,7 @@ fn relative_to(file: &Path, base: &Path) -> Option<PathBuf> {
 ///
 /// The one place that knows a sheet must be a repeating unit. A pre-repeated
 /// image that does not tile shows a seam the moment the printer repeats it,
-/// which is the same failure as a broken tile arrived at one level up — and
+/// which is the same failure as a broken tile arrived at one level up, and
 /// harder to spot, because every tile inside it is perfect.
 pub fn render_for_export(
     document: &Document,

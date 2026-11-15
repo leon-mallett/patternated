@@ -2,7 +2,7 @@
 //!
 //! An export is the last thing the engine does and the first thing somebody
 //! else sees, so these check the file rather than the call that wrote it:
-//! right pixels, right size, and — the part that silently ruins a print —
+//! right pixels, right size, and, the part that silently ruins a print,
 //! the right physical resolution.
 
 use glam::Vec2;
@@ -71,7 +71,7 @@ fn a_tiff_reads_back_with_the_pixels_it_was_given() {
     // a colour like any other.
     assert_eq!(data.len(), 64 * 48 * 3);
     // The swatch's ink starts one pixel in, so the very corner is ground and
-    // the pixel inside it is not — which also checks the rows are the right
+    // the pixel inside it is not, which also checks the rows are the right
     // way up and the right width.
     assert_eq!(&data[0..3], &[250, 246, 238], "the corner should be ground");
     let inside = (64 + 1) * 3;

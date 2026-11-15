@@ -2,7 +2,7 @@
 //!
 //! This crate is pure: a function from parameters to placements. It performs no
 //! I/O, no async, no logging and reads no clock. Everything here is expressed in
-//! millimetres — pixels appear only in the render and export layers.
+//! millimetres; pixels appear only in the render and export layers.
 
 mod bands;
 mod colourway;

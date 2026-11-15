@@ -1,7 +1,7 @@
 //! Stripes, checks, ginghams and plaids: pattern that is not placed motifs.
 //!
 //! Everything else in this engine puts motifs somewhere. A stripe is not a
-//! motif anywhere — it is the fabric being a different colour in bands, and
+//! motif anywhere. It is the fabric being a different colour in bands, and
 //! trying to express one as a very tall thin motif works until two of them
 //! cross. Where a vertical band meets a horizontal one the result is neither
 //! band's colour but a third, chosen by the designer, and a motif drawn over
@@ -61,11 +61,11 @@ pub struct Crossing {
 /// A striped or checked ground.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Bands {
-    /// Bands laid out along the width, each running the full height — the ones
+    /// Bands laid out along the width, each running the full height, which are the ones
     /// that read as **vertical stripes**. Empty for a horizontal-only stripe.
     #[serde(default)]
     pub vertical: Vec<Band>,
-    /// Bands laid out down the height, each running the full width — the ones
+    /// Bands laid out down the height, each running the full width, which are the ones
     /// that read as **horizontal stripes**.
     #[serde(default)]
     pub horizontal: Vec<Band>,
@@ -152,7 +152,7 @@ impl Bands {
     ///
     /// A sequence that does not divide the tile is cut at the tile's edge, and
     /// since the next tile starts the sequence again the join carries a band of
-    /// the wrong width — down every repeat, on every metre. This is the third
+    /// the wrong width, down every repeat, on every metre. This is the third
     /// time the same shape has come up: a rectangle of tiles has to be a
     /// repeating unit, a grid's cells have to close over the tile, and now so
     /// does a band sequence.
@@ -194,7 +194,7 @@ impl Bands {
 
     /// The slot painted at a point, or `None` where the fabric shows.
     ///
-    /// Expects widths that already divide the tile — see [`Self::fitted_to`] —
+    /// Expects widths that already divide the tile, per [`Self::fitted_to`],
     /// and wraps, so a point outside the tile lands where its repeat would.
     #[must_use]
     pub fn slot_at(&self, x_mm: f32, y_mm: f32) -> Option<u8> {

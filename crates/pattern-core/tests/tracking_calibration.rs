@@ -1,6 +1,6 @@
 //! Calibrating a tracking measure against output this engine actually makes.
 //!
-//! Not a test of a detector — there is no detector. This is the step both
+//! Not a test of a detector, because there is no detector. This is the step both
 //! previous attempts left until last: build a corpus of real patterns, measure
 //! a candidate statistic on the clean ones and the tracked ones, and look at
 //! whether the two populations separate at all. Both earlier measures passed
@@ -102,7 +102,7 @@ fn shortest(a: Vec2, b: Vec2, lattice: &Lattice) -> Vec2 {
 ///
 /// A histogram's tallest bin measured mostly noise: a few hundred pairs over
 /// thirty-six bins is five to a bin, and Poisson scatter alone puts the peak
-/// two or three times the mean — the whole range a faint corridor could have
+/// two or three times the mean, which is the whole range a faint corridor could have
 /// moved it into.
 ///
 /// The mean resultant of doubled angles fixed the noise and introduced a worse

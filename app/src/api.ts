@@ -22,7 +22,7 @@ export interface Opened {
   /** Anything worth telling a person about artwork that still came in.
    *
    *  These used to go to stderr from inside the engine, where this app could
-   *  not see them — so nobody learned that most of a motif had dissolved into
+ *  not see them, so nobody learned that most of a motif had dissolved into
    *  the fabric colour, or that a shadow had been kept as ink. */
   notes: Note[];
   band_slots: number[];
@@ -42,7 +42,7 @@ export interface Opened {
  *  Grouped by what they do to the motifs rather than by how the engine builds
  *  them: the strewn arrangements scatter motifs and the ruled ones put them on
  *  cells, and that is the choice being made. A mirror belongs with the strewn
- *  ones — it is a scatter of a smaller area, reflected — which is why the
+ *  ones, being a scatter of a smaller area reflected, which is why the
  *  coverage control stays and rows and columns do not appear. */
 export const LAYOUTS = [
   { id: "tossed", label: "Tossed (scattered)", group: "Strewn" },
@@ -61,8 +61,8 @@ export const LAYOUT_GROUPS = ["Strewn", "Ruled"] as const;
 
 /** Whether a layout strews motifs rather than putting them on a grid.
  *
- *  Mirrors are scatters, so the controls that belong to a scatter — coverage,
- *  size variation — apply to them and rows and columns do not. Asking the
+ *  Mirrors are scatters, so the controls that belong to a scatter, coverage
+ *  and size variation, apply to them and rows and columns do not. Asking the
  *  question in one place keeps the panels from disagreeing about it. */
 export const isScatterLayout = (layout: string) =>
   layout === "tossed" || layout.startsWith("mirror");
@@ -76,7 +76,7 @@ export interface MotifEntry {
    *  Invisible on a plain preview and a hole the moment the ground changes. */
   ground_share: number;
   natural_size_mm: [number, number];
-  /** Longest edge in mm — the handle a designer wants. Aspect comes from the
+  /** Longest edge in mm, the handle a designer wants. Aspect comes from the
    *  artwork and is never adjusted. */
   longest_edge_mm: number;
   weight: number;
@@ -116,7 +116,7 @@ export interface Preview {
   placements: number;
   colours: number;
   achieved_density: number;
-  /** How strongly the motifs' near neighbours line up — a ranking, not a
+  /** How strongly the motifs' near neighbours line up, as a ranking, not a
    *  verdict. High is worth looking at; low is not a guarantee. */
   alignment: number;
   alignment_warns_above: number;
@@ -175,7 +175,7 @@ export const GROWTHS = [
  *  on one and the eye finds it; this has only the tile's own period. */
 export interface TextureSpec {
   growth: string;
-  /** Cells across the tile — the pattern's *scale*, not its quality. Doubling
+  /** Cells across the tile, the pattern's *scale*, not its quality. Doubling
    *  it does not resolve the same picture more finely, it grows twice as many
    *  spots. */
   cells: number;
@@ -210,12 +210,12 @@ export const figureIs = (id: string) =>
 /** A ground drawn by rule on a grid of cells.
  *
  *  The opposite pole from a texture. That one grows and has no lattice in it
- *  anywhere; this is all lattice — a cell size, a figure, and a rule for what
+ *  anywhere; this is all lattice: a cell size, a figure, and a rule for what
  *  a figure contains. */
 export interface OrnamentSpec {
   figure: string;
   /** How big a cell wants to be. The grid is fitted to the tile, so what gets
-   *  drawn is the nearest whole number of cells to this — see `grid` on the
+   *  drawn is the nearest whole number of cells to this; see `grid` on the
    *  reply for what was actually used. */
   cell_mm: number;
   /** How many times a recursive figure divides. One is the figure itself. */
@@ -248,7 +248,7 @@ export interface Note {
 /** One band in the ground's sequence. */
 export interface GroundBand {
   width_mm: number;
-  /** `null` is a gap — the fabric showing. Expressed as the absence of a
+  /** `null` is a gap, the fabric showing. Expressed as the absence of a
    *  colour rather than a colour that happens to match, so recolouring the
    *  fabric takes the gaps with it. */
   colour: string | null;
@@ -258,7 +258,7 @@ export interface GroundBand {
  *
  *  No `mirrored`: reflecting is applied once and the reflected sequence is
  *  what gets stored, so there is no hidden flag for a reopened document to
- *  guess at — and guessing it wrong would double the reflection next edit. */
+ *  guess at, and guessing it wrong would double the reflection next edit. */
 export interface GroundSummary {
   /** Which editor this ground belongs to. */
   kind: "bands" | "texture" | "ornament";
@@ -268,7 +268,7 @@ export interface GroundSummary {
   direction: "vertical" | "horizontal" | "both";
   /** What to paint where two bands cross.
    *
-   *  `blend` is the woven answer and the default — half the threads at a
+   *  `blend` is the woven answer and the default: half the threads at a
    *  crossing are each colour, and a thread crossing itself stays itself.
    *  `overprint` multiplies, which is what a second pass of ink does.
    *  `across` adds nothing: the across-band wins, and it is the fewest
@@ -458,8 +458,8 @@ function reflected(bands: GroundBand[]): GroundBand[] {
  *  invalidates it and is wrong the moment one forgets, and it knows nothing
  *  about a document that was opened rather than built.
  *
- *  Colours are deliberately not compared. A preset describes an arrangement —
- *  a thread and a gap, four threads reflected — and recolouring a stripe
+ *  Colours are deliberately not compared. A preset describes an arrangement,
+ *  a thread and a gap, or four threads reflected, and recolouring a stripe
  *  leaves it a stripe. Whether a band is an ink or a gap *is* compared,
  *  because that is arrangement: a gingham is two threads where a stripe is a
  *  thread and a gap.
@@ -508,7 +508,7 @@ export interface Cut {
  *
  *  A 240 mm repeat reads completely differently on an adult shirt and on a
  *  three-year-old's, so the size chart sets a factor on both the tile and the
- *  motifs within it — scaling the tile alone leaves one enormous motif on a
+ *  motifs within it, because scaling the tile alone leaves one enormous motif on a
  *  small garment. */
 export const cutFor = (garment: string) => invoke<Cut>("cut_for", { garment });
 
@@ -562,7 +562,7 @@ export interface PaletteSized {
 
 /** Re-derive the design palette at a different number of colours.
  *
- *  Re-runs ingest — every motif is quantised again — so it is its own command
+ *  Re-runs ingest, quantising every motif again, so it is its own command
  *  rather than another parameter. */
 export const setPaletteSize = (colours: number) =>
   invoke<PaletteSized>("set_palette_size", { colours });

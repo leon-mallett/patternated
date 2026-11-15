@@ -3,7 +3,7 @@
 //! Block, brick, half-drop and quarter-drop are all the same tile slid to a
 //! different place, which is why [`Lattice`] describes them all. A mirror
 //! repeat reflects instead, so no choice of `u` and `v` produces one and the
-//! roadmap's name for this work — "mirror repeat lattice" — was wrong about
+//! roadmap's name for this work, "mirror repeat lattice", was wrong about
 //! where it lives.
 //!
 //! What a mirror repeat *is*, in terms this engine already has: the tile is
@@ -50,7 +50,7 @@ pub enum Mirror {
     TopToBottom,
     /// Reflected across both axes. The design cell is the top-left quarter.
     ///
-    /// Strongly symmetrical — kaleidoscopic rather than strewn. Four copies of
+    /// Strongly symmetrical, kaleidoscopic rather than strewn. Four copies of
     /// every motif means a quarter as many distinct ones at the same coverage,
     /// so it wants a smaller motif or a larger repeat than a scatter does.
     FourWay,
@@ -186,8 +186,8 @@ pub fn mirror_distance_sq(a: Vec2, b: Vec2, lattice: &Lattice, mirror: Mirror) -
 
 /// How close a point has to be to an axis to count as sitting *on* it.
 ///
-/// Well under a pixel at any resolution this engine renders — 0.085 mm is one
-/// pixel at 300 DPI — so a position within this of an axis and one exactly on
+/// Well under a pixel at any resolution this engine renders, since 0.085 mm is one
+/// pixel at 300 DPI, so a position within this of an axis and one exactly on
 /// it produce the same picture. Positions are snapped exactly by
 /// [`snap_to_axis`]; the tolerance exists so that the comparison survives the
 /// arithmetic rather than to admit near misses.
@@ -197,7 +197,7 @@ const COINCIDENT_MM: f32 = 1e-3;
 ///
 /// A motif sitting exactly on an axis is reflected onto itself. Half of it is
 /// drawn and the reflection supplies the other half, so it comes out
-/// bilaterally symmetrical — the damask move, and the only way to put anything
+/// bilaterally symmetrical: the damask move, and the only way to put anything
 /// on a mirror line without the lopsided doubling that comes of straddling one
 /// by an arbitrary amount.
 ///
@@ -243,7 +243,7 @@ pub fn snap_to_axis(point_mm: Vec2, cell_size_mm: Vec2, mirror: Mirror) -> Vec2 
 /// A motif close to a mirror axis is close to *itself*, and nothing in a
 /// pairwise separation test notices: the sampler never compares a candidate
 /// with the copy it is about to spawn. Left out, motifs sit astride the axes
-/// and come back doubled — the butterfly a mirror repeat is famous for when it
+/// and come back doubled, which is the butterfly a mirror repeat is famous for when it
 /// is not wanted.
 ///
 /// A reflection that leaves the motif exactly where it is does not count. That
@@ -277,7 +277,7 @@ pub fn self_image_distance_sq(point: Vec2, lattice: &Lattice, mirror: Mirror) ->
 
 /// Fold a point back into the design cell by reflecting at its edges.
 ///
-/// The cell is not a torus — its edges are mirrors — so a candidate that walks
+/// The cell is not a torus, because its edges are mirrors, so a candidate that walks
 /// off the right-hand side belongs just inside it again, not over on the left.
 /// Wrapping instead would still produce correct patterns, because every
 /// candidate is distance-tested either way, but it scatters the sampler's
@@ -499,7 +499,7 @@ mod tests {
     #[test]
     fn a_four_way_snap_moves_one_coordinate_not_both() {
         // Snapping both would put every mounted motif on a corner, where four
-        // reflections meet — a much stronger ornament than "on the lines".
+        // reflections meet, a much stronger ornament than "on the lines".
         let cell = Mirror::FourWay.cell_size_mm(TILE);
         assert_eq!(cell, Vec2::new(120.0, 90.0));
 
@@ -549,7 +549,7 @@ mod tests {
     #[test]
     fn a_four_way_mount_still_has_to_clear_the_axis_it_is_not_on() {
         // Mounted on the vertical line, this motif coincides with its
-        // side-to-side reflection — but its top-to-bottom reflection is a
+        // side-to-side reflection, but its top-to-bottom reflection is a
         // genuinely different copy 20 mm away, and that one still counts.
         let l = Lattice::block(TILE);
         let on_vertical = Vec2::new(0.0, 80.0);

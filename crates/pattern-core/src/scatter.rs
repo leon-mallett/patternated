@@ -30,7 +30,7 @@ const CANDIDATES_PER_SAMPLE: u32 = 30;
 /// `packing_efficiency_is_what_the_density_solver_assumes` re-measures it and
 /// fails if the sampler drifts, because the density control silently stops
 /// meaning what it says when it does. Note that a scatter of only a handful of
-/// motifs varies much more widely around this figure than a dense one — with
+/// motifs varies much more widely around this figure than a dense one. With
 /// ten or so motifs a single seed can land 10% either side.
 const PACKING_EFFICIENCY: f32 = 0.53;
 
@@ -58,7 +58,7 @@ pub struct MotifWeight {
     /// Weight is a *tendency*, and a tendency is not a guarantee: each
     /// placement draws from the mix independently, so a motif holding a few
     /// per cent of the weight is simply absent from roughly one tile in five,
-    /// and adding placements barely moves that. Measured, not supposed —
+    /// and adding placements barely moves that. Measured, not supposed:
     /// twelve motifs at density 0.30 put seven to nine of them in a tile, and
     /// at 0.60, with twice the placements, still seven to nine.
     ///
@@ -79,7 +79,7 @@ pub struct MotifWeight {
     /// fraction of half the box diagonal. See
     /// [`IndexedMotif::coverage_radius_fraction`](crate::IndexedMotif::coverage_radius_fraction).
     ///
-    /// Defaults to 1 — the whole box — because a caller that does not know the
+    /// Defaults to 1, the whole box, because a caller that does not know the
     /// shape should be spaced conservatively rather than allowed to overlap.
     #[serde(default = "full_box")]
     pub radius_fraction: f32,
@@ -111,7 +111,7 @@ pub struct ScatterParams {
     /// Keep motifs from intersecting each other.
     ///
     /// On by default. Poisson-disc sampling guarantees a minimum distance
-    /// between motif *centres*, solved from the coverage target — which says
+    /// between motif *centres*, solved from the coverage target, which says
     /// nothing about their edges. Past a certain density that separation is
     /// smaller than the motifs themselves and they begin to intersect. That is
     /// occasionally wanted and usually a defect.
@@ -133,7 +133,7 @@ pub struct ScatterParams {
     pub mirror: Mirror,
     /// Share of motifs mounted on a mirror axis rather than kept clear of one.
     ///
-    /// Zero — the default — is the plain mirror: every motif sits clear of the
+    /// Zero, the default, is the plain mirror: every motif sits clear of the
     /// mirror lines, which is what stops it being cut and doubled, and which
     /// leaves a bare corridor along each line when motifs are large.
     ///
@@ -163,7 +163,7 @@ fn unit_range() -> (f32, f32) {
 /// Returns placements in generation order, which is stable for a given seed and
 /// is the order the renderer composites in.
 ///
-/// Empty when the parameters describe nothing to place — no motifs, no density,
+/// Empty when the parameters describe nothing to place: no motifs, no density,
 /// or a degenerate lattice. Returning an empty scatter rather than an error is
 /// deliberate: a density slider at zero is a legitimate thing for a designer to
 /// do, not a fault.
@@ -176,7 +176,7 @@ pub fn scatter(params: &ScatterParams, tile_size_mm: Vec2, lattice: &Lattice) ->
 ///
 /// The second half is the point. A motif marked
 /// [`required`](MotifWeight::required) that did not make it into the tile is
-/// not a lower-quality pattern, it is the wrong pattern — and unlike a density
+/// not a lower-quality pattern, it is the wrong pattern, and unlike a density
 /// that landed short, nothing downstream can notice on its own.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScatterOutcome {
@@ -272,14 +272,14 @@ struct Sample {
 ///
 /// The reason this is not the usual spatial grid: that one indexes the tile
 /// rectangle, and on an oblique lattice the rectangle is the wrong
-/// neighbourhood — two motifs a whole tile apart may be adjacent in the
+/// neighbourhood: two motifs a whole tile apart may be adjacent in the
 /// pattern. Indexing the *lattice* instead makes wrapping a modulo on the
 /// bucket number and keeps the neighbourhood honest for any repeat.
 ///
 /// It returns a superset and nothing more: every candidate it yields is still
 /// put through the exact distance test. So the accept and reject decisions are
 /// identical to comparing against every sample, the random draw is therefore
-/// identical, and the placements are unchanged — which the golden image and
+/// identical, and the placements are unchanged, which the golden image and
 /// the determinism tests are what actually hold to account.
 struct Neighbourhood {
     buckets: Vec<Vec<usize>>,
@@ -299,7 +299,7 @@ impl Neighbourhood {
     ///
     /// A displacement of `d` in millimetres moves the first lattice
     /// coordinate by at most `d * |v| / |det|` and the second by at most
-    /// `d * |u| / |det|` — Cauchy-Schwarz on the rows of the inverse. Sizing
+    /// `d * |u| / |det|`, by Cauchy-Schwarz on the rows of the inverse. Sizing
     /// the buckets by that keeps the scanned neighbourhood small whatever the
     /// shear.
     fn new(lattice: &Lattice, cell_size_mm: Vec2, radius: f32) -> Self {
@@ -307,7 +307,7 @@ impl Neighbourhood {
         /// actually going to arrive: a fine grid in a sparse cell spends more
         /// on allocating empty buckets than the scan it saves, and a coarse
         /// one in a dense cell puts the quadratic back inside each bucket.
-        /// Both were measured — a fixed cap of four thousand buckets made a
+        /// Both were measured: a fixed cap of four thousand buckets made a
         /// forty-eight-thousand-motif repeat six times slower.
         const MOST: usize = 512;
 
@@ -414,7 +414,7 @@ impl Neighbourhood {
 /// thousand placements took thirty-eight seconds to sample.
 ///
 /// The reason it stayed brute-force as long as it did was a real objection,
-/// not neglect — the spatial grid the algorithm is usually written with
+/// not neglect. The spatial grid the algorithm is usually written with
 /// indexes the tile rectangle, and on an oblique lattice the rectangle is the
 /// wrong neighbourhood. [`Neighbourhood`] indexes the lattice instead, which
 /// is what that objection was asking for.
@@ -432,7 +432,7 @@ fn poisson_disc(
     // Offer a candidate a place on a mirror axis, or leave it where it fell.
     //
     // Consumes a draw only when there is a share to honour, so every document
-    // that predates this — and every mirror asking for none — walks the same
+    // that predates this, and every mirror asking for none, walks the same
     // random sequence it always did.
     let mount = |rng: &mut ChaCha8Rng, position: Vec2| -> Vec2 {
         if mirror == Mirror::None || params.on_axis_share <= 0.0 {
@@ -467,7 +467,7 @@ fn poisson_disc(
         }
     };
 
-    // The seed sample has nothing to be tested against — except, under a
+    // The seed sample has nothing to be tested against, except, under a
     // mirror, itself. Dropped astride an axis it collides with its own
     // reflection, and because it is the one sample that skips the acceptance
     // test the collision survives into the tile. Without a mirror
@@ -557,7 +557,7 @@ fn poisson_disc(
             // Looked up at every image of the candidate, not only at the
             // candidate. Under a mirror a sample is a threat when *its*
             // reflection lands nearby, which is the same thing as the sample
-            // lying near a reflection of the candidate — and an index that
+            // lying near a reflection of the candidate, and an index that
             // only knew about the candidate would silently stop finding them.
             nearby.clear();
             for &(flip_x, flip_y) in mirror.quadrants() {
@@ -768,8 +768,8 @@ mod tests {
     #[test]
     fn the_index_never_hides_a_neighbour() {
         // The whole correctness argument. The index only has to return a
-        // *superset* — every candidate it yields is still put through the
-        // exact distance test — so if it never omits anything within reach,
+        // *superset*, since every candidate it yields is still put through
+        // the exact distance test, so if it never omits anything within reach,
         // the accept and reject decisions are identical to comparing against
         // every sample, and so is the random draw, and so are the placements.
         //
@@ -991,7 +991,7 @@ mod tests {
         assert!(scatter(&p, TILE, &Lattice::block(TILE)).is_empty());
 
         // The same motif without a mirror is merely a sparse scatter, not an
-        // impossible one — so the emptiness above is the mirror's doing.
+        // impossible one, so the emptiness above is the mirror's doing.
         p.mirror = Mirror::None;
         assert!(!scatter(&p, TILE, &Lattice::block(TILE)).is_empty());
     }
@@ -1056,8 +1056,8 @@ mod tests {
 
         for (i, a) in out.iter().enumerate() {
             for b in out.iter().skip(i + 1) {
-                // Two copies of one mounted motif coincide by design — that is
-                // what mounting means — so only distinct positions are judged.
+                // Two copies of one mounted motif coincide by design, which is
+                // what mounting means, so only distinct positions are judged.
                 let d = lattice_distance_sq(a.position_mm, b.position_mm, &lattice).sqrt();
                 if d < 1e-3 {
                     continue;
@@ -1075,8 +1075,8 @@ mod tests {
         // Two claims in one place because they are the same claim: the share
         // is consulted exactly when there are axes to mount motifs on.
         //
-        // The compatibility half — that a share of zero walks the same random
-        // sequence as a build that never heard of the option — is pinned by
+        // The compatibility half, that a share of zero walks the same random
+        // sequence as a build that never heard of the option, is pinned by
         // the golden image in `pattern-render`, which renders a scatter and so
         // would change the moment an unconditional draw were added here.
         let plain = mirrored(Mirror::None, 0.35, 12, true);
@@ -1175,8 +1175,8 @@ mod tests {
     #[test]
     fn motifs_can_be_kept_from_intersecting() {
         // Reported from the app: at a plausible coverage the motifs visibly
-        // overlapped. The sampler was doing what it promised — a minimum
-        // distance between *centres*, solved from the coverage target — which
+        // overlapped. The sampler was doing what it promised, a minimum
+        // distance between *centres* solved from the coverage target, which
         // says nothing about where their edges are.
         let lattice = Lattice::half_drop(TILE);
         let mut p = params(0.6, 4);
@@ -1302,7 +1302,7 @@ mod tests {
     ///
     /// The independence is the point. An earlier version of this test measured
     /// with the production function and so only ever proved the scatter was
-    /// consistent with whatever metric that function implemented — substituting
+    /// consistent with whatever metric that function implemented, and substituting
     /// a tile-rectangle distance left this test green. Computing it a second
     /// way, naively and on purpose, is what makes it evidence.
     fn brute_force_distance(a: Vec2, b: Vec2, lattice: &Lattice) -> f32 {
@@ -1409,7 +1409,7 @@ mod tests {
     fn packing_efficiency_is_what_the_density_solver_assumes() {
         // The constant the radius solver is built on, measured rather than
         // asserted from the literature. If the sampler changes and this drifts,
-        // the density control silently stops meaning what it says — so this
+        // the density control silently stops meaning what it says, so this
         // fails first, and names the figure to update.
         let lattice = Lattice::block(TILE);
         let mut ratios = Vec::new();
@@ -1586,7 +1586,7 @@ mod tests {
     ///
     /// **Three** of them rather than one, and that is load-bearing. The very
     /// first sample has nothing to be tested against, so it is handed the
-    /// first outstanding requirement and always places it — a fixture with a
+    /// first outstanding requirement and always places it, so a fixture with a
     /// single requirement therefore passes without the main loop doing any
     /// work at all. It was written that way first and proved exactly nothing;
     /// setting the dart budget to zero left it green.
@@ -1671,7 +1671,7 @@ mod tests {
     fn a_requirement_that_cannot_be_met_is_named_rather_than_dropped() {
         // A mirror is where a motif genuinely cannot be placed: more than half
         // the cell across and it collides with its own reflection wherever it
-        // is put. Without one, size alone does not stop a placement — the very
+        // is put. Without one, size alone does not stop a placement: the very
         // first sample has nothing to be tested against, so a motif larger
         // than the tile is laid down quite happily and overlaps itself across
         // the repeat. That surprised this test before it surprised anyone.

@@ -69,7 +69,7 @@ impl SourceImage {
     /// is stored on disk and compared across runs: `DefaultHasher` makes no
     /// promise of stability between Rust releases, so a motif would appear to
     /// have changed after a toolchain upgrade. Not a security hash and not used
-    /// as one — it answers "is this the same artwork as last time", and the
+    /// as one. It answers "is this the same artwork as last time", and the
     /// consequence of a collision is a version that should have been created
     /// and was not.
     #[must_use]

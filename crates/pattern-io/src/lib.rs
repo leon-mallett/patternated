@@ -2,7 +2,7 @@
 //!
 //! Everything upstream works in millimetres. This is where a resolution is
 //! finally chosen and pixels exist, which makes it also the place that knows
-//! whether the thing being written can actually be printed — see [`PrintSize`].
+//! whether the thing being written can actually be printed; see [`PrintSize`].
 
 mod colour;
 mod naming;
@@ -76,7 +76,7 @@ pub enum Shape {
     ///
     /// The tile count is a minimum: it is grown to a window that is itself a
     /// repeating unit, because a sheet that does not tile shows a seam the
-    /// moment the printer repeats it — which is the same failure as a broken
+    /// moment the printer repeats it, which is the same failure as a broken
     /// tile, arrived at one level up.
     Sheet { min_cols: u32, min_rows: u32 },
 }

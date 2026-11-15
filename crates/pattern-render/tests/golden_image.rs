@@ -19,7 +19,7 @@ use support::{bank, ground_only, inks, scattered_pattern, straddling_pattern, TI
 ///
 /// Higher than the motif ones, and a single tile rather than a field of nine,
 /// because a ground is reviewed for what it looks like rather than for whether
-/// it tiles — the seamlessness suite settles tiling exactly, and nobody can
+/// it tiles. The seamlessness suite settles tiling exactly, and nobody can
 /// see a 30 mm Truchet cell at 24 DPI.
 const GROUND_DPI: f32 = 60.0;
 
@@ -51,7 +51,7 @@ fn check_against_golden(name: &str, pixmap: &tiny_skia::Pixmap) {
         return;
     }
 
-    // Report how far off rather than just that it differs — a one-channel
+    // Report how far off rather than just that it differs: a one-channel
     // rounding change and a broken tile deserve different reactions.
     let golden = tiny_skia::Pixmap::decode_png(&expected).expect("golden should decode");
     assert_eq!(
@@ -100,22 +100,22 @@ fn a_scattered_field_matches_its_golden() {
 // Goldens for the ground layer.
 //
 // Three kinds of ground and six figures had no pinned picture at all until
-// these: every ground test asserted a property — that it tiles, that its edges
-// carry intermediate tones, that a level covers some of the tile — and a
+// these: every ground test asserted a property, that it tiles, that its edges
+// carry intermediate tones, that a level covers some of the tile, and a
 // property that still holds can hold over a print that has changed completely.
 // Changing how every ground's edges are drawn broke no golden, which is how the
 // gap was noticed.
 //
 // One per kind rather than one per figure. What a figure *is* is already pinned
 // exactly, and more cheaply, by the digest in `pattern-core`'s ornament tests;
-// what these add is everything after it — millimetres to pixels, stroke widths,
+// what these add is everything after it: millimetres to pixels, stroke widths,
 // slots through the palette, and the softening of an edge.
 
 #[test]
 fn a_checked_ground_matches_its_golden() {
     // Two threads and their crossing: the three tones that no arrangement of
     // motifs can produce. Pins the crossing colours as drawn, and that band
-    // edges stay hard — they are axis-aligned, so softening them would be a
+    // edges stay hard. They are axis-aligned, so softening them would be a
     // regression rather than an improvement.
     let navy = 1;
     let pale = 2;
@@ -187,8 +187,8 @@ fn a_drawn_ground_matches_its_golden() {
 fn motifs_over_a_ground_match_their_golden() {
     // The composition, which none of the three above can show: the fabric is
     // filled, the ground layer is laid over it, and the motifs go on top. That
-    // ordering is the design decision the whole ground model rests on — it is
-    // what makes flowers on a check cost nothing — and it was pinned by no
+    // ordering is the design decision the whole ground model rests on, since it is
+    // what makes flowers on a check cost nothing, and it was pinned by no
     // picture.
     //
     // Built here rather than taken from the seamlessness fixture, and the
@@ -196,7 +196,7 @@ fn motifs_over_a_ground_match_their_golden() {
     // slot 1, which in the motif palette is the cherries' own red, and strews
     // motifs thickly enough to cover most of it: every property still held and
     // the picture was useless to review. A golden is looked at, so it has to be
-    // legible — a ground in a colour that is not a motif's, and enough of it
+    // legible: a ground in a colour that is not a motif's, and enough of it
     // showing to see that the motifs are on top of it.
     let mut pattern = scattered_pattern(Lattice::block(TILE), 7, 0.12);
     let ink = pattern.palette.colors.len() as u8;

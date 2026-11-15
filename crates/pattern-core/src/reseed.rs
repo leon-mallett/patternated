@@ -11,8 +11,8 @@
 //!
 //! A run that never clears the bar still hands back its closest effort, with
 //! [`Reseeded::acceptable`] false. Returning an error would throw away the
-//! information that matters — how close it got, and in which direction it
-//! failed — and an unattended pipeline needs something concrete to escalate
+//! information that matters, which is how close it got and in which direction it
+//! failed, and an unattended pipeline needs something concrete to escalate
 //! with. "Could not do it" is a worse message than "here is the best of eight,
 //! still showing a corridor".
 //!
@@ -70,7 +70,7 @@ pub struct Reseeded {
 /// does not.
 ///
 /// Seeds walk upward from `params.seed`, so the whole run is reproducible from
-/// the seed the caller set — which is what lets a buyer be shown a pattern
+/// the seed the caller set, which is what lets a buyer be shown a pattern
 /// now and sent the identical one at print time.
 #[must_use]
 pub fn scatter_reseeding(
@@ -143,7 +143,7 @@ mod tests {
         };
         // Chosen by measurement, not taste. Over the eight seeds these tests
         // walk, this mix gives four layouts that pass, three that lose a
-        // required motif and one that tracks too hard — so both kinds of
+        // required motif and one that tracks too hard, so both kinds of
         // failure are live and success is still reachable. At 96 mm and
         // density 0.5 every seed failed coverage and the retry was untestable.
         ScatterParams {
@@ -191,7 +191,7 @@ mod tests {
     fn a_seed_that_fails_coverage_is_retried() {
         // Started at a seed that *does* fail, which is the whole test. Begun
         // at one that happens to pass, this stays green with retrying removed
-        // altogether — it did, and only a mutation check noticed.
+        // altogether. It did, and only a mutation check noticed.
         let first = scatter_with_outcome(&params(4), TILE, &lattice());
         assert!(
             !first.unplaced_required.is_empty(),
@@ -262,8 +262,8 @@ mod tests {
         // The ordering that matters, and it needs a window where the two
         // criteria actually disagree. Seeds 3 and 4 of this fixture do: the
         // first is fully covered and tracks badly, the second loses a motif
-        // and looks far better. Most windows contain no such pair — a seed
-        // that is best on both is common — which is why this is pinned to one
+        // and looks far better. Most windows contain no such pair, because a seed
+        // that is best on both is common, which is why this is pinned to one
         // rather than left to a general sweep. The assertion below says so if
         // the fixture ever drifts.
         let limits = ReseedLimits {

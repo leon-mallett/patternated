@@ -2,7 +2,7 @@
 //!
 //! A designer must be able to return to a print months later and reproduce it
 //! exactly. These assert byte-identical output, and they are not to be weakened
-//! to make a change pass — a render that drifts is a colourway that no longer
+//! to make a change pass: a render that drifts is a colourway that no longer
 //! matches its range.
 
 mod support;

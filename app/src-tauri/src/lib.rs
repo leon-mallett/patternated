@@ -30,7 +30,7 @@ struct Session {
     ///
     /// Compared rather than tracked with a flag. A flag has to be set at every
     /// site that changes the document, and the cost of missing one is telling
-    /// a designer their work is safe when it is not — the one direction this
+    /// a designer their work is safe when it is not, which is the one direction this
     /// must not be wrong in. Comparing cannot miss a site, because there is
     /// nothing to remember to do.
     written: String,
@@ -71,7 +71,7 @@ struct Opened {
     palette: Vec<String>,
     /// Colours the design is quantised onto, ground included.
     palette_colours: usize,
-    /// The striped or checked ground, if there is one — as the sequence
+    /// The striped or checked ground, if there is one, as the sequence
     /// editor needs it, so that reopening a document shows the bands it has
     /// rather than an empty editor.
     ground: GroundSummary,
@@ -81,7 +81,7 @@ struct Opened {
     /// Anything worth telling a person about the artwork that still came in.
     ///
     /// These used to go to stderr from inside the library, where this app
-    /// could not see them at all — so a designer never learned that most of a
+    /// could not see them at all, so a designer never learned that most of a
     /// motif had dissolved into the fabric colour, or that a shadow had been
     /// kept as ink.
     notes: Vec<pattern_doc::Note>,
@@ -186,7 +186,7 @@ struct Preview {
     /// Tiles actually shown, which may exceed what was asked for.
     cols: u32,
     rows: u32,
-    /// Whether the window shown is itself a repeating unit — that is, whether
+    /// Whether the window shown is itself a repeating unit: that is, whether
     /// holding its opposite edges together is a fair test of the pattern.
     window_repeats: bool,
     /// Below 1 when a grid shrank its motifs to stop them intersecting.
@@ -210,7 +210,7 @@ type Reply<T> = Result<T, String>;
 ///
 /// `{e:#}` rather than `{e}`, which is the whole difference between a message
 /// a designer can act on and one they cannot. An `anyhow::Error` carries a
-/// chain — each layer adding what it was trying to do — and its plain `Display`
+/// chain, each layer adding what it was trying to do, and its plain `Display`
 /// prints only the outermost link. Loading an SVG full of gradients reported
 /// "reading <path>" and stopped there, throwing away the sentence that said it
 /// was a gradient and what to do about it.
@@ -311,8 +311,8 @@ const DEFAULT_COLOURS: usize = 12;
 ///
 /// Each is a row offset and a column offset, and nothing else.
 ///
-/// They used to pair an offset with a *lattice* — a diagonal was a shifting
-/// grid on a half-drop lattice — and that was wrong twice over. The drop
+/// They used to pair an offset with a *lattice*, so that a diagonal was a
+/// shifting grid on a half-drop lattice, and that was wrong twice over. The drop
 /// contributed nothing, because wherever it produced a regular field the
 /// result was point for point what a block lattice gives; and where it did
 /// not, it broke the pattern along every tile edge, which is how the defect
@@ -409,7 +409,7 @@ struct CloseOutcome {
 ///
 /// Refuses rather than asking, and leaves the asking to the interface. A
 /// backend that puts up its own dialog cannot be tested and cannot be driven
-/// by anything but a person — and the refusal carries the two facts the
+/// by anything but a person, and the refusal carries the two facts the
 /// question needs, so the interface does not have to work them out or guess.
 #[tauri::command]
 fn close_document(app: State<'_, App>, discard: bool) -> Reply<CloseOutcome> {
@@ -437,7 +437,7 @@ fn close_document(app: State<'_, App>, discard: bool) -> Reply<CloseOutcome> {
 /// Start a pattern with no artwork at all.
 ///
 /// A tartan, a stripe or a procedural ground has no motifs in it. The engine
-/// never required any — it will render a pattern with an empty bank — but the
+/// never required any, and will render a pattern with an empty bank, but the
 /// only way into a document was through artwork, so a ground-only print could
 /// be written by hand and not made here.
 #[tauri::command]
@@ -470,7 +470,7 @@ fn new_plain(app: State<'_, App>) -> Reply<Opened> {
 fn new_from_images(app: State<'_, App>, files: Vec<String>, longest_edge_mm: f32) -> Reply<Opened> {
     let paths: Vec<PathBuf> = files.into_iter().map(PathBuf::from).collect();
     // Noting, because bringing artwork in is where most of what a designer
-    // needs to hear about it gets discovered — a drawing that had to be
+    // needs to hear about it gets discovered: a drawing that had to be
     // rendered, a motif that dissolved into the fabric colour.
     let mut notes = Vec::new();
     let document = pattern_doc::new_from_images_noting(
@@ -538,7 +538,7 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
     // A band sequence lives in the tile and repeats with it, so an oblique
     // lattice steps the stripes at every join. Held here rather than in
     // `apply_layout`, which returns early for a document that places its
-    // motifs by hand — and such a document can have a striped ground too.
+    // motifs by hand, and such a document can have a striped ground too.
     if session
         .document
         .pattern
@@ -613,7 +613,7 @@ fn write_params(session: &mut Session, params: &Params) -> anyhow::Result<()> {
 /// Move the document between a scatter and a named grid preset.
 ///
 /// The two are mutually exclusive, so this swaps one for the other and carries
-/// the motif mix across — a designer trying layouts should not lose which
+/// the motif mix across, because a designer trying layouts should not lose which
 /// motifs they had chosen.
 fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
     let mirror = mirror_for(&params.layout);
@@ -688,7 +688,7 @@ fn render(session: &Session, params: &Params) -> anyhow::Result<Preview> {
     // Grow the window to one that is itself a repeating unit. A rectangle of
     // tiles is not generally one: a half-drop gains half a tile of drop per
     // column, so three columns end half a tile out and the preview's left and
-    // right edges do not meet — which looks exactly like a broken repeat to
+    // right edges do not meet, which looks exactly like a broken repeat to
     // anyone checking it the obvious way.
     let (cols, rows) = pattern.lattice.repeating_window(
         pattern.tile_size_mm,
@@ -751,7 +751,7 @@ fn render(session: &Session, params: &Params) -> anyhow::Result<Preview> {
 /// What an export will be, before it is written.
 ///
 /// Shown before the file dialog so the physical size and its verdict are in
-/// front of a designer while they still have a choice — a 2 m sheet is a
+/// front of a designer while they still have a choice. A 2 m sheet is a
 /// decision, not something to discover from a bureau.
 #[derive(Serialize)]
 struct ExportPlan {
@@ -927,7 +927,7 @@ fn export(app: State<'_, App>, path: String, request: ExportRequest) -> Reply<St
             .map_err(|e| fail("could not write the file", e))?;
         }
         (Some(_), pattern_io::Format::Png) => {
-            return Err("PNG cannot carry CMYK — choose TIFF, or export in RGB".into());
+            return Err("PNG cannot carry CMYK: choose TIFF, or export in RGB".into());
         }
         (None, _) => {
             let (pixmap, _) =
@@ -1013,7 +1013,7 @@ struct MockupView {
     png_base64: String,
     width: u32,
     height: u32,
-    /// How many repeats span the garment's width — the number this view
+    /// How many repeats span the garment's width, which is the number this view
     /// exists to make obvious. A chest on a top, a hip on trousers, a brim on
     /// a hat.
     repeats_across: f32,
@@ -1067,7 +1067,7 @@ fn mockup(
 ///
 /// Converts to the press's colours and straight back, so anything it cannot
 /// reach comes back changed. Seeing a red go flat before the fabric is bought
-/// is the entire purpose — "it looked different on screen" is the commonest
+/// is the entire purpose. "it looked different on screen" is the commonest
 /// complaint in fabric printing and is almost always a conversion nobody
 /// looked at.
 #[tauri::command]
@@ -1131,7 +1131,7 @@ fn save_document(app: State<'_, App>, path: Option<String>) -> Reply<String> {
     //
     // Placements are written out too. A scatter regenerates them from the seed,
     // but recording them means the file still renders identically if the
-    // sampler ever changes — a document is the record of what was approved,
+    // sampler ever changes. A document is the record of what was approved,
     // not a recipe for approximating it.
     let rewritten = pattern_doc::save_to(&session.document, &target)
         .map_err(|e| fail("could not write the file", e))?;
@@ -1300,7 +1300,7 @@ fn set_palette_size(app: State<'_, App>, colours: usize) -> Reply<PaletteSized> 
 #[derive(Deserialize, Serialize, Clone)]
 struct GroundBand {
     width_mm: f32,
-    /// `None` is a gap — the fabric, showing. Expressed as the absence of a
+    /// `None` is a gap, the fabric showing. Expressed as the absence of a
     /// colour rather than as a colour that happens to match the ground, so
     /// that recolouring the fabric takes the gaps with it.
     ///
@@ -1320,7 +1320,7 @@ struct TextureSpec {
     steps: u32,
     seed: u64,
     /// A colour per level, lowest concentration first. `None` is the fabric,
-    /// showing through — the same convention as a gap in a band sequence, and
+    /// showing through, the same convention as a gap in a band sequence, and
     /// the reason a design can be light-on-dark or dark-on-light without
     /// needing two of every growth.
     levels: Vec<Option<String>>,
@@ -1414,7 +1414,7 @@ fn bands_kind() -> String {
 /// Every field is read off the bands themselves. `mirrored` is deliberately
 /// absent: reflecting is applied once and the reflected sequence is what gets
 /// stored, so there is no hidden flag that a reopened document would have to
-/// guess at — and guessing it wrong would double the reflection on the next
+/// guess at, and guessing it wrong would double the reflection on the next
 /// edit.
 #[derive(Serialize)]
 struct GroundSummary {
@@ -1501,7 +1501,7 @@ fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
 /// What to paint where two bands cross.
 ///
 /// **Blend** is the woven answer and the default: half the threads at a
-/// crossing are each colour, so the result is their average — and a colour
+/// crossing are each colour, so the result is their average, and a colour
 /// crossing itself comes out as itself, which is what a tartan needs.
 ///
 /// This was got wrong first time round by multiplying instead, on the
@@ -1511,7 +1511,7 @@ fn ground_summary(pattern: &pattern_core::Pattern) -> GroundSummary {
 /// either. It was obvious in the first render and invisible in the model.
 ///
 /// **Overprint** multiplies, which is what a second pass of translucent ink
-/// really does — right for a design built from overlapping bands, and the
+/// really does, right for a design built from overlapping bands, and the
 /// reason it is still offered rather than deleted.
 ///
 /// **Across** adds nothing: the across-band wins, which is the fewest colours
@@ -1562,7 +1562,7 @@ struct BandState {
     bands: Vec<GroundBand>,
     direction: String,
     crossings: String,
-    /// Colours this ground puts on the fabric, crossings included — what a
+    /// Colours this ground puts on the fabric, crossings included: what a
     /// screen printer would charge for on the ground alone.
     ground_colours: usize,
     palette: Vec<String>,
@@ -1759,7 +1759,7 @@ fn apply_ground(session: &mut Session, spec: &GroundSpec) -> anyhow::Result<()> 
                     continue;
                 };
                 // A colour blended with itself is itself, so it needs no slot
-                // of its own — and giving it one would put a duplicate in
+                // of its own, and giving it one would put a duplicate in
                 // front of a designer counting colours.
                 //
                 // Searched only within the ground's own tail. Reaching back
@@ -1957,7 +1957,7 @@ fn ground_state(session: &Session, spec: &GroundSpec) -> Reply<BandState> {
             .map(|slot| {
                 if *slot == pattern_core::GROUND_SLOT {
                     // Slot 0 is absence, and a field records absence as
-                    // absence rather than as slot 0 — asking after its share
+                    // absence rather than as slot 0, so asking after its share
                     // would report nothing wherever the fabric shows.
                     //
                     // Summed over the *distinct* painted slots: a colour used
@@ -2066,7 +2066,7 @@ mod tests {
     /// The commands themselves are three lines of lock-and-delegate; what is
     /// worth testing is the layer underneath, which decides what a slider
     /// actually does. These tests reach it directly, so the app's behaviour is
-    /// covered without needing a window — which matters because a window is the
+    /// covered without needing a window, which matters because a window is the
     /// one thing CI will not have.
     fn session() -> Session {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -2116,7 +2116,7 @@ mod tests {
     #[test]
     fn a_pattern_can_be_started_from_images_alone() {
         // The gap M4 shipped with: the app could open a document and had no way
-        // to make one, so the only route in was hand-writing JSON — which is
+        // to make one, so the only route in was hand-writing JSON, which is
         // the thing the milestone exists to remove.
         let files = artwork();
         if !files.iter().all(|f| f.exists()) {
@@ -2155,8 +2155,8 @@ mod tests {
         //
         // This was live: `confirm` arrived with the Close button and the
         // capability file had not been touched since the shell was built, so
-        // closing a document with unsaved work failed with a permission error
-        // — and only with unsaved work, which is the path a designer meets
+        // closing a document with unsaved work failed with a permission error,
+        // and only with unsaved work, which is the path a designer meets
         // exactly when they have something to lose.
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
         let manifest = std::fs::read_to_string(root.join("src-tauri/capabilities/default.json"))
@@ -2193,7 +2193,7 @@ mod tests {
     /// Which dialogue APIs a source file imports from the Tauri plugin.
     ///
     /// Read from the import rather than from the call sites, because the names
-    /// are aliased where they would collide — `confirm as confirmDialog` — and
+    /// are aliased where they would collide, as `confirm as confirmDialog`, and
     /// the import is where the true name survives.
     fn dialogs_used(source: &str) -> Vec<String> {
         const FROM: &str = "} from \"@tauri-apps/plugin-dialog\";";
@@ -2217,7 +2217,7 @@ mod tests {
         // Reported from the app: loading an SVG of gradients said only
         // "reading <path>" and stopped there. The sentence that said it was a
         // gradient, and what to do about it, was the innermost link of an
-        // `anyhow` chain — and plain `Display` prints only the outermost.
+        // `anyhow` chain, and plain `Display` prints only the outermost.
         //
         // The difference is between a message a designer can act on and one
         // that tells them a file exists.
@@ -2246,7 +2246,7 @@ mod tests {
 
     #[test]
     fn a_motif_share_moves_the_mix_and_not_the_count() {
-        // What the share control does, and — just as important — what it does
+        // What the share control does, and, just as important, what it does
         // not. Reported from the app as the slider doing nothing: a designer
         // raised it expecting more motifs on the fabric and the number did not
         // move, because it never can. Coverage decides how many; this decides
@@ -2910,7 +2910,7 @@ mod tests {
     #[test]
     fn a_ground_is_read_back_as_the_editor_needs_it() {
         // Read off the bands rather than stored, so a reopened document shows
-        // the sequence it has rather than an empty editor — and a hand-edited
+        // the sequence it has rather than an empty editor, and a hand-edited
         // one is described honestly.
         let mut s = session();
         for (direction, expected) in [
@@ -2936,7 +2936,7 @@ mod tests {
 
     #[test]
     fn a_check_gets_its_third_tone_from_two_threads() {
-        // Two colours, three tones — the thing no arrangement of motifs can
+        // Two colours, three tones, the thing no arrangement of motifs can
         // do. It needs two *threads* rather than a thread and a gap: a gap has
         // nothing to blend with, so an ink and a gap give only ink and fabric.
         let mut s = session();
@@ -2972,7 +2972,7 @@ mod tests {
     fn a_thread_crossing_itself_stays_itself() {
         // The mistake this replaced: crossings were multiplied, on the
         // reasoning that a crossing is a second pass of ink. Right for ink and
-        // wrong for cloth — a navy sett came out very nearly black, which the
+        // wrong for cloth: a navy sett came out very nearly black, which the
         // first render showed and the model did not.
         let navy = pattern_core::Color::new(0x1b, 0x2a, 0x4a);
         assert_eq!(crossing_colour("blend", navy, navy), Some(navy));
@@ -3168,7 +3168,7 @@ mod tests {
         // The palette is replaced wholesale by a resize, and the ground's
         // slots live at its tail. Without carrying them across, a striped
         // document would come back referring to slots that no longer exist and
-        // stop rendering at all — which is a worse failure than the one the
+        // stop rendering at all, which is a worse failure than the one the
         // colour count was changed to fix.
         let mut s = session();
         apply_ground(
@@ -3350,7 +3350,7 @@ mod tests {
 
     #[test]
     fn a_plain_document_has_something_to_lose_from_the_moment_it_exists() {
-        // It has never been written anywhere, so closing discards it — the
+        // It has never been written anywhere, so closing discards it, the
         // same rule as a document started from artwork.
         assert!(plain_session().unsaved_changes());
     }
@@ -3375,8 +3375,8 @@ mod tests {
     #[test]
     fn choosing_a_mirror_puts_the_repeat_back_on_a_block_lattice() {
         // Reflections repeat by the tile itself, which no oblique lattice
-        // does. A document carrying one — from a hand-written file, or from
-        // the days when a grid preset chose one — would otherwise be left with
+        // does. A document carrying one, from a hand-written file or from
+        // the days when a grid preset chose one, would otherwise be left with
         // a combination the engine refuses to render, and the refusal would
         // look like the mirror's fault.
         let mut s = session();
@@ -3759,7 +3759,7 @@ mod tests {
     fn the_preview_changes_when_the_pattern_does() {
         // The failure the test above cannot see: a preview frozen on its first
         // frame. It is not blank, the dimensions are right, and it looks
-        // entirely correct in a screenshot — it is simply the wrong picture.
+        // entirely correct in a screenshot. It is simply the wrong picture.
         let mut s = session();
         let mut p = params(0.3, 1);
         write_params(&mut s, &p).expect("apply");

@@ -105,7 +105,7 @@ fn shortest(a: Vec2, b: Vec2, lattice: &Lattice) -> Vec2 {
     best
 }
 
-/// The fourth harmonic of the near-neighbour direction distribution — the
+/// The fourth harmonic of the near-neighbour direction distribution, and the
 /// candidate measure, copied from the calibration so the two agree.
 fn fourth(placements: &[Placement], lattice: &Lattice) -> f32 {
     const REACH: f32 = 1.6;
@@ -151,7 +151,7 @@ fn render_the_clean_patterns_the_measure_ranks_highest_and_lowest() {
     // tracked, and the lowest should not.
     //
     // If they look the same, the measure is ranking noise and no threshold on
-    // it means anything — which is exactly what would have saved the previous
+    // it means anything, which is exactly what would have saved the previous
     // two attempts a great deal of work.
     let out = PathBuf::from("/tmp/claude-501/-Users-leon-Projects-pattern-engine/6413fcf8-733c-4904-9aa3-5f20aa7e6ec3/scratchpad");
     let lattice = Lattice::half_drop(TILE);

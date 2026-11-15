@@ -28,7 +28,7 @@ function stored(id: string) {
 describe("naming a ground's preset", () => {
   it("recognises every preset it offers", () => {
     // Including the tartan, whose stored sequence is six bands where the
-    // preset names four — a reflection is applied once and kept.
+    // preset names four, because a reflection is applied once and kept.
     for (const preset of GROUND_PRESETS) {
       expect(presetOf(stored(preset.id))).toBe(preset.id);
     }

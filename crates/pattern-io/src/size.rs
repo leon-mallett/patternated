@@ -21,7 +21,7 @@ pub const GRAND_FORMAT_MM: f32 = 3200.0;
 /// What an export will physically be.
 ///
 /// The engine works in millimetres and resolves pixels only here, so this is
-/// where a designer finds out that their 240 mm repeat is a 1417 px file — and,
+/// where a designer finds out that their 240 mm repeat is a 1417 px file and,
 /// more usefully, whether the thing they are about to export can be printed at
 /// all.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -61,7 +61,7 @@ impl PrintSize {
     ///
     /// Distinct from [`PrintSize::new`], which computes pixels from a design.
     /// Once a pattern has been rendered, the pixel count is the fact and the
-    /// physical size follows from it — quantising the tile to a whole number of
+    /// physical size follows from it. Quantising the tile to a whole number of
     /// pixels, and to a number its lattice divides, moves the repeat by a
     /// fraction of a millimetre, and a readout that reported the nominal size
     /// instead would disagree with the file it describes.

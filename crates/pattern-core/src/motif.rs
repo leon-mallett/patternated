@@ -13,7 +13,7 @@ use crate::palette::{Color, Palette};
 ///
 /// Colour and coverage are kept in separate channels on purpose. Antialiasing
 /// and soft matte edges live in `alpha`, which is continuous, while `slots`
-/// stays discrete — so quantising a motif to four flat colours does not also
+/// stays discrete, so quantising a motif to four flat colours does not also
 /// quantise its edges into a staircase. A motif's edge can be soft while its
 /// interior is strictly flat, which is what a printed illustration looks like.
 ///
@@ -83,8 +83,8 @@ impl IndexedMotif {
     ///
     /// Ink the same colour as the fabric it is printed on, which on a plain
     /// preview is invisible and on a changed ground turns into a hole the
-    /// shape of whatever dissolved. It is not a fault in itself — a white star
-    /// on a navy ground is exactly this, and correctly so — but it is the
+    /// shape of whatever dissolved. It is not a fault in itself, since a white star
+    /// on a navy ground is exactly this and correctly so, but it is the
     /// number to look at when a motif comes back with its middle missing.
     ///
     /// The cause is almost always a palette with no colour for that part of
@@ -162,7 +162,7 @@ impl IndexedMotif {
         // A covered pixel is a square of ink, not a point: its far corner sits
         // half a diagonal beyond its centre. Ignoring that understates every
         // radius by up to a pixel, which is nothing on a 500 px motif and 12%
-        // on an 8 px one — and the small case is the one a test fixture uses.
+        // on an 8 px one, and the small case is the one a test fixture uses.
         const PIXEL_HALF_DIAGONAL: f32 = std::f32::consts::SQRT_2 / 2.0;
         ((furthest.sqrt() + PIXEL_HALF_DIAGONAL) / half_diagonal).clamp(0.05, 1.0)
     }

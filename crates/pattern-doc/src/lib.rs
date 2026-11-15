@@ -5,7 +5,7 @@
 //! a PNG. Keeping that in one place is what stops the two drifting into
 //! disagreeing about what a document means.
 //!
-//! This is the app layer rather than a library in the usual sense — it opens
+//! This is the app layer rather than a library in the usual sense. It opens
 //! files, and it uses `anyhow`, because its errors are destined for a person
 //! rather than for a caller that will match on them. If a front end ever needs
 //! to branch on a failure, that is the point to give this crate typed errors.

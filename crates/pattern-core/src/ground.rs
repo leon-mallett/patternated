@@ -2,7 +2,7 @@
 //!
 //! A pattern has three layers and always has: the fabric itself, which is slot
 //! 0; a **ground** laid over it; and whatever is strewn on top. Bands were the
-//! first ground, and the shape they needed turned out to be general — a
+//! first ground, and the shape they needed turned out to be general: a
 //! function from a point in the tile to a slot, or to nothing where the fabric
 //! shows through.
 //!
@@ -42,7 +42,7 @@ impl Ground {
     /// tile it lives in. Bands have to be fitted to it or every join carries
     /// the remainder of the sequence; a texture has to be *grown* on it, which
     /// is a simulation rather than an adjustment. Both obligations are the same
-    /// obligation — whatever a ground lays down has to close over the tile —
+    /// obligation, in that whatever a ground lays down has to close over the tile,
     /// and making it one call means neither can be skipped by accident.
     ///
     /// Growing a texture is the expensive thing this crate does. Call it once
@@ -92,7 +92,7 @@ impl Ground {
     /// tail of the new one; a kind that was not renumbered keeps indices
     /// pointing into the *motif* colours and comes back in somebody else's
     /// colour. That is how a grown ground shipped rendering green, having been
-    /// asked for blue, the first time the colour count moved — the carrying
+    /// asked for blue, the first time the colour count moved: the carrying
     /// was general and the renumbering was written for bands only.
     ///
     /// [`GROUND_SLOT`](crate::GROUND_SLOT) is absence rather than a colour, so
@@ -298,7 +298,7 @@ mod tests {
     #[test]
     fn renumbering_reaches_every_slot_of_every_kind() {
         // Slots are checked through `slots_used`, which is what a palette
-        // resize consults to decide what to carry — so a slot the renumbering
+        // resize consults to decide what to carry, so a slot the renumbering
         // missed is a slot the new palette has a colour for and the ground no
         // longer points at.
         let moved = |slot: u8| (slot != crate::GROUND_SLOT).then_some(slot + 100);

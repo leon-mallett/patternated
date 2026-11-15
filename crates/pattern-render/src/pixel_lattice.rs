@@ -12,8 +12,8 @@ use pattern_core::{px_per_mm, Lattice};
 ///
 /// So the tile's rounded pixel size *is* the repeat, and the lattice is derived
 /// from it rather than rounded independently. Each lattice vector is first
-/// expressed as a fraction of the tile rectangle — a half-drop's `u` is
-/// `(1, 0.5)` of it — and those fractions are then applied to the integer tile
+/// expressed as a fraction of the tile rectangle, so that a half-drop's `u` is
+/// `(1, 0.5)` of it, and those fractions are then applied to the integer tile
 /// size. The tiling is exact for any integers that come out, so the pattern is
 /// seamless whatever the DPI, and the most a half-drop's stagger can deviate
 /// from its ideal is half a pixel on an odd tile height.
@@ -45,7 +45,7 @@ impl PixelLattice {
     /// there is a middle pixel belonging to neither, which puts a motif
     /// mounted on the axis one pixel off its own reflection.
     ///
-    /// It costs at most one pixel of repeat — the same trade the lattice
+    /// It costs at most one pixel of repeat, the same trade the lattice
     /// divisor above already makes.
     #[must_use]
     pub fn for_mirror(
@@ -64,14 +64,14 @@ impl PixelLattice {
         // The tile is rounded to a size the lattice can divide exactly.
         //
         // A half-drop steps by half the tile height, and 180 mm at 150 DPI is
-        // 1063 px — odd, so the drop rounds to 532 and four columns come back
+        // 1063 px, which is odd, so the drop rounds to 532 and four columns come back
         // two pixels adrift. A single tile still tiles, because its own
         // neighbour offsets are consistent; what breaks is anything that
         // *accumulates* the lattice, which is to say a pre-repeated sheet sent
         // to a printer, and a printer stepping the tile themselves.
         //
-        // Rounding the tile instead moves the repeat by at most a pixel —
-        // 0.17 mm on a 180 mm repeat — which is the same trade M1 already made
+        // Rounding the tile instead moves the repeat by at most a pixel, or
+        // 0.17 mm on a 180 mm repeat, which is the same trade M1 already made
         // when it decided the rounded tile is the repeat.
         let divisor = |fraction: f32| -> i32 {
             (1..=16)
@@ -135,7 +135,7 @@ impl PixelLattice {
     /// with its top-left at the origin.
     ///
     /// Found by inverting the lattice at the window's corners rather than by
-    /// guessing a range, so it stays correct for oblique repeats — where a
+    /// guessing a range, so it stays correct for oblique repeats, where a
     /// sheared lattice reaches further sideways than the window is wide.
     #[must_use]
     pub fn offsets_covering(&self, width: i32, height: i32) -> Vec<IVec2> {
@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn a_half_drop_tile_is_rounded_to_an_even_height() {
-        // 180 mm at 150 DPI is 1062.99 px, which rounds to 1063 — odd, so half
+        // 180 mm at 150 DPI is 1062.99 px, which rounds to 1063, and that is odd, so half
         // of it is not a whole pixel. Found by measuring an exported sheet: the
         // drop rounded to 532, four columns came back two pixels adrift, and
         // the seam where two copies met was four times an interior step.

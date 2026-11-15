@@ -2,8 +2,8 @@
 //
 // The interface, driven by anchor rather than by pixel.
 //
-// Mocked at *our* boundary — `./api`, the one module every Tauri command goes
-// through — rather than at the framework's internals. That keeps the surface
+// Mocked at *our* boundary, `./api`, the one module every Tauri command goes
+// through, rather than at the framework's internals. That keeps the surface
 // tiny and the tests stable: a test says which commands it cares about and the
 // rest stay real.
 //
@@ -223,7 +223,7 @@ describe("the start screen", () => {
 
   it("offers nothing that only arranges motifs when there are none", async () => {
     // Reported from the app: a pattern made entirely of a ground still led
-    // with a panel of controls for placing motifs — an arrangement, an
+    // with a panel of controls for placing motifs: an arrangement, an
     // overlap guard, rows and columns. None of them can do anything here, and
     // a control that does nothing teaches a designer to distrust the rest.
     engine.opened = makeOpened({ motifs: [], scattered: false });
@@ -247,7 +247,7 @@ describe("the start screen", () => {
   it("leads with the ground when the ground is the design", async () => {
     // A panel that opens with the same controls whatever the document is asks
     // the designer to skip past the half that cannot apply. Here the ground is
-    // the whole design, so it comes first — and the controls that only reduce
+    // the whole design, so it comes first, and the controls that only reduce
     // or edit motif colours are not there at all, because there is no artwork
     // to reduce and no motif slot to edit.
     engine.opened = makeOpened({ motifs: [], scattered: false });
@@ -322,7 +322,7 @@ describe("closing with unsaved work", () => {
     await user.click(screen.getByTestId("close"));
 
     await screen.findByText("New pattern from artwork…");
-    // Asked without discarding, then told to discard — never the other way.
+    // Asked without discarding, then told to discard, never the other way.
     expect(engine.closeCalls).toEqual([false, true]);
   });
 });
@@ -388,7 +388,7 @@ describe("the palette size control", () => {
   it("asks the engine for the count the slider names", async () => {
     await openApp();
     // The slider steps through a list of counts, so its own value is an index.
-    // Index 3 is five colours — this is the test that would catch the control
+    // Index 3 is five colours, and this is the test that would catch the control
     // handing the engine the index instead of the count.
     fireEvent.change(screen.getByTestId("palette-size"), { target: { value: "3" } });
 
@@ -429,9 +429,9 @@ describe("the preview", () => {
 
 /** The ground the engine was last sent.
  *
- *  A wait rather than a read. Ground edits are coalesced — growing a texture
- *  is expensive enough that a drag would otherwise queue one simulation per
- *  step — so the send lands a moment after the control moves. A test that read
+ *  A wait rather than a read. Ground edits are coalesced, because growing a
+ *  texture is expensive enough that a drag would otherwise queue one simulation
+ *  per step, so the send lands a moment after the control moves. A test that read
  *  it straight away would be asserting on the edit before last. */
 async function sentGround(): Promise<GroundSpec> {
   const before = engine.grounds.length;
@@ -451,8 +451,8 @@ describe("what the ingest wants to say", () => {
   it("shows what the engine noticed about the artwork", async () => {
     // These warnings existed all along and went to stderr from inside the
     // engine, where this app could not see them. The two they most often
-    // carry — a motif dissolving into the fabric colour, a shadow kept as ink
-    // — are the faults most likely to reach a printer unnoticed.
+    // carry, a motif dissolving into the fabric colour and a shadow kept as
+    // ink, are the faults most likely to reach a printer unnoticed.
     await openApp({
       notes: [
         { about: "cherry", says: "18% of this motif became the ground colour." },
@@ -550,7 +550,7 @@ describe("the motif mix", () => {
   it("does not offer a share when there is only one motif", async () => {
     // A single motif is the whole mix whatever the slider says. It was
     // labelled "How often", sat beside Size, and was reported as doing
-    // nothing — which was true, and could not have been otherwise.
+    // nothing, which was true, and could not have been otherwise.
     await openApp();
     expect(screen.getByTestId("size-cherry")).toBeTruthy();
     expect(screen.queryByTestId("share-cherry")).toBeNull();
@@ -584,7 +584,7 @@ describe("the motif mix", () => {
   it("says what does set the count, and it is not on this panel", async () => {
     // Reported from the app: a designer dropped the motif size and raised how
     // often it appeared, and the number on the fabric did not move. On a grid
-    // neither of those can move it — the count is rows times columns.
+    // neither of those can move it: the count is rows times columns.
     const user = await openApp();
     expect((await screen.findByTestId("what-sets-the-count")).textContent).toContain(
       "Coverage",
@@ -629,7 +629,7 @@ describe("exporting", () => {
   it("opens over the window rather than under the preview", async () => {
     // It was tucked below the image, where it pushed the preview out of view
     // and read as one more panel of the same kind as the controls. Exporting
-    // is a decision with a dozen settings and an end — a file written.
+    // is a decision with a dozen settings and an end, a file written.
     await openExport();
     const modal = screen.getByTestId("modal");
     expect(modal.getAttribute("aria-modal")).toBe("true");
@@ -642,7 +642,7 @@ describe("exporting", () => {
 
   it("says a tile export will look emptier than the preview", async () => {
     // Reported as a curiosity: an exported tile looked like a cropped
-    // preview. It was not — the preview shows several tiles and the export
+    // preview. It was not: the preview shows several tiles and the export
     // wrote one, at the same size on the cloth. Both were right and neither
     // said so.
     await openExport();
@@ -654,7 +654,7 @@ describe("exporting", () => {
   it("drops that note once a sheet is being written", async () => {
     const user = await openExport();
     await user.selectOptions(
-      screen.getByText("One tile — the printer repeats it").closest("select")!,
+      screen.getByText("One tile, for the printer to repeat").closest("select")!,
       "sheet",
     );
     await waitFor(() => expect(screen.queryByTestId("one-tile-note")).toBeNull());

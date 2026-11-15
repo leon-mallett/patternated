@@ -2,8 +2,8 @@
 //!
 //! Not rendering it. The distinction matters: a renderer's job is to make this
 //! file look as it was drawn, and ours is to find the shapes a press could put
-//! ink into. Everything that is neither — a gradient, a bitmap dropped into
-//! the drawing, a blur — has no palette slot to resolve to and is refused by
+//! ink into. Everything that is neither of those, such as a gradient, a bitmap
+//! dropped into the drawing or a blur, has no palette slot to resolve to and is refused by
 //! name, with what to do about it, rather than approximated into a print
 //! nobody asked for.
 //!
@@ -22,8 +22,8 @@
 //!
 //! `usvg` is built here without its `text` feature. With it, type is resolved
 //! through the fonts installed on *this machine*, so the same file would
-//! rasterise differently elsewhere and the engine's central promise — same
-//! input, same bytes, any platform — would be a claim it could no longer make.
+//! rasterise differently elsewhere and the engine's central promise, that the
+//! same input gives the same bytes on any platform, would be a claim it could no longer make.
 //! Outlining text before export is one checkbox in every drawing program.
 
 use pattern_core::{Color, Palette, Unprintable, VectorMotif, VectorShape};
@@ -52,7 +52,7 @@ pub struct RawShape {
 /// What reading an SVG produced.
 ///
 /// Deliberately short of a motif. A motif carries palette slots, and the
-/// palette is often derived *from* this drawing — so reading and quantising
+/// palette is often derived *from* this drawing, so reading and quantising
 /// are two steps rather than one. It also means changing a document's colour
 /// count re-quantises a drawing exactly, from its own colours, rather than
 /// from a rasterisation of them.
@@ -229,7 +229,7 @@ pub const FALLBACK_PX: u32 = 1024;
 /// A gradient has no single colour, so no palette slot can stand for it and
 /// [`read_svg`] refuses it. Rendering it and quantising the pixels is exactly
 /// what happens to a photograph, and what a designer would otherwise do by
-/// hand — export a PNG and come back — so the tool does it instead.
+/// hand, which is to export a PNG and come back, so the tool does it instead.
 ///
 /// The cost is the whole reason SVG was worth reading as geometry: this motif
 /// is pixels from here on and will not sharpen when it is printed large. That
@@ -290,7 +290,7 @@ impl SvgArt {
     /// Put this drawing onto a palette.
     ///
     /// Every colour goes to its nearest slot, by the comparison the bitmap
-    /// path uses — so a drawing and a photograph of the same thing land on the
+    /// path uses, so a drawing and a photograph of the same thing land on the
     /// same slots.
     #[must_use]
     pub fn onto(&self, palette: &Palette) -> VectorMotif {
@@ -318,8 +318,8 @@ impl SvgArt {
     /// better source for a palette than a picture of one.
     ///
     /// Area is taken from each shape's bounding box. It overstates a thin
-    /// diagonal and understates nothing, and the question being asked — which
-    /// of these colours matter — does not turn on the difference.
+    /// diagonal and understates nothing, and the question being asked, which
+    /// of these colours matter, does not turn on the difference.
     #[must_use]
     pub fn palette_sample(&self) -> SourceImage {
         let mut weighted: Vec<(Color, f64)> = Vec::new();
@@ -384,7 +384,7 @@ fn describe(refused: &[Unprintable]) -> String {
     if refused.is_empty() {
         return String::new();
     }
-    let mut out = String::from(" — it ");
+    let mut out = String::from(": it ");
     for (i, kind) in refused.iter().enumerate() {
         if i > 0 {
             out.push_str("; and it ");
@@ -417,8 +417,8 @@ mod tests {
 
     #[test]
     fn a_gradient_that_has_no_outline_can_still_be_drawn() {
-        // The fallback's whole job. Reading this as outlines gives nothing —
-        // a gradient has no single colour a palette slot could stand for — and
+        // The fallback's whole job. Reading this as outlines gives nothing,
+        // since a gradient has no single colour a palette slot could stand for, and
         // drawing it gives a picture that quantises like any other artwork.
         let data = svg(
             r##"<defs><linearGradient id="g"><stop stop-color="#c8202d"/>
@@ -457,7 +457,7 @@ mod tests {
     #[test]
     fn what_is_not_a_drawing_is_refused_by_both_routes() {
         // The fallback must not turn an unreadable file into a blank motif.
-        // An empty `<svg>` is *not* the case to test here — `usvg` gives one a
+        // An empty `<svg>` is *not* the case to test here: `usvg` gives one a
         // nominal size and it draws as nothing, which is a drawing of nothing
         // rather than a failure.
         let rubbish = b"this is not a drawing";

@@ -40,7 +40,7 @@ pub fn trim(image: &SourceImage, alpha_floor: u8) -> Option<(SourceImage, TrimBo
     // trimming threw the result away.
     //
     // Requiring neighbours removes isolated speckle but not clumped speckle,
-    // and a density rule clips thin features — a tendril carries little mass
+    // and a density rule clips thin features, since a tendril carries little mass
     // per row. What separates the two cleanly is connectedness: a stem is
     // joined to the motif however thin it is, while grain is not joined to
     // anything. So the mask is grouped into connected regions and the small
@@ -112,7 +112,7 @@ const MIN_REGION_PX: usize = 4;
 ///
 /// Expressed as a longest edge rather than a width or a height so that a motif
 /// keeps a consistent presence in a pattern whichever way round it is drawn.
-/// Aspect ratio comes from the pixels and is never adjusted — a motif that
+/// Aspect ratio comes from the pixels and is never adjusted: a motif that
 /// arrives at 3:2 stays at 3:2, because distorting artwork to hit a target
 /// shape is not something a pipeline should do quietly.
 #[must_use]

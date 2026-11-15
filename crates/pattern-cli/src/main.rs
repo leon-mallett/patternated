@@ -1,4 +1,4 @@
-//! `pattern` — render a pattern document to PNG.
+//! `pattern`: render a pattern document to PNG.
 //!
 //! The app layer: everything that touches a file or a command line lives here,
 //! which is what lets `pattern-core` stay a pure function from parameters to
@@ -187,7 +187,7 @@ fn render(
         let grown = pattern_doc::sheet_tiles(&doc, min_cols, min_rows);
         if grown != (min_cols.max(1), min_rows.max(1)) {
             eprintln!(
-                "note: a {}x{} sheet of this repeat would not tile — its opposite edges \
+                "note: a {}x{} sheet of this repeat would not tile, because its opposite edges \
                  would not meet. Writing {}x{}, the nearest that does.",
                 min_cols.max(1),
                 min_rows.max(1),
@@ -214,7 +214,7 @@ fn render(
 
     let motifs: Vec<pattern_core::Motif> = bank.motifs().into_iter().cloned().collect();
     println!(
-        "{} — {} x {} px, {:.0} x {:.0} mm at {dpi} DPI, {} motifs, {} colours",
+        "{}: {} x {} px, {:.0} x {:.0} mm at {dpi} DPI, {} motifs, {} colours",
         out.display(),
         size.width_px,
         size.height_px,
@@ -233,7 +233,7 @@ fn render(
         ),
         pattern_io::WidthVerdict::WiderThanGrandFormat => eprintln!(
             "warning: {:.2} m wide, past grand format. This is unlikely to be printable as \
-             one piece — export the tile instead and let the printer repeat it.",
+             one piece. Export the tile instead and let the printer repeat it.",
             size.width_mm / 1000.0
         ),
     }

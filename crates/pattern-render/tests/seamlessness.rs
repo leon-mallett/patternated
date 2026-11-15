@@ -163,7 +163,7 @@ fn a_scattered_pattern_tiles_with_no_seam() {
 ///
 /// Tiling the window twice across and twice down must give exactly what
 /// rendering a field of twice the size gives. That is the same argument the
-/// tile tests use, one level up — and unlike comparing the outermost rows of
+/// tile tests use, one level up, and unlike comparing the outermost rows of
 /// pixels it is exact, because opposite *edges* of an image are adjacent
 /// columns in the pattern rather than the same column, so they differ by
 /// however much the artwork changes in one pixel.
@@ -198,7 +198,7 @@ fn window_repeats(
 #[test]
 fn a_window_sized_to_repeat_is_a_repeating_unit() {
     // Reported from the app: a 3x3 preview of a half-drop did not meet at its
-    // left and right edges. The tile was seamless — the window was not a
+    // left and right edges. The tile was seamless; the window was not a
     // repeating unit, which is a different thing and looks identical to a
     // broken repeat when you hold the edges together.
     let bank = bank();
@@ -271,7 +271,7 @@ fn a_grown_ground_tiles_with_no_seam() {
     //
     // Worth its own test rather than trusting the unit one. That test proves
     // the *field* wraps; this proves nothing between the field and the pixels
-    // loses it — the sampling, the fitting, the rounding of millimetres to a
+    // loses it: the sampling, the fitting, the rounding of millimetres to a
     // cell index at a tile edge.
     let bank = bank();
     for dpi in [96.0, 150.0] {
@@ -344,7 +344,7 @@ fn a_drawn_ground_actually_put_something_on_the_fabric() {
 fn a_grown_ground_actually_put_something_on_the_fabric() {
     // Kept because the test above passes trivially against a ground that
     // painted nothing, and a Gray-Scott field outside its live region paints
-    // nothing — the failure mode is a blank tile, not a broken one.
+    // nothing. The failure mode is a blank tile, not a broken one.
     let pattern = textured_pattern(Lattice::block(TILE), 5);
     let texture = pattern
         .ground

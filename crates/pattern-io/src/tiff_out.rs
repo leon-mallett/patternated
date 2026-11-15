@@ -10,7 +10,7 @@ use crate::{Compression, ExportError};
 
 /// Write a pixmap as a TIFF carrying its physical resolution.
 ///
-/// Flat and single-layer — there is nothing else a pattern tile could be, and
+/// Flat and single-layer, because there is nothing else a pattern tile could be, and
 /// it is what a bureau asks for.
 ///
 /// **RGB rather than RGBA.** A print has no transparency: the ground is a
@@ -19,7 +19,7 @@ use crate::{Compression, ExportError};
 /// add a third to the file size and invite a bureau to wonder what it means.
 ///
 /// TIFF records resolution as a rational, so the DPI survives exactly. PNG
-/// stores integer pixels per metre, which turns 150 DPI into 150.0124 — a
+/// stores integer pixels per metre, which turns 150 DPI into 150.0124: a
 /// rounding nobody will notice on fabric, and one worth not having.
 pub fn write_tiff(
     path: &Path,

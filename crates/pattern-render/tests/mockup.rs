@@ -10,7 +10,7 @@ use pattern_core::Lattice;
 use pattern_render::{render_mockup, Cut, Garment};
 use support::{bank, scattered_pattern, TILE};
 
-/// Widest unbroken run of motif-coloured pixels on any row — near enough to
+/// Widest unbroken run of motif-coloured pixels on any row, near enough to
 /// "how big a motif looks" for a scale comparison.
 fn apparent_motif_px(pixmap: &tiny_skia::Pixmap) -> u32 {
     let (w, h) = (pixmap.width() as usize, pixmap.height() as usize);
@@ -58,7 +58,7 @@ fn the_same_repeat_looks_bigger_on_a_smaller_garment() {
     );
 
     // And by roughly the ratio of the garments, not merely in the right
-    // direction — a mockup that is qualitatively right and quantitatively
+    // direction, because a mockup that is qualitatively right and quantitatively
     // wrong still invites a bad decision.
     let expected = adult.extent_mm.x / child.extent_mm.x;
     let actual = small as f32 / large as f32;
@@ -116,7 +116,7 @@ fn every_standard_garment_renders() {
 #[test]
 fn every_silhouette_fits_the_frame_it_was_measured_for() {
     // The extent decides the canvas; the outline is drawn into it. Anything
-    // the outline reaches past is clipped, and nothing fails — a pair of
+    // the outline reaches past is clipped, and nothing fails. A pair of
     // dungarees lost the tops of its straps that way and a hat lost the
     // underside of its brim, both found by looking at a picture rather than by
     // any test here.
@@ -188,7 +188,7 @@ fn no_two_cuts_draw_the_same_shape() {
     // would all still be right.
     //
     // Compared as the share of its own frame the silhouette covers when it is
-    // drawn — a square panel fills it, a pair of legs does not. The area of a
+    // drawn: a square panel fills it, a pair of legs does not. The area of a
     // *bounding box* was the first attempt and is one for legs and one for
     // dungarees, which are not remotely the same shape.
     let mut by_cut: Vec<(&'static str, f32)> = Vec::new();
@@ -224,7 +224,7 @@ fn the_print_on_a_garment_is_a_repeating_unit() {
     // The swatch filling the garment is tiled by a shader as a plain
     // rectangle, so it has to be a repeating unit itself. A three-by-three
     // window of a half-drop is not, and the garment would show a seam every
-    // three repeats — the same trap as a pre-repeated export.
+    // three repeats, the same trap as a pre-repeated export.
     let pattern = scattered_pattern(Lattice::half_drop(TILE), 5, 0.3);
     let (cols, rows) = pattern.lattice.repeating_window(TILE, 1, 1);
     assert_eq!(

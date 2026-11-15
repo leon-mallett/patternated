@@ -1,13 +1,13 @@
 //! Deriving one palette from another.
 //!
 //! A colourway is the same pattern in a different palette, and textile ranges
-//! sell in colourways — so producing candidates quickly is half of what the
+//! sell in colourways, so producing candidates quickly is half of what the
 //! tool is for. These are the three moves the spec names: rotate the hue, shift
 //! the lightness, and swap figure for ground.
 //!
 //! All of it is arithmetic. Converting through HSL needs only comparison,
 //! subtraction and division, so a derived colourway is exactly reproducible
-//! anywhere — the same constraint that shaped the scatter sampler, honoured
+//! anywhere, which is the same constraint that shaped the scatter sampler, honoured
 //! here for the same reason.
 
 use crate::palette::{Color, Palette, GROUND_SLOT};
@@ -110,7 +110,7 @@ pub fn rotate_hue(palette: &Palette, degrees: f32) -> Palette {
 /// Move every colour toward white or black.
 ///
 /// `amount` is a fraction: positive lightens, negative darkens. Applied as a
-/// move *toward* the limit rather than an addition, so nothing clips — a
+/// move *toward* the limit rather than an addition, so nothing clips: a
 /// palette lightened repeatedly approaches white instead of flattening into it
 /// at the first step.
 #[must_use]
@@ -135,7 +135,7 @@ pub fn shift_lightness(palette: &Palette, amount: f32) -> Palette {
 /// Exchange the ground with one of the figure colours.
 ///
 /// Inverting a print to a dark ground costs nothing because the background is
-/// slot 0 rather than a special case — which is exactly why it was made a slot
+/// slot 0 rather than a special case, which is exactly why it was made a slot
 /// in the first place.
 #[must_use]
 pub fn swap_ground(palette: &Palette, slot: u8) -> Palette {

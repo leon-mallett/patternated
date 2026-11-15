@@ -5,7 +5,7 @@
 //! is just pixels with an alpha channel and a palette.
 //!
 //! The crate takes decoded RGBA and returns data. It has no image-format
-//! dependency at all — decoding a PNG or a TIFF is the caller's problem — which
+//! dependency at all, since decoding a PNG or a TIFF is the caller's problem, which
 //! keeps format support a decision made at the edge. The one exception is
 //! [`library`], which is explicitly the I/O half and is kept in its own module
 //! so the boundary is visible rather than implied.

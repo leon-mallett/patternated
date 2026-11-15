@@ -101,6 +101,10 @@ mod tests {
 
     #[test]
     fn awkward_names_survive_becoming_a_filename() {
+        // The em dash in the input is deliberate and is the point of the test:
+        // it is the character that collapses to nothing and leaves a double
+        // hyphen behind, which the final assertion checks for. It is the one
+        // em dash left in this repository on purpose.
         let name = suggested_name(
             "Spring/Summer 27 — \"cherries\"",
             "half-drop",

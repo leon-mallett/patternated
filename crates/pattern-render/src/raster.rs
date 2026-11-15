@@ -16,8 +16,8 @@
 //! A pixel where two shapes meet is covered partly by each, and the model has
 //! one slot and one coverage for it. The slot is the shape covering most of
 //! the pixel, and the coverage is everything the shapes lay down together.
-//! That keeps a flat interior exactly flat — the thing this engine's split
-//! channels exist for — while an edge between two colours stays soft.
+//! That keeps a flat interior exactly flat, which is what this engine's split
+//! channels exist for, while an edge between two colours stays soft.
 
 use pattern_core::{IndexedMotif, PatternError, VectorMotif, GROUND_SLOT};
 use tiny_skia::{FillRule, Paint, Pixmap, Transform};
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn the_same_drawing_is_drawn_at_whatever_size_is_asked_for() {
         // The whole reason a vector motif is kept as one. Not "close enough at
-        // both sizes" — correct at both, from the same outlines.
+        // both sizes" but correct at both, from the same outlines.
         let m = motif(vec![rect(25.0, 25.0, 50.0, 50.0, 1, 255)]);
         for size in [16u32, 64, 256, 1024] {
             let drawn = draw_vector(&m, size, size).expect("should draw");
@@ -180,7 +180,7 @@ mod tests {
     #[test]
     fn the_shape_covering_most_of_a_pixel_takes_its_slot() {
         // Two shapes meeting inside one pixel. The model has one slot for it,
-        // so the honest answer is whichever covers more — and the coverage is
+        // so the honest answer is whichever covers more, and the coverage is
         // what both of them laid down.
         let m = motif(vec![
             rect(0.0, 0.0, 100.0, 100.0, 1, 255),

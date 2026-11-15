@@ -2,7 +2,7 @@
 //! down.
 //!
 //! "It looked different on screen" is the commonest complaint in fabric
-//! printing and is almost always an unmanaged conversion — a formula applied
+//! printing and is almost always an unmanaged conversion: a formula applied
 //! instead of a profile. So there is no formula here. Everything goes through
 //! an ICC profile, and the profile is a file somebody chose.
 
@@ -48,7 +48,7 @@ pub enum ColourSpace {
     Rgb,
     /// CMYK, converted through a named profile.
     ///
-    /// The profile is a path rather than a bundled default on purpose — see
+    /// The profile is a path rather than a bundled default on purpose; see
     /// [`Profiles`].
     Cmyk { profile: String },
 }
@@ -62,8 +62,8 @@ pub struct Conversion {
 
 /// Where the profiles come from.
 ///
-/// **Nothing is bundled.** Every CMYK profile that is free to redistribute —
-/// the ECI and IDEAlliance ones — describes an *offset litho* press, and a
+/// **Nothing is bundled.** Every CMYK profile that is free to redistribute,
+/// meaning the ECI and IDEAlliance ones, describes an *offset litho* press, and a
 /// digital textile press is not one. Shipping one as a default would produce a
 /// file that looks converted and is wrong, which is worse than producing
 /// nothing: the whole point of colour management is that the numbers mean
@@ -170,7 +170,7 @@ impl Conversion {
     /// Show on screen what the press will do.
     ///
     /// Converts to the press's colours and straight back. Anything the press
-    /// cannot reach comes back changed, which is the entire point — a designer
+    /// cannot reach comes back changed, which is the entire point: a designer
     /// seeing a flat, dulled red before the fabric arrives can still do
     /// something about it.
     pub fn soft_proof(&self, pixmap: &Pixmap) -> Result<Pixmap, ColourError> {
@@ -184,8 +184,8 @@ impl Conversion {
 
         let mut out = pixmap.clone();
         for (px, chunk) in out.pixels_mut().iter_mut().zip(rgb.chunks_exact(3)) {
-            // The render is opaque throughout — the ground is a printed colour
-            // — so premultiplication is the identity here.
+            // The render is opaque throughout, since the ground is a printed
+            // colour, so premultiplication is the identity here.
             *px = tiny_skia::PremultipliedColorU8::from_rgba(chunk[0], chunk[1], chunk[2], 255)
                 .unwrap_or(*px);
         }

@@ -1,6 +1,6 @@
 //! Show what matting decided, as an image.
 //!
-//! Not shipped surface — a development tool for looking at an alpha channel
+//! Not shipped surface. A development tool for looking at an alpha channel
 //! instead of inferring it from a trimmed size. Run with:
 //!   cargo run -p pattern-cli --example matte-debug -- <in.png> <out.png>
 

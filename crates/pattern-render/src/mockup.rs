@@ -7,8 +7,8 @@
 //!
 //! The garment is a silhouette rather than a photograph. A photograph would
 //! need the pattern warped onto folds, which is a different and much larger
-//! piece of work, and it would make the one thing this exists for — the
-//! relationship between the repeat and the body — harder to judge rather than
+//! piece of work, and it would make the one thing this exists for, the
+//! relationship between the repeat and the body, harder to judge rather than
 //! easier.
 
 use glam::Vec2;
@@ -44,7 +44,7 @@ pub enum Cut {
     Hat { crown_mm: f32 },
     /// A rectangle with two handles.
     Tote { handle_mm: f32 },
-    /// A top and trousers together, in the one cloth — which is what makes it
+    /// A top and trousers together, in the one cloth, which is what makes it
     /// a pair of pyjamas rather than two garments that happen to match.
     Pyjamas {
         shoulder_mm: f32,
@@ -55,7 +55,7 @@ pub enum Cut {
 
 /// A garment, by the measurements a size chart actually lists.
 ///
-/// Flat measurements in millimetres — the width across the garment laid flat,
+/// Flat measurements in millimetres, the width across the garment laid flat,
 /// not the body circumference, because that is how garments are specified and
 /// how fabric is cut.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -65,7 +65,7 @@ pub struct Garment {
     ///
     /// A chest on a top, a hip on trousers, a brim on a hat, the bag on a
     /// tote. Named for what it is *for* rather than for one garment's anatomy,
-    /// because it was called `chest_mm` and a hat has no chest — and because
+    /// because it was called `chest_mm` and a hat has no chest, and because
     /// this is the number a repeat is scaled against, so it has to mean the
     /// same thing for every shape.
     pub across_mm: f32,
@@ -177,8 +177,8 @@ impl Garment {
 
     /// Overall extent of the silhouette, in millimetres.
     ///
-    /// Wider than `across_mm` wherever something reaches past the body —
-    /// sleeves, a pair of pyjamas standing side by side — and taller than
+    /// Wider than `across_mm` wherever something reaches past the body, such as
+    /// sleeves or a pair of pyjamas standing side by side, and taller than
     /// `length_mm` where a handle rises above the hem.
     #[must_use]
     pub fn extent_mm(&self) -> Vec2 {
@@ -243,7 +243,7 @@ impl Garment {
     ///
     /// A shape measure rather than a size one, so a child's and an adult's of
     /// the same cut agree and two different cuts do not. Taken by drawing it,
-    /// because the alternative — the area of a bounding box — is one for a
+    /// because the alternative, the area of a bounding box, is one for a
     /// pair of legs and one for a pair of dungarees, which are not the same
     /// shape at all.
     #[must_use]
@@ -349,7 +349,7 @@ const SLEEVE_REACH: f32 = 1.7;
 ///
 /// A long sleeve hangs rather than sticking out. Reaching in proportion to its
 /// length is right for a short one and gives a long-sleeved top a T-pose three
-/// times as wide as it is tall — which reads as a shirt and defeats the only
+/// times as wide as it is tall, which reads as a shirt and defeats the only
 /// thing this view is for, because the body it is meant to be judged against
 /// becomes a narrow strip in the middle of it.
 ///
@@ -566,7 +566,7 @@ pub fn render_mockup(
     // The swatch used to fill the garment must itself be a repeating unit,
     // because a shader tiles it as a plain rectangle. A three-by-three window
     // of a half-drop is not one, and the garment would show a seam every three
-    // repeats — the same trap as a pre-repeated export.
+    // repeats, the same trap as a pre-repeated export.
     let (cols, rows) = pattern.lattice.repeating_window(pattern.tile_size_mm, 1, 1);
     let swatch = render_field(pattern, bank, dpi, cols, rows)?;
 

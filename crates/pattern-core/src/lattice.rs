@@ -46,7 +46,7 @@ impl Lattice {
     /// Brick (half-brick) repeat: each row shifted sideways by half a tile.
     ///
     /// The horizontal counterpart of a half-drop, and the one that suits
-    /// geometrics and stripes — where a vertical stagger reads as a mistake and
+    /// geometrics and stripes, where a vertical stagger reads as a mistake and
     /// a horizontal one reads as masonry.
     #[must_use]
     pub fn brick(tile_size_mm: Vec2) -> Self {
@@ -72,7 +72,7 @@ impl Lattice {
     /// The nine offsets a motif must be drawn at for the tile to be seamless.
     ///
     /// These come from `u` and `v` themselves. Substituting the tile's own
-    /// width and height — `(±W, 0)`, `(0, ±H)` and so on — happens to agree
+    /// width and height, as `(±W, 0)` and `(0, ±H)`, happens to agree
     /// with a block lattice and is wrong for every oblique one. It produces a
     /// tile that looks right in a preview grid and fails on the printer, which
     /// is an expensive place to discover it.
@@ -95,7 +95,7 @@ impl Lattice {
     /// rectangle of tiles is not generally a repeating unit even when every
     /// tile in it is perfect. A half-drop gains half a tile of drop per column,
     /// so three columns end half a tile out and the window's left and right
-    /// edges do not meet — which looks exactly like a broken repeat to anyone
+    /// edges do not meet, which looks exactly like a broken repeat to anyone
     /// checking the obvious way, by holding the opposite edges together.
     ///
     /// The window repeats when translating across it lands on a lattice point:
@@ -140,8 +140,8 @@ impl Lattice {
 
     /// Area of one lattice cell, in square millimetres.
     ///
-    /// Equals the tile area for a valid repeat. A degenerate lattice — parallel
-    /// `u` and `v` — gives zero, which is how [`Lattice::is_degenerate`] detects
+    /// Equals the tile area for a valid repeat. A degenerate lattice, with
+    /// parallel `u` and `v`, gives zero, which is how [`Lattice::is_degenerate`] detects
     /// a lattice that does not tile the plane.
     #[must_use]
     pub fn cell_area_mm2(&self) -> f32 {

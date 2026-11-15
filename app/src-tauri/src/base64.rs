@@ -40,7 +40,7 @@ pub fn encode(bytes: &[u8]) -> String {
 /// than sit in the public surface looking load-bearing.
 ///
 /// Checked against the same RFC vectors as the encoder, in both directions,
-/// rather than only against a round trip — a round trip agrees with itself
+/// rather than only against a round trip, since a round trip agrees with itself
 /// whatever two mirrored mistakes it contains.
 #[cfg(test)]
 #[must_use]

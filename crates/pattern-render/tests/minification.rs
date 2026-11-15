@@ -1,7 +1,7 @@
 //! Drawing artwork smaller than it was drawn.
 //!
-//! Almost every render minifies. Artwork arrives at illustration resolution —
-//! a thousand pixels or more — and a 100 mm motif is under two hundred pixels
+//! Almost every render minifies. Artwork arrives at illustration resolution,
+//! a thousand pixels or more, and a 100 mm motif is under two hundred pixels
 //! at preview scale and about six hundred at print. Bilinear sampling reads a
 //! 2x2 neighbourhood, so reducing by eight in one step looks at four source
 //! pixels in every sixty-four and discards the rest. A dark keyline a few
@@ -12,7 +12,7 @@
 //!
 //! The shared fixture could not have caught it. Its cherry is drawn at 128 px,
 //! so nothing is ever reduced by more than about two and the defect does not
-//! appear — the same trap the log already records about synthetic fixtures,
+//! appear, which is the same trap the log already records about synthetic fixtures,
 //! arriving from the other direction. These tests draw the same cherry at
 //! illustration resolution instead.
 
@@ -136,7 +136,7 @@ fn more_detailed_artwork_does_not_render_worse() {
     //
     // Measured 2026-09-22, worst-pixel error against the box-filtered
     // reference. With pre-filtering: 92, 78, 77 at 256, 512 and 1024 px.
-    // Without it: 92, 122, 145 — the wrong direction, and by enough that no
+    // Without it: 92, 122, 145, the wrong direction, and by enough that no
     // tolerance could cover both.
     let coarse = error_against_box_filter(256);
     let detailed = error_against_box_filter(1024);

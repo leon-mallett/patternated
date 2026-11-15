@@ -1,4 +1,4 @@
-//! On-disk motif library — the I/O half of this crate, kept in its own module
+//! On-disk motif library: the I/O half of this crate, kept in its own module
 //! so the boundary with the pure pipeline is visible rather than implied.
 //!
 //! **Motifs are immutable.** Re-ingesting artwork produces a new version rather
@@ -77,7 +77,7 @@ pub struct MotifVersion {
     pub source_digest: String,
     pub trimmed_from: TrimBounds,
     /// Share of the source's frame edge still covered after matting. High
-    /// means background was kept — see [`crate::border_retained`].
+    /// means background was kept; see [`crate::border_retained`].
     pub border_retained: f32,
     pub quantisation: QuantisationReport,
     pub indexed: IndexedMotif,
@@ -88,7 +88,7 @@ pub struct MotifVersion {
 ///
 /// The indexed raster is deliberately *not* in here. Serialising 176,000 slot
 /// and alpha values as a JSON array of numbers produced a 3.3 MB file for
-/// 352 KB of data — nearly ten times the size, and worse for larger artwork,
+/// 352 KB of data, nearly ten times the size, and worse for larger artwork,
 /// where a single version of a 2000 x 2000 illustration would run to tens of
 /// megabytes. Versions accumulate and are never deleted, so that compounds
 /// into a repository nobody can clone.
@@ -176,7 +176,7 @@ impl Library {
     ///
     /// The palette is only applied on creation. An existing library keeps its
     /// own, because changing it would invalidate every slot index already
-    /// stored — which is a migration, not an option on an open call.
+    /// stored, which is a migration, not an option on an open call.
     pub fn open(root: impl AsRef<Path>, palette: Palette) -> Result<Self, LibraryError> {
         let root = root.as_ref().to_path_buf();
         let index_path = root.join("library.json");

@@ -22,7 +22,7 @@ pub struct QuantisationReport {
     ///
     /// Tracked separately from the error because it is a different and worse
     /// failure. A motif can quantise onto the ground and score only a mediocre
-    /// mean error while being, on the fabric, *invisible* — it is the
+    /// mean error while being, on the fabric, *invisible*: it is the
     /// background colour in the shape of a lemon.
     ///
     /// Observed rather than theorised: a yellow lemon ingested onto a palette
@@ -46,7 +46,7 @@ impl QuantisationReport {
 
     /// Whether so much of the motif became the ground that it will not read.
     ///
-    /// A third is already bad — that is a motif with a hole through it. Half
+    /// A third is already bad, being a motif with a hole through it. Half
     /// means the palette has no colour for whatever this mostly is.
     #[must_use]
     pub fn dissolves_into_ground(&self) -> bool {
@@ -65,7 +65,7 @@ const SOLID_ALPHA: u8 = 224;
 /// The "redmean" approximation: cheap, markedly better than plain RGB
 /// Euclidean, and built only from multiply and add.
 ///
-/// A proper perceptual space — Oklab, CIELAB — would quantise better. Both need
+/// A proper perceptual space, Oklab or CIELAB, would quantise better. Both need
 /// a cube root, and `f32` transcendentals carry no cross-platform bit-exactness
 /// guarantee, which is the same constraint that shaped the scatter sampler.
 /// Ingest runs once and stores its result, so the stakes are lower here than
@@ -162,7 +162,7 @@ fn nearest_slot(colour: Color, palette: &Palette) -> (u8, f32) {
 /// Derive a palette of `count` colours from a set of images, by median cut.
 ///
 /// Median cut rather than k-means because it is deterministic without needing a
-/// seed, terminates in a fixed number of steps, and suits flat illustration —
+/// seed, terminates in a fixed number of steps, and suits flat illustration,
 /// where the colours are already clustered and the job is to find the clusters
 /// rather than to discover structure.
 ///

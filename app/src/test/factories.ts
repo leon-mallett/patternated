@@ -3,8 +3,8 @@
  *
  * A test should say only what it is about. Spelling out twenty fields to
  * assert one of them buries the point, and every field written by hand is a
- * field that silently stops matching the engine when the engine changes —
- * these are typed, so that drift is a compile error rather than a test
+ * field that silently stops matching the engine when the engine changes.
+ * These are typed, so that drift is a compile error rather than a test
  * asserting something the app can no longer receive.
  */
 import { DEFAULT_ORNAMENT, DEFAULT_TEXTURE } from "../api";

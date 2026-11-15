@@ -6,7 +6,7 @@ use crate::lattice::Lattice;
 ///
 /// The distance that matters is not the one inside the tile. Every motif
 /// appears at every lattice translate of its position, so two motifs are as
-/// close as their nearest pair of copies in the infinite pattern — which may be
+/// close as their nearest pair of copies in the infinite pattern, which may be
 /// a pair that never appears in the same tile.
 ///
 /// **This is the lattice invariant a second time, and it bites harder here.**
@@ -16,7 +16,7 @@ use crate::lattice::Lattice;
 /// apart wrapping by the rectangle, and 21 mm apart in the pattern that
 /// actually gets printed, because the right-hand neighbour arrives dropped by
 /// half the tile height. Sample a scatter with the rectangle distance and
-/// motifs collide across the boundary — invisible in one tile, obvious at three
+/// motifs collide across the boundary: invisible in one tile, obvious at three
 /// by three, and the collision is worst exactly where a half-drop was chosen to
 /// avoid one.
 ///

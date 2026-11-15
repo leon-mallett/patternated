@@ -206,7 +206,7 @@ mod rendered_drawings {
     #[test]
     fn a_gradient_mark_starts_a_pattern_rather_than_refusing() {
         // The reported case. This is a real logo, one path, filled with a
-        // linear gradient — which no palette slot can stand for, so reading it
+        // linear gradient, which no palette slot can stand for, so reading it
         // as outlines leaves nothing at all. It is drawn and quantised, which
         // is exactly what exporting a PNG by hand would have achieved.
         let mut notes = Vec::new();
@@ -223,13 +223,13 @@ mod rendered_drawings {
     #[test]
     fn the_drawn_mark_comes_out_as_a_ramp_and_not_one_flat_tone() {
         // What a gradient has to become on cloth. Flattened to a single colour
-        // it would be a different logo; quantised, it is a ramp of flat tones
-        // — which is what a screen print of a gradient is anyway.
+        // it would be a different logo; quantised, it is a ramp of flat tones,
+        // which is what a screen print of a gradient is anyway.
         //
         // Not asserted as "both ends of the gradient survive": median cut
         // allocates by population and the extreme ends of a ramp are its least
         // populous parts, so the far end lands near rather than on. Measured,
-        // the palette runs from (245, 115, 144) to (254, 133, 243) — most of
+        // the palette runs from (245, 115, 144) to (254, 133, 243), most of
         // the way along a gradient whose ends are (255, 136, 255) and
         // (242, 107, 103).
         let mut notes = Vec::new();
@@ -264,7 +264,7 @@ mod rendered_drawings {
             .load_motifs(&gradient())
             .expect("the drawing should load from beside the document");
         assert!(!bank.is_empty());
-        // Drawn, not kept as outlines — which is the trade the note describes.
+        // Drawn, not kept as outlines, which is the trade the note describes.
         assert!(
             bank.vector(&document.motifs[0].id).is_none(),
             "a rendered drawing should be artwork, not outlines"
@@ -293,7 +293,7 @@ mod rendered_drawings {
     #[test]
     fn a_drawing_that_mostly_reads_as_outlines_is_still_drawn_if_a_shape_would_be_lost() {
         // The subtler half, and the more dangerous one. This reads as outlines
-        // perfectly well — two of its three shapes are flat — and the result is
+        // perfectly well, since two of its three shapes are flat, and the result is
         // a motif with a quarter of it simply missing. A motif that will not
         // sharpen is a worse picture; a motif missing a piece is the wrong
         // picture, and only one of those is obvious on screen.
@@ -355,6 +355,6 @@ fn render_the_reported_mark() {
     )
     .expect("write");
     for n in &notes {
-        eprintln!("NOTE: {} — {}", n.about, n.says);
+        eprintln!("NOTE: {}: {}", n.about, n.says);
     }
 }

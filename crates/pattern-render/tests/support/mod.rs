@@ -25,8 +25,8 @@ pub const TILE: Vec2 = Vec2::new(240.0, 180.0);
 /// A cherry: two circles and a stem, asymmetric in both axes.
 ///
 /// The asymmetry is deliberate. A motif symmetric about its centre hides a
-/// whole class of tiling bug — a mirrored or half-shifted copy looks identical
-/// to a correct one — so the test motif is made lopsided on purpose.
+/// whole class of tiling bug, since a mirrored or half-shifted copy looks
+/// identical to a correct one, so the test motif is made lopsided on purpose.
 pub fn cherry(size_px: u32) -> Pixmap {
     let mut pixmap = Pixmap::new(size_px, size_px).expect("test pixmap should allocate");
     let s = size_px as f32;
@@ -127,7 +127,7 @@ pub fn inks(count: usize) -> Palette {
 ///
 /// Deliberately not a shortcut past ingest. Since M3 there is one motif
 /// representation in the renderer and one way to produce it, so the tiling and
-/// scatter tests exercise matting, trimming and quantisation on every run —
+/// scatter tests exercise matting, trimming and quantisation on every run,
 /// which is also how a regression in ingest shows up as a seam rather than as
 /// nothing at all.
 pub fn bank() -> MotifBank {
@@ -181,8 +181,8 @@ pub fn straddling_pattern(lattice: Lattice) -> Pattern {
 /// so a fixture with only one of them would not exercise the ordering that
 /// decision exists for.
 ///
-/// The band widths deliberately do not divide the tile — 17 mm of sequence
-/// into 240 and 180 — because the interesting question is whether the engine
+/// The band widths deliberately do not divide the tile, being 17 mm of sequence
+/// into 240 and 180, because the interesting question is whether the engine
 /// makes them close.
 pub fn checked_pattern(lattice: Lattice, seed: u64) -> Pattern {
     let mut pattern = scattered_pattern(lattice, seed, 0.2);
@@ -195,8 +195,8 @@ pub fn checked_pattern(lattice: Lattice, seed: u64) -> Pattern {
 /// Note what this fixture does *not* cover. The two render routes both reduce
 /// a coordinate into the tile before sampling, so both ask the ground the same
 /// question and a ground that disagrees with its own repeat disagrees
-/// identically down both routes. This catches anything route-dependent — the
-/// fitting, the rounding, the sampling — and cannot catch a figure whose
+/// identically down both routes. This catches anything route-dependent, meaning
+/// the fitting, the rounding and the sampling, and cannot catch a figure whose
 /// rhythm breaks at the join. `a_bricked_figure_gets_an_even_number_of_rows`
 /// in `pattern-core` is the one that catches that.
 pub fn ornamented_pattern(lattice: Lattice, seed: u64, figure: Figure) -> Pattern {
@@ -206,7 +206,7 @@ pub fn ornamented_pattern(lattice: Lattice, seed: u64, figure: Figure) -> Patter
             figure,
             // Chosen so the hazard is live rather than avoided by luck. 26 mm
             // into 240 mm gives nine columns of 26.67, and 180 mm divided by
-            // that rounds to *seven* rows — odd, which is exactly what breaks
+            // that rounds to *seven* rows, which is odd, and that is exactly what breaks
             // a brick at the join. An earlier 17 mm happened to give ten, and
             // the test passed with the rounding removed.
             cell_mm: 26.0,
@@ -223,7 +223,7 @@ pub fn ornamented_pattern(lattice: Lattice, seed: u64, figure: Figure) -> Patter
 
 /// The same scatter over a grown ground instead of a drawn one.
 ///
-/// Small and short by fixture standards — a texture is the expensive thing the
+/// Small and short by fixture standards, because a texture is the expensive thing the
 /// engine does, and these tests grow one for every lattice and resolution they
 /// walk. 64 cells is still four times the sampling of the render underneath it
 /// at the resolutions used here, so the seam being tested is a real seam.
@@ -242,7 +242,7 @@ pub fn textured_pattern(lattice: Lattice, seed: u64) -> Pattern {
     pattern
 }
 
-/// A scattered pattern — what M2 actually produces, as opposed to the
+/// A scattered pattern, which is what M2 actually produces, as opposed to the
 /// hand-placed one the tiling tests use.
 ///
 /// Worth rendering separately: scatter puts motifs wherever the sampler
@@ -288,7 +288,7 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
 ///
 /// Overlap prevention is left *on* here, unlike the fixture above. A mirror's
 /// characteristic failure is a motif astride an axis colliding with its own
-/// reflection, and that is precisely what the guard has to stop — turning it
+/// reflection, and that is precisely what the guard has to stop; turning it
 /// off would make the interesting case untestable.
 pub fn mirrored_pattern(mirror: Mirror, seed: u64, density: f32) -> Pattern {
     mirrored_pattern_with(mirror, seed, density, 0.0)

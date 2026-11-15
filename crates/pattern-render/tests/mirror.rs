@@ -95,7 +95,7 @@ fn a_four_way_mirror_tile_is_its_own_reflection_in_both_axes() {
 #[test]
 fn a_top_to_bottom_mirror_is_symmetric_only_in_the_axis_it_names() {
     // Guards against a mirror that reflects everything regardless of which was
-    // asked for — which would pass both tests above and be the wrong pattern.
+    // asked for, which would pass both tests above and be the wrong pattern.
     let pattern = mirrored_pattern(Mirror::TopToBottom, 7, DENSITY);
     let tile = render_tile(&pattern, &bank(), EXACT_DPI).expect("tile should render");
     assert_eq!(asymmetry_y(&tile), 0, "not symmetric top to bottom");

@@ -19,8 +19,8 @@ pub struct MotifBank {
     /// from artwork.
     ///
     /// Held beside the pixels rather than instead of them. Everything that
-    /// only wants to *measure* a motif — how much of a circle it fills, which
-    /// slots it needs, whether it dissolves into the fabric — is answered from
+    /// only wants to *measure* a motif, asking how much of a circle it fills, which
+    /// slots it needs, or whether it dissolves into the fabric, is answered from
     /// a reference rasterisation, and the outlines are used where the answer
     /// depends on resolution: making the sprite a render actually draws.
     vectors: HashMap<String, VectorMotif>,
@@ -118,8 +118,8 @@ impl MotifBank {
 
 /// Resolve a slot-indexed motif into drawable pixels.
 ///
-/// The one place slots become colours. Everything upstream of here — ingest,
-/// storage, placement — deals in indices, which is why recolouring a whole
+/// The one place slots become colours. Everything upstream of here, meaning
+/// ingest, storage and placement, deals in indices, which is why recolouring a whole
 /// range costs one palette and no re-rendering of anything else.
 pub fn resolve(motif: &Motif, palette: &Palette) -> Result<Pixmap, PatternError> {
     let rgba = motif.indexed.resolve_rgba(palette)?;

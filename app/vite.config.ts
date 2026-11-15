@@ -6,7 +6,7 @@ import react from "@vitejs/plugin-react";
 // blank window with no obvious cause.
 //
 // 1421 rather than Tauri's default 1420, which every scaffolded Tauri app on
-// this machine also claims — whichever starts second fails with "port already
+// this machine also claims. Whichever starts second fails with "port already
 // in use" and no hint as to which project holds it. Taking a port of our own
 // costs nothing and stops pattern-engine from being the one that loses.
 export default defineConfig({

@@ -1,7 +1,7 @@
 //! How much a motif can grow before it touches its neighbours.
 //!
 //! This exists so that a size control can change a pattern without destroying
-//! it. Scatter is a whole-cloth solve — the separation test depends on every
+//! it. Scatter is a whole-cloth solve, since the separation test depends on every
 //! motif's radius, so resizing one asset changes which candidates were
 //! accepted and cascades through every placement after them. Measured on a
 //! twelve-asset brief, re-solving with a single motif resized keeps **four to
@@ -11,7 +11,7 @@
 //!
 //! The alternative is to leave every position alone and change only
 //! [`Placement::scale`]. The layout then survives by construction and the one
-//! remaining question is whether anything now collides — which is what this
+//! remaining question is whether anything now collides, which is what this
 //! module answers, ahead of time, so the control can be bounded rather than
 //! the result checked.
 //!
@@ -27,7 +27,7 @@ use crate::torus::lattice_distance_sq;
 ///
 /// A ceiling rather than an infinity, because the number is going to a slider
 /// and "unbounded" is not a position on one. Reached when nothing constrains
-/// the motif — a sparse layout, or a motif that is not placed at all.
+/// the motif: a sparse layout, or a motif that is not placed at all.
 pub const MOST_GROWTH: f32 = 4.0;
 
 /// The radius of one placement's ink, at the size it is currently drawn.
@@ -134,7 +134,7 @@ pub fn scale_in_place(placements: &mut [Placement], motif_id: &str, factor: f32)
 
 /// Pairs of placements whose ink intersects, measured on the torus.
 ///
-/// The relation the sampler enforces while placing, asked after the fact —
+/// The relation the sampler enforces while placing, asked after the fact,
 /// which is what a control that moves nothing but size needs in order to check
 /// its own work.
 #[must_use]

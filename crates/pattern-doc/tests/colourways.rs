@@ -138,7 +138,7 @@ fn colourways_survive_being_saved_and_reopened() {
 #[test]
 fn the_design_palette_is_pinned_so_a_switch_never_requantises() {
     // Without this, switching colourway on a document built from loose files
-    // would re-quantise the artwork against the colourway — asking which of an
+    // would re-quantise the artwork against the colourway, asking which of an
     // unrelated set of colours a red cherry is nearest to.
     let (mut doc, _) = open();
     assert!(doc.design_palette.is_none(), "nothing to pin yet");
@@ -185,7 +185,7 @@ fn _unused(_: &Path) {}
 #[test]
 fn a_scattered_pattern_survives_being_saved_and_reopened() {
     // This was broken. Saving writes the placements the scatter produced, so
-    // that a print reopens exactly as approved even if the sampler changes —
+    // that a print reopens exactly as approved even if the sampler changes,
     // and the loader refused that combination as ambiguous, which made every
     // saved scatter unopenable. A seed is a recipe; the file has to be a
     // record.

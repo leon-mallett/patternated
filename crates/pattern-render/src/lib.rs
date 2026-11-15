@@ -142,7 +142,7 @@ pub fn pixel_lattice_for(pattern: &Pattern, dpi: f32) -> Result<PixelLattice, Re
 /// each copy resampled at its own sub-pixel position, two copies of one motif
 /// would differ slightly and the seam would show under inspection.
 ///
-/// The cost is that positions quantise to whole pixels — 0.17 mm at 150 DPI,
+/// The cost is that positions quantise to whole pixels, 0.17 mm at 150 DPI,
 /// which no fabric records.
 ///
 /// The top-left corner rather than the centre, because a reflected placement
@@ -238,8 +238,8 @@ fn sprites(
         }
 
         // Not wrapped on a reflected axis. A motif designed at the very edge
-        // of the cell reflects to the far edge of the tile — coordinate
-        // exactly `W` — and wrapping that to zero would file the copy in the
+        // of the cell reflects to the far edge of the tile, at a coordinate
+        // of exactly `W`, and wrapping that to zero would file the copy in the
         // wrong half and clip it away entirely.
         let wrapped = wrap_into_tile(placement.position_mm, pattern.tile_size_mm);
         let center_mm = Vec2::new(
@@ -295,7 +295,7 @@ impl Stamp {
     ///
     /// The band travels with the sprite. A copy owns the same half of every
     /// tile it appears in, so clipping it in tile-local pixels and shifting
-    /// both by the offset is the whole of it — which is also why the two
+    /// both by the offset is the whole of it, which is also why the two
     /// render routes stay in agreement.
     fn draw(&self, target: &mut Pixmap, offset: IVec2) {
         blit(
@@ -330,7 +330,7 @@ const UNBOUNDED: i32 = i32::MAX / 4;
 ///
 /// Unbounded on an axis that is not reflected, and that is not the same as
 /// "the tile". A repeat is periodic, so a motif near one edge legitimately
-/// draws past the opposite one — that overhang is how a tile's edges join at
+/// draws past the opposite one; that overhang is how a tile's edges join at
 /// all. Only a reflected axis bounds a copy, because there the far side
 /// belongs to the reflection and is drawn by it.
 fn band_min(extent: i32, reflected_axis: bool, flipped: bool) -> i32 {
@@ -371,7 +371,7 @@ fn lookup<'a>(
 
 /// Successively halved copies of a motif, largest first.
 ///
-/// Artwork arrives at illustration resolution — a thousand pixels or more —
+/// Artwork arrives at illustration resolution, a thousand pixels or more,
 /// and is drawn at a fraction of that: 78 mm at preview scale is under a
 /// hundred pixels. Bilinear sampling reads a 2x2 neighbourhood, so reducing by
 /// eight in one step looks at four source pixels out of every sixty-four and
@@ -384,7 +384,7 @@ fn lookup<'a>(
 /// bilinear do the rest is the standard answer, and it costs about a third of
 /// the base again in memory.
 ///
-/// Integer arithmetic throughout, so the chain is identical on any platform —
+/// Integer arithmetic throughout, so the chain is identical on any platform;
 /// this sits upstream of everything a seed is supposed to reproduce.
 fn mip_chain(base: Pixmap) -> Vec<Pixmap> {
     let mut levels = vec![base];
@@ -403,7 +403,7 @@ fn mip_chain(base: Pixmap) -> Vec<Pixmap> {
 /// One level of the chain: a 2x2 box average, rounding half up.
 ///
 /// Channels stay premultiplied, which is exactly the representation in which
-/// averaging is correct — averaging unpremultiplied colour would let a fully
+/// averaging is correct. Averaging unpremultiplied colour would let a fully
 /// transparent pixel's arbitrary colour bleed into its neighbours.
 ///
 /// An odd dimension rounds up rather than dropping the final row or column, so
@@ -448,7 +448,7 @@ fn halved(src: &Pixmap) -> Option<Pixmap> {
 /// The smallest level that is still at least as large as the target.
 ///
 /// Never smaller, so the final bilinear step is always a reduction of under a
-/// factor of two or an enlargement from full resolution — never a reduction
+/// factor of two or an enlargement from full resolution, never a reduction
 /// large enough to skip source pixels.
 fn level_for(chain: &[Pixmap], target: IVec2) -> &Pixmap {
     chain
@@ -548,7 +548,7 @@ const GROUND_SAMPLES: u8 = 4;
 /// case.
 ///
 /// Resolved per column and per row first and combined per pixel, because a
-/// band sequence is one-dimensional in each direction — walking the sequence
+/// band sequence is one-dimensional in each direction, and walking the sequence
 /// for every pixel would do the same search a thousand times a row.
 fn fill_bands(
     target: &mut Pixmap,
@@ -574,7 +574,7 @@ fn fill_bands(
     // Sampled several times per pixel and averaged, because a ground is not
     // made of straight lines any more. One sample per pixel is right for a
     // stripe, whose edges are axis-aligned, and puts a staircase along every
-    // curve of a Truchet arc or a grown blob — the more so beside the motifs,
+    // curve of a Truchet arc or a grown blob, the more so beside the motifs,
     // which tiny-skia draws with filtering, so the two layers of the same
     // print did not look as though they had been made by the same tool.
     //
@@ -603,7 +603,7 @@ fn fill_bands(
     for y in 0..h {
         for x in 0..w {
             // Whatever is already here is what a sample landing on no part of
-            // the ground should contribute — the fabric, in every order this
+            // the ground should contribute: the fabric, in every order this
             // is called in today, and read rather than assumed so that it
             // stays right if it is ever called in another.
             let at = (y * w + x) as usize;
@@ -647,7 +647,7 @@ fn fill_bands(
 /// Lay a ground on a tile, remembering the last one.
 ///
 /// [`Ground::laid_over`] is a pure function of a ground and a tile size, and
-/// for a grown ground it is the most expensive thing in a render — a few
+/// for a grown ground it is the most expensive thing in a render, a few
 /// hundred milliseconds where everything else is a few. A design session
 /// renders the same ground over and over: a preview per control change, a
 /// field and a tile, a proof, an export. Growing it again each time is work
@@ -658,8 +658,8 @@ fn fill_bands(
 /// the same ground and the same tile give the same field whether it was just
 /// computed or is being handed back.
 ///
-/// Public so that a caller which needs to *look at* the field — how much of
-/// the tile each level covered, say — shares the memo with the render that
+/// Public so that a caller which needs to *look at* the field, to see how much
+/// of the tile each level covered, shares the memo with the render that
 /// follows it rather than growing a second copy of the same thing.
 #[must_use]
 pub fn laid_ground(ground: &Ground, width_mm: f32, height_mm: f32) -> LaidGround {
@@ -668,8 +668,8 @@ pub fn laid_ground(ground: &Ground, width_mm: f32, height_mm: f32) -> LaidGround
 
     let cell = LAST.get_or_init(|| Mutex::new(None));
     // A poisoned lock means another thread panicked mid-render. There is
-    // nothing to recover and nothing to corrupt — the worst case is growing
-    // the field again — so take the value through the poison rather than
+    // nothing to recover and nothing to corrupt, since the worst case is
+    // growing the field again, so take the value through the poison rather than
     // propagating a panic out of a render.
     let mut held = cell.lock().unwrap_or_else(|e| e.into_inner());
     if let Some((g, w, h, laid)) = held.as_ref() {
@@ -688,7 +688,7 @@ pub fn laid_ground(ground: &Ground, width_mm: f32, height_mm: f32) -> LaidGround
 /// wide sends pixel `j` to pixel `T-1-j`. Work that through a sprite of width
 /// `w` starting at `c - floor(w/2)` and the reflected copy has to start at
 /// `c' - ceil(w/2)`, not at `c' - floor(w/2)`. The difference is nothing for an
-/// even width and one whole pixel for an odd one — enough to break the
+/// even width and one whole pixel for an odd one, which is enough to break the
 /// symmetry a mirror repeat is entirely made of.
 fn anchor(center: i32, extent: i32, flipped: bool) -> i32 {
     center
@@ -701,8 +701,8 @@ fn anchor(center: i32, extent: i32, flipped: bool) -> i32 {
 
 /// A copy of the sprite reversed left to right.
 ///
-/// Reversing indices is an exact reflection about the sprite's own centre —
-/// no resampling, no filtering — which is what lets the mirrored quadrants of
+/// Reversing indices is an exact reflection about the sprite's own centre,
+/// with no resampling and no filtering, which is what lets the mirrored quadrants of
 /// a tile match the designed one pixel for pixel.
 fn flipped_x(sprite: &Pixmap) -> Pixmap {
     let (w, h) = (sprite.width() as usize, sprite.height() as usize);

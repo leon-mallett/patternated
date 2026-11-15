@@ -1,7 +1,7 @@
 //! Pattern grown rather than drawn: a reaction–diffusion ground.
 //!
 //! Every other ground in this engine is laid out. Bands are placed, motifs are
-//! placed, grids are placed. This one is *simulated* — two notional chemicals
+//! placed, grids are placed. This one is *simulated*: two notional chemicals
 //! spread across the tile and consume each other, and after a few thousand
 //! steps the field has organised itself into spots, or stripes, or a maze, or
 //! coral, depending on two numbers. Nobody positions anything.
@@ -14,7 +14,7 @@
 //! # Why it tiles
 //!
 //! The field lives on a torus. Every Laplacian reads its neighbours modulo the
-//! grid, so the left column's left neighbour *is* the right column — not a copy
+//! grid, so the left column's left neighbour *is* the right column, not a copy
 //! of it, the same cells, in the same simulation. The result is seamless by
 //! construction rather than by being fixed up at the edges afterwards, which is
 //! the only way this could work: a blend or a mirror at the seam would be
@@ -26,7 +26,7 @@
 //!
 //! # Why it is deterministic
 //!
-//! The simulation is `+`, `-` and `*` on `f32` and nothing else — no `exp`, no
+//! The simulation is `+`, `-` and `*` on `f32` and nothing else: no `exp`, no
 //! `powf`, no library transcendentals, whose results are permitted to differ by
 //! an ulp between platforms. Those four operations are exactly rounded by
 //! IEEE 754 and Rust does not contract them into fused multiply-adds, so the
@@ -38,7 +38,7 @@
 //! Parameters, never the field. A 192-cell grid is 36,864 floats, which is
 //! larger than every other part of a document put together and would go stale
 //! the moment anything about it changed. The field is derived when the ground
-//! is laid over a tile — see [`Ground::laid_over`](crate::Ground::laid_over).
+//! is laid over a tile; see [`Ground::laid_over`](crate::Ground::laid_over).
 
 use rand_chacha::rand_core::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -75,7 +75,7 @@ pub const MOST_STEPS: u32 = 20_000;
 /// A named region of the Gray–Scott parameter space.
 ///
 /// The map from `(feed, kill)` to what the fabric looks like is famously
-/// unfriendly — the interesting band is a sliver a few thousandths wide, and
+/// unfriendly. The interesting band is a sliver a few thousandths wide, and
 /// either side of it the field dies out to flat or floods to solid. These are
 /// coordinates known to sit inside it, so that choosing a look does not mean
 /// hunting for one.
@@ -193,7 +193,7 @@ impl Texture {
     /// Answered from the parameters without simulating, because the caller
     /// asking is usually counting colours for a quote and should not pay for a
     /// field to find out. A level that ends up covering none of the tile is
-    /// still counted here — see [`SlotField::share_of`] for what actually
+    /// still counted here; see [`SlotField::share_of`] for what actually
     /// landed.
     #[must_use]
     pub fn slots_used(&self) -> Vec<u8> {
@@ -241,7 +241,7 @@ impl Texture {
 /// classifying per cell puts an eighteen-pixel staircase along every curve. A
 /// sample taken *between* cells and then cut into levels gives an edge that
 /// stays smooth at any output resolution, and the cell count goes back to
-/// meaning what it should — how large the shapes are, not how ragged.
+/// meaning what it should, which is how large the shapes are, not how ragged.
 ///
 /// Normalised to 0..1 on the way in, so the thresholds are fixed and a caller
 /// cannot re-derive them differently somewhere else.
@@ -370,7 +370,7 @@ fn run(
 
                 // The nine-point Laplacian. Orthogonal neighbours count for
                 // 0.2 and diagonal ones for 0.05, which is the standard
-                // isotropic weighting — a five-point stencil grows visibly
+                // isotropic weighting. A five-point stencil grows visibly
                 // square spots, and on textile the eye reads that as a fault.
                 let lap = |f: &[f32]| {
                     0.2 * (f[at(up, col)] + f[at(down, col)] + f[at(row, left)] + f[at(row, right)])
@@ -506,7 +506,7 @@ mod tests {
         // The property the whole thing rests on. If the Laplacian clamped or
         // reflected at the edges instead of wrapping, a patch near a boundary
         // would behave differently from the same patch in the middle, and the
-        // tile would not meet itself — which on fabric is a visible line down
+        // tile would not meet itself, which on fabric is a visible line down
         // every repeat, found after printing.
         //
         // Stated as an equality rather than an inspection: the same patch,
@@ -566,7 +566,7 @@ mod tests {
     fn the_field_is_identical_on_every_platform() {
         // Pinned, like a golden image, and for the same reason: cross-platform
         // determinism is a claim about machines this one is not, so it has to
-        // be checked somewhere else — CI is Linux, development is macOS.
+        // be checked somewhere else: CI is Linux, development is macOS.
         //
         // Regenerate only when the model itself is meant to change, and review
         // what moved. Never to make a failing test pass.
@@ -597,7 +597,7 @@ mod tests {
         // Two claims in one place because they fail together. A mistyped rate
         // either duplicates another preset or falls outside the narrow band
         // where Gray-Scott does anything at all, and outside it the field
-        // flattens and quantises to bare fabric — a ground that silently is
+        // flattens and quantises to bare fabric, a ground that silently is
         // not there.
         let mut seen: Vec<(Growth, f32)> = Vec::new();
         for growth in Growth::all() {
@@ -735,7 +735,7 @@ mod tests {
     fn the_interpolation_wraps_too() {
         // The one place a seam would be easiest to see. The last half-cell of
         // the tile blends with the *first* cell, not with a clamped copy of
-        // its own edge — so a sample just inside the right edge and the same
+        // its own edge, so a sample just inside the right edge and the same
         // sample just inside the left edge of the next tile agree.
         let field = quantise(&[1.0, 0.0, 0.0, 0.0], 4, 1, &[GROUND_SLOT, 1, 2]);
         let tile = 400.0;

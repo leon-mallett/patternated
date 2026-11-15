@@ -22,7 +22,7 @@ pub struct Pattern {
     /// A generated layer between the fabric and the motifs: stripes, a check,
     /// a tartan, a texture.
     ///
-    /// Optional because most prints are motifs alone — and a pattern may be a
+    /// Optional because most prints are motifs alone, and a pattern may be a
     /// ground with no motifs at all, which is what a tartan is.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ground: Option<crate::Ground>,
@@ -37,7 +37,7 @@ impl Pattern {
     /// The same design at a different physical size.
     ///
     /// Not a zoom. A 120 mm repeat and a 400 mm repeat are different designs,
-    /// which is the first invariant in this engine — and the reason this
+    /// which is the first invariant in this engine. The reason this
     /// exists is the other half of that thought: the *same* design worn by a
     /// three-year-old and by an adult is also two different repeats, and
     /// arriving at the second by hand means redoing every length.
@@ -45,7 +45,7 @@ impl Pattern {
     /// Everything in millimetres moves together: the tile, the lattice that
     /// steps it, where each motif sits, and whatever the ground measures in
     /// lengths. Motif sizes are not here, because a motif belongs to a library
-    /// rather than to one pattern — see `Document::scaled_by`.
+    /// rather than to one pattern; see `Document::scaled_by`.
     ///
     /// A placement's own `scale` is left alone: it is a multiplier on a motif's
     /// natural size, so it follows once that size moves, and scaling both
@@ -76,7 +76,7 @@ impl Pattern {
     /// printed.
     ///
     /// Validation is separate from construction so the type stays plain data,
-    /// and is called at the edges — deserialisation and render — rather than
+    /// and is called at the edges, at deserialisation and render, rather than
     /// being enforced by a constructor nobody can bypass.
     pub fn validate(&self) -> Result<(), PatternError> {
         if self.tile_size_mm.x <= 0.0 || self.tile_size_mm.y <= 0.0 {
@@ -152,7 +152,7 @@ impl Pattern {
 /// Colours a pattern resolves to: the ground, plus every slot its motifs
 /// actually use.
 ///
-/// This is a quotable cost rather than a statistic — screen printing charges
+/// This is a quotable cost rather than a statistic: screen printing charges
 /// per colour and stops being available past a certain count.
 ///
 /// It needs the motifs because, since ingest, colour lives in a motif's pixels

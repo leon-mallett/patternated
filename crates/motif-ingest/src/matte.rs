@@ -5,8 +5,8 @@ use crate::source::SourceImage;
 /// How to separate a motif from its background.
 ///
 /// No background-removal model here, deliberately. The spec notes that hand
-/// illustrations on white paper can usually skip one — a luminance threshold
-/// with a feathered edge is faster and more faithful — and generated motifs are
+/// illustrations on white paper can usually skip one, since a luminance threshold
+/// with a feathered edge is faster and more faithful, and generated motifs are
 /// asked for on a flat background for the same reason. A model of the BiRefNet
 /// or SAM class becomes worth its weight when real artwork arrives that these
 /// cannot handle, and it would slot in as another variant here.
@@ -32,7 +32,7 @@ pub enum MatteMethod {
     /// that has met a camera or a scanner.
     LuminanceThreshold {
         opaque_below: f32,
-        /// Width of the fade, in luminance. Zero gives a hard, aliased edge —
+        /// Width of the fade, in luminance. Zero gives a hard, aliased edge,
         /// which is what a naive threshold produces, and why this is a
         /// parameter rather than a constant.
         feather: f32,
@@ -54,7 +54,7 @@ pub enum MatteMethod {
     /// cut-off and keeps it.
     ///
     /// It also rescues the opposite case: a pale subject on pale paper. An
-    /// elderflower measured 0.917 against paper at 0.971 — an absolute
+    /// elderflower measured 0.917 against paper at 0.971, so an absolute
     /// threshold anywhere near the paper removes the flower too, while a
     /// relative one keeps anything meaningfully darker than its surroundings.
     PaperRelative {
@@ -105,7 +105,7 @@ fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
 /// Choose how to cut a subject out, from the image itself.
 ///
 /// Artwork that already carries alpha has been cut out by whoever exported it,
-/// and measuring paper that is not there produces nonsense — a transparent PNG
+/// and measuring paper that is not there produces nonsense. A transparent PNG
 /// has no paper, so the brightest thing in frame is the subject and the whole
 /// image gets removed.
 ///
@@ -132,7 +132,7 @@ const ILLUMINATION_BLOCKS: usize = 20;
 
 /// Estimate how bright the paper is across the image, as a plane.
 ///
-/// Per block, a high percentile of luminance — high because paper is the
+/// Per block, a high percentile of luminance, high because paper is the
 /// brightest thing present and a mean would be dragged down by ink. Then a
 /// plane is fitted through those blocks, and refitted three times, each round
 /// dropping blocks that sit well below the current fit.
@@ -141,8 +141,8 @@ const ILLUMINATION_BLOCKS: usize = 20;
 /// failures pushed it here, and both are worth keeping written down because
 /// each looked like the obvious approach:
 ///
-/// Dilating the block measurements — taking a local maximum so that paper
-/// level reaches blocks containing no paper — over-estimates on a gradient. A
+/// Dilating the block measurements, by taking a local maximum so that paper
+/// level reaches blocks containing no paper, over-estimates on a gradient. A
 /// shadowed corner of a sheet inherits the brightness of its sunnier
 /// neighbours, decides its own paper is too dark to be paper, and keeps the
 /// whole corner as motif.
@@ -154,7 +154,7 @@ const ILLUMINATION_BLOCKS: usize = 20;
 /// Fitting a global surface to the blocks that look like paper solves both: it
 /// extrapolates *through* the motif rather than around it, and it follows a
 /// one-sided light because that is what a plane is for. Refitting is what makes
-/// it robust — the first fit is dragged down by the ink, and dropping whatever
+/// it robust: the first fit is dragged down by the ink, and dropping whatever
 /// falls well below it leaves the paper.
 fn illumination_field(image: &SourceImage) -> Paper {
     let n = ILLUMINATION_BLOCKS;
@@ -378,7 +378,7 @@ pub fn matte(image: &SourceImage, method: MatteMethod) -> SourceImage {
 /// A cheap check on whether matting worked, and the one signal available for
 /// the case it cannot fix. The illumination estimate is a plane, which follows
 /// a sheet lit unevenly from one side but cannot represent a hard-edged cast
-/// shadow — an object shadow falling across the paper, say, or a phone held
+/// shadow, such as an object shadow falling across the paper, or a phone held
 /// between the lamp and the page. Where that happens the shadowed region
 /// survives as motif, and the giveaway is that the background reaches the edge
 /// of the frame.
@@ -505,8 +505,8 @@ mod tests {
         // honest answer is nothing, so everything reads as background.
         //
         // This is why artwork already cut out should be ingested with
-        // ExistingAlpha. The pipeline fails loudly rather than quietly — trim
-        // returns nothing and the library refuses the motif — which is the
+        // ExistingAlpha. The pipeline fails loudly rather than quietly, in that trim
+        // returns nothing and the library refuses the motif, which is the
         // right outcome, but the reason is not obvious from the error.
         let uniform = SourceImage::filled(8, 8, RED);
         let out = matte(&uniform, MatteMethod::default());
