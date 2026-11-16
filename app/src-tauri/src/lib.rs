@@ -2120,8 +2120,9 @@ mod tests {
         // the thing the milestone exists to remove.
         let files = artwork();
         if !files.iter().all(|f| f.exists()) {
-            // The generated artwork is not committed; skip rather than fail on
-            // a machine that has not produced it.
+            // The generated artwork is not committed, so a fresh clone cannot
+            // run this. Say so: a silent skip still reports ok.
+            eprintln!("SKIP: generated artwork is not committed; see examples/generated-motifs/.");
             return;
         }
         let mut document =
@@ -2251,8 +2252,13 @@ mod tests {
         // raised it expecting more motifs on the fabric and the number did not
         // move, because it never can. Coverage decides how many; this decides
         // which.
+        let files = artwork();
+        if !files.iter().all(|f| f.exists()) {
+            eprintln!("SKIP: generated artwork is not committed; see examples/generated-motifs/.");
+            return;
+        }
         let mut s = session();
-        let document = pattern_doc::new_from_images(&artwork(), 60.0, DEFAULT_COLOURS)
+        let document = pattern_doc::new_from_images(&files, 60.0, DEFAULT_COLOURS)
             .expect("two motifs should ingest");
         s.document = document;
         s.bank = s.document.load_motifs(&s.path).expect("motifs");

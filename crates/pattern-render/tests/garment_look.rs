@@ -16,9 +16,12 @@ use support::{bank, palette, scattered_pattern, TILE};
 #[test]
 #[ignore = "writes pictures to judge the shapes by; run with --ignored"]
 fn write_every_garment() {
-    let out = std::path::PathBuf::from(
-        "/tmp/claude-501/-Users-leon-Projects-pattern-engine/6413fcf8-733c-4904-9aa3-5f20aa7e6ec3/scratchpad",
-    );
+    // CARGO_TARGET_TMPDIR is a real directory Cargo makes per package for
+    // integration tests, so this works on anyone's machine and leaves nothing
+    // outside target/. The path is printed because a test that writes pictures
+    // for a person to look at is useless if they cannot find them.
+    let out = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
+    eprintln!("writing garment pictures to {}", out.display());
     let bank: MotifBank = bank();
     let pattern = Pattern {
         tile_size_mm: TILE,

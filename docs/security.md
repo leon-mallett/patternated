@@ -30,8 +30,8 @@ with a named error rather than producing a pattern nobody asked for.
 
 ## Supply chain
 
-The baseline in `~/Projects/SECURITY.md` applies; this project has no
-`SECURITY.md` of its own and needs none yet.
+A supply-chain baseline applies to this project from outside the repository;
+it has no `SECURITY.md` of its own and needs none yet.
 
 The operative rules: name the exact package and version before adding one, treat
 anything published within 72 hours as requiring explicit confirmation, install

@@ -59,7 +59,12 @@ fn tracked(seed: u64, strength: f32, angle_deg: f32) -> Vec<Placement> {
 #[test]
 #[ignore = "writes pictures to judge the corpus by; run with --ignored"]
 fn write_the_corpus() {
-    let out = std::path::PathBuf::from("/tmp/claude-501/-Users-leon-Projects-pattern-engine/6413fcf8-733c-4904-9aa3-5f20aa7e6ec3/scratchpad");
+    // CARGO_TARGET_TMPDIR is a real directory Cargo makes per package for
+    // integration tests, so this works on anyone's machine and leaves nothing
+    // outside target/. The path is printed because a test that writes pictures
+    // for a person to look at is useless if they cannot find them.
+    let out = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
+    eprintln!("writing corpus pictures to {}", out.display());
     let bank: MotifBank = bank();
     for (name, placements) in [
         ("00-clean", clean(7)),
@@ -153,7 +158,12 @@ fn render_the_clean_patterns_the_measure_ranks_highest_and_lowest() {
     // If they look the same, the measure is ranking noise and no threshold on
     // it means anything, which is exactly what would have saved the previous
     // two attempts a great deal of work.
-    let out = PathBuf::from("/tmp/claude-501/-Users-leon-Projects-pattern-engine/6413fcf8-733c-4904-9aa3-5f20aa7e6ec3/scratchpad");
+    // CARGO_TARGET_TMPDIR is a real directory Cargo makes per package for
+    // integration tests, so this works on anyone's machine and leaves nothing
+    // outside target/. The path is printed because a test that writes pictures
+    // for a person to look at is useless if they cannot find them.
+    let out = PathBuf::from(env!("CARGO_TARGET_TMPDIR"));
+    eprintln!("writing ranked pictures to {}", out.display());
     let lattice = Lattice::half_drop(TILE);
 
     let mut scored: Vec<(f32, u64)> = (0..300u64)

@@ -5,6 +5,11 @@ something usable, and nothing here requires the milestone after it. An item
 becomes a [Features](./features.md) entry when it is built, and disappears from
 this page.
 
+*A few entries below cite notes at `~/Projects/…`. Those are Captivated's own
+operational notes, not part of this repository and not public. They are left in
+because the reason for a decision is more useful than a tidy page, but nothing
+here depends on reading them.*
+
 **M1 to M5 are complete.** Their contents are in [Features](./features.md).
 
 **The spec directs a stop and reassessment here**, on the grounds that a working

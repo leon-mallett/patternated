@@ -49,7 +49,8 @@ resvg = { version = "0.48.1", default-features = false }
 tiny-skia-path = "0.12"
 
 [profile.dev]
-# Portfolio-wide fix for target/ ballooning; see ~/Projects/TAURI_BUILD_ARTIFACTS.md
+# Keeps target/ from ballooning: full debug info on a Tauri dependency tree
+# runs to tens of gigabytes, and line tables are enough to read a backtrace.
 debug = "line-tables-only"
 
 # The engine crates are optimised even in a development build.

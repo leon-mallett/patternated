@@ -72,9 +72,10 @@ from Cargo, and publishing crates commits to an API this project has
 deliberately kept fluid.
 
 1. A licence, applied to `LICENSE`, every `Cargo.toml` and the headers.
-2. Signing and notarising for macOS, per `~/Projects/MACOS_SIGNING_NOTARIZATION.md`.
-3. Self-update on R2, per `~/Projects/TAURI_AUTO_UPDATER.md`.
-4. A landing page on a custom domain, per `~/Projects/CLOUDFLARE_WORKERS_DOMAINS.md`.
+2. Signing and notarising for macOS.
+3. Self-update hosted on Cloudflare R2.
+4. A landing page on a custom domain, never a `*.pages.dev` as the canonical
+   address.
    Never a `*.pages.dev` as the canonical URL.
 5. `docs/user-guide.md`, which does not exist. Everything written so far is for
    whoever builds this, not whoever uses it.
@@ -88,7 +89,8 @@ shipped window is tested by hand rather than automatically.
 ## Dreamwoven is the business
 
 Everything commercial lives here. The shape of it, and the order, is in
-[Dreamwoven's own roadmap](../../Dreamwoven/docs/roadmap.md).
+Dreamwoven's own roadmap, which is in a private repository and not linkable
+from here.
 
 One gate dominates the rest and it is not an engineering one. **What children
 like is largely licensed characters**, the intake is now free text, and nothing
