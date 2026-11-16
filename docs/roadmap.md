@@ -122,17 +122,32 @@ trying, not by commissioning.
 
 ## Somewhere to download it from
 
-The engine is AGPL and nobody can get it. The repository is private, there are
-no tags and no releases, so "open source" is currently a licence file and an
-intention. Four things stand between here and a download page that is not
-embarrassing, and only the last is the website.
+The engine is AGPL and, until 2026-11-16, nobody could get it. The repository
+is public now; there are still no tags and no releases, so a download page is
+three gates away rather than four. Only the last is the website.
 
-**1 · The repository goes public, and pull requests close the same day.**
+**1 · The repository goes public, and pull requests close the same day. Done,
+2026-11-16**, at
+[github.com/leon-mallett/patternated](https://github.com/leon-mallett/patternated).
 Not sequential steps but the same step. Sole ownership is what lets Dreamwoven
 statically link an AGPL engine, and the first merged patch ends that
-permanently. [`CONTRIBUTING.md`](../CONTRIBUTING.md) already says issues yes,
-code no; GitHub needs to enforce it rather than the file asking politely. See
-[Licensing](./licensing.md#the-thing-that-breaks-it).
+permanently. See [Licensing](./licensing.md#the-thing-that-breaks-it).
+
+**This gate expected GitHub to enforce it. GitHub cannot.** There is no setting
+that refuses pull requests: anyone who can see a public repository can fork it
+and open one, and a ruleset governs who may *push*, not who may *ask*. So the
+mechanism is the file asking politely, and somebody closing promptly, and that
+is the whole of it. What was added instead is a pull request template, which
+puts the refusal and the reasoning in front of a contributor at the moment they
+open one rather than after they have waited for a review. The closing is still
+a commitment a person keeps.
+
+Also done at the same time, because a public repository is judged on them:
+the repository was renamed from `pattern-engine` to match the product, a
+[`SECURITY.md`](../SECURITY.md) now gives a private reporting route, GitHub's
+private vulnerability reporting is switched on, and a pre-publication audit
+fixed three things a stranger would have hit on day one. Those are in the
+commit log around `e77c7f1`.
 
 **2 · Signed builds, or the download does more harm than no download.**
 An unsigned `.dmg` meets Gatekeeper on every machine it lands on, and an
