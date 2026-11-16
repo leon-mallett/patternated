@@ -30,8 +30,11 @@ with a named error rather than producing a pattern nobody asked for.
 
 ## Supply chain
 
-A supply-chain baseline applies to this project from outside the repository;
-it has no `SECURITY.md` of its own and needs none yet.
+A supply-chain baseline applies to this project from outside the repository.
+The repository's own [`SECURITY.md`](../SECURITY.md) is deliberately narrower:
+it tells an outside reporter where to send a vulnerability and says what the
+attack surface actually is. It does not restate the practice below and does not
+replace it.
 
 The operative rules: name the exact package and version before adding one, treat
 anything published within 72 hours as requiring explicit confirmation, install
