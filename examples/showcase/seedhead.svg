@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40mm" height="40mm" viewBox="0 0 100 100">
+<path d="M 50 50 L 90.00 50.00" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="90.00" cy="50.00" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 86.96 65.31" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="86.96" cy="65.31" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 78.28 78.28" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="78.28" cy="78.28" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 65.31 86.96" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="65.31" cy="86.96" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 50.00 90.00" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="50.00" cy="90.00" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 34.69 86.96" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="34.69" cy="86.96" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 21.72 78.28" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="21.72" cy="78.28" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 13.04 65.31" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="13.04" cy="65.31" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 10.00 50.00" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="10.00" cy="50.00" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 13.04 34.69" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="13.04" cy="34.69" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 21.72 21.72" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="21.72" cy="21.72" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 34.69 13.04" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="34.69" cy="13.04" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 50.00 10.00" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="50.00" cy="10.00" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 65.31 13.04" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="65.31" cy="13.04" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 78.28 21.72" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="78.28" cy="21.72" r="4.6" fill="#c68b3c"/>
+<path d="M 50 50 L 86.96 34.69" stroke="#141c3a" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="86.96" cy="34.69" r="4.6" fill="#c68b3c"/>
+<circle cx="50" cy="50" r="7" fill="#141c3a"/>
+</svg>

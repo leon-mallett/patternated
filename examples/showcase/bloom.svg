@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="46mm" height="46mm" viewBox="0 0 100 100">
+<path d="M 0 0 Q 15.3 -13.0 34 0 Q 15.3 13.0 0 0 Z" fill="#b4512f" transform="translate(50,50) rotate(0)"/>
+<path d="M 0 0 Q 15.3 -13.0 34 0 Q 15.3 13.0 0 0 Z" fill="#b4512f" transform="translate(50,50) rotate(45)"/>
+<path d="M 0 0 Q 15.3 -13.0 34 0 Q 15.3 13.0 0 0 Z" fill="#b4512f" transform="translate(50,50) rotate(90)"/>
+<path d="M 0 0 Q 15.3 -13.0 34 0 Q 15.3 13.0 0 0 Z" fill="#b4512f" transform="translate(50,50) rotate(135)"/>
+<path d="M 0 0 Q 15.3 -13.0 34 0 Q 15.3 13.0 0 0 Z" fill="#b4512f" transform="translate(50,50) rotate(180)"/>
+<path d="M 0 0 Q 15.3 -13.0 34 0 Q 15.3 13.0 0 0 Z" fill="#b4512f" transform="translate(50,50) rotate(225)"/>
+<path d="M 0 0 Q 15.3 -13.0 34 0 Q 15.3 13.0 0 0 Z" fill="#b4512f" transform="translate(50,50) rotate(270)"/>
+<path d="M 0 0 Q 15.3 -13.0 34 0 Q 15.3 13.0 0 0 Z" fill="#b4512f" transform="translate(50,50) rotate(315)"/>
+<path d="M 0 0 Q 7.956 -6.5 17.68 0 Q 7.956 6.5 0 0 Z" fill="#e8c4b0" transform="translate(50,50) rotate(22.5)"/>
+<path d="M 0 0 Q 7.956 -6.5 17.68 0 Q 7.956 6.5 0 0 Z" fill="#e8c4b0" transform="translate(50,50) rotate(67.5)"/>
+<path d="M 0 0 Q 7.956 -6.5 17.68 0 Q 7.956 6.5 0 0 Z" fill="#e8c4b0" transform="translate(50,50) rotate(112.5)"/>
+<path d="M 0 0 Q 7.956 -6.5 17.68 0 Q 7.956 6.5 0 0 Z" fill="#e8c4b0" transform="translate(50,50) rotate(157.5)"/>
+<path d="M 0 0 Q 7.956 -6.5 17.68 0 Q 7.956 6.5 0 0 Z" fill="#e8c4b0" transform="translate(50,50) rotate(202.5)"/>
+<path d="M 0 0 Q 7.956 -6.5 17.68 0 Q 7.956 6.5 0 0 Z" fill="#e8c4b0" transform="translate(50,50) rotate(247.5)"/>
+<path d="M 0 0 Q 7.956 -6.5 17.68 0 Q 7.956 6.5 0 0 Z" fill="#e8c4b0" transform="translate(50,50) rotate(292.5)"/>
+<path d="M 0 0 Q 7.956 -6.5 17.68 0 Q 7.956 6.5 0 0 Z" fill="#e8c4b0" transform="translate(50,50) rotate(337.5)"/>
+<circle cx="50" cy="50" r="13" fill="#c68b3c"/>
+<circle cx="50" cy="50" r="6" fill="#f2e3c6"/>
+</svg>

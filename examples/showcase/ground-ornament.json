@@ -1,0 +1,126 @@
+{
+  "motifs": [
+    {
+      "id": "berry",
+      "file": "berry.svg",
+      "natural_size_mm": [
+        42.0,
+        60.0
+      ]
+    },
+    {
+      "id": "bud",
+      "file": "bud.svg",
+      "natural_size_mm": [
+        22.0,
+        38.0
+      ]
+    }
+  ],
+  "scatter": {
+    "density": 0.17,
+    "prevent_overlap": true,
+    "mirror": "none",
+    "on_axis_share": 0.0,
+    "rotation_jitter_deg": 14.0,
+    "scale_range": [
+      0.9,
+      1.1
+    ],
+    "mix": [
+      {
+        "motif_id": "berry",
+        "weight": 1.6
+      },
+      {
+        "motif_id": "bud",
+        "weight": 1.0
+      }
+    ],
+    "seed": 17
+  },
+  "pattern": {
+    "tile_size_mm": [
+      300.0,
+      225.0
+    ],
+    "lattice": {
+      "u": [
+        300.0,
+        0.0
+      ],
+      "v": [
+        0.0,
+        225.0
+      ]
+    },
+    "placements": [],
+    "palette": {
+      "colors": [
+        {
+          "r": 250,
+          "g": 246,
+          "b": 240
+        },
+        {
+          "r": 20,
+          "g": 28,
+          "b": 58
+        },
+        {
+          "r": 198,
+          "g": 139,
+          "b": 60
+        },
+        {
+          "r": 143,
+          "g": 169,
+          "b": 139
+        },
+        {
+          "r": 63,
+          "g": 107,
+          "b": 82
+        },
+        {
+          "r": 180,
+          "g": 81,
+          "b": 47
+        },
+        {
+          "r": 232,
+          "g": 196,
+          "b": 176
+        },
+        {
+          "r": 242,
+          "g": 227,
+          "b": 198
+        },
+        {
+          "r": 91,
+          "g": 127,
+          "b": 166
+        },
+        {
+          "r": 42,
+          "g": 51,
+          "b": 88
+        }
+      ]
+    },
+    "seed": 17,
+    "ground": {
+      "kind": "ornament",
+      "figure": "scale",
+      "cell_mm": 56.0,
+      "depth": 1,
+      "stroke_mm": 4.0,
+      "variation": 0.0,
+      "seed": 3,
+      "levels": [
+        8
+      ]
+    }
+  }
+}
