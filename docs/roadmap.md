@@ -124,7 +124,8 @@ trying, not by commissioning.
 
 The engine is AGPL and, until 2026-11-16, nobody could get it. The repository
 is public now; there are still no tags and no releases, so a download page is
-three gates away rather than four. Only the last is the website.
+two gates away. The website is built but not deployed, and it went first
+because it was the only gate that waited on nobody.
 
 **1 · The repository goes public, and pull requests close the same day. Done,
 2026-11-16**, at
@@ -163,24 +164,45 @@ releases: one bucket per app, Captivated-owned domain, no egress fees. The
 signed self-updater (`~/Projects/TAURI_AUTO_UPDATER.md`) can come later; it
 reads from the same place, so nothing has to move.
 
-**4 · The site.** `patternated.com`, registered 2026-11-14 through Cloudflare
-Registrar, with `patternated.app` held alongside it. Astro on Cloudflare Pages,
-which is the house archetype.
+**4 · The site. Built 2026-11-16, out of order, and not yet deployed.**
+`patternated.com`, registered 2026-11-14 through Cloudflare Registrar, with
+`patternated.app` held alongside it. Astro on Cloudflare Pages, which is the
+house archetype. The repository is
+[leon-mallett/patternated-website](https://github.com/leon-mallett/patternated-website),
+private, and its README is the live statement of what the site still owes.
 
 It earns its existence for one reason: **the output is visual and a README
-cannot tile.** A page can show a repeat actually repeating, at true scale, next
-to the motifs it was built from, which is the entire pitch and is unviewable
-on a code host. Everything else the site needs is small: what it is, the three
-commands that build it, the installers, and an unmissable line saying issues
-are welcome and patches are not. Say that on the page and not only in the
-repository, or it gets discovered one refused pull request at a time.
+cannot tile.** Every band on the page is one image, repeated by the reader's
+browser with `background-repeat`, so a seam would show a dozen times over on
+one screen and no CSS would hide it. The page cannot claim a seamlessness the
+engine does not have, which is a stronger thing than a screenshot.
+
+**This gate said the site comes last, and it did not.** Gates 2 and 3 need the
+Captivated Apple account and the Azure release VM, so they wait on a person;
+the site needed neither. The domain was also registered and serving nothing,
+and a domain with no records accrues age without accruing reputation. So the
+page was built without the part that is not ready: it says in as many words
+that there is nothing to download and why, and the download section lands with
+gate 3. A download page with no download would have been worse than no page.
+
+What it does carry: what the engine is, the three hard parts that do not show
+up in a preview, three pictures that are **the same document with one field
+changed** (`row_offset: 0.5` makes a brick, `col_offset: 0.5` makes a
+half-drop), a build command a stranger can actually run against artwork in
+this repository, and the refusal of patches with its reason. That last one
+belongs on the page and not only here, or it gets discovered one refused pull
+request at a time.
+
+**What remains is a Cloudflare Pages project**, which needs the dashboard OAuth
+handshake, and the two custom domains. Until then the security headers have
+never been served by a real edge.
 
 **One piece of timing.** The newly-registered-domain flag is purely
 time-based, roughly two to four weeks, cleared by nothing but waiting, and it
 is what sinkholed `captivated.online` on Leon's own home network. The clock
-started 2026-11-14, so it has run out around mid-December, well before any of
-the three items above are done. Nothing to schedule around. See
-`~/Projects/NEW_DOMAIN_REPUTATION.md`.
+started 2026-11-14 and runs out around mid-December. Having something served
+before then is the reason the site went first.
+See `~/Projects/NEW_DOMAIN_REPUTATION.md`.
 
 ## Carried debts
 
