@@ -35,6 +35,7 @@ fn clean(lattice: &Lattice, density: f32, seed: u64) -> Vec<Placement> {
             prevent_overlap: true,
             mirror: Mirror::None,
             on_axis_share: 0.0,
+            class_separation: 0.0,
             seed,
         },
         TILE,

@@ -478,6 +478,7 @@ fn solve(assets: &[Asset], sizes: &[f32], seed: u64, density: f32) -> (Pattern, 
         prevent_overlap: true,
         mirror: Mirror::None,
         on_axis_share: 0.0,
+        class_separation: 0.0,
         seed,
     };
     // Reseeding rather than a single solve, which is what both a buyer's

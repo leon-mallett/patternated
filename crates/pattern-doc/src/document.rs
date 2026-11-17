@@ -150,6 +150,13 @@ pub struct ScatterSpec {
     /// [`ScatterParams::on_axis_share`](pattern_core::ScatterParams).
     #[serde(default)]
     pub on_axis_share: f32,
+    /// How far two placements of the same motif are kept apart, on top of
+    /// the spacing the density already asks of any two. Zero, the default,
+    /// is what this sampler has always done, so a document written before it
+    /// existed scatters identically. See
+    /// [`ScatterParams::class_separation`](pattern_core::ScatterParams).
+    #[serde(default)]
+    pub class_separation: f32,
     #[serde(default)]
     pub rotation_jitter_deg: f32,
     #[serde(default = "unit_range")]
@@ -545,6 +552,7 @@ impl Document {
             prevent_overlap: spec.prevent_overlap,
             mirror: spec.mirror,
             on_axis_share: spec.on_axis_share,
+            class_separation: spec.class_separation,
             seed: spec.seed,
         };
         self.pattern.seed = spec.seed;
@@ -1223,6 +1231,7 @@ pub fn new_from_images_noting(
             prevent_overlap: true,
             mirror: Mirror::None,
             on_axis_share: 0.0,
+            class_separation: 0.0,
             rotation_jitter_deg: 20.0,
             scale_range: (0.85, 1.15),
             mix,

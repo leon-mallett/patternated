@@ -271,6 +271,7 @@ pub fn scattered_pattern(lattice: Lattice, seed: u64, density: f32) -> Pattern {
         prevent_overlap: false,
         mirror: Mirror::None,
         on_axis_share: 0.0,
+        class_separation: 0.0,
         seed,
     };
     Pattern {
@@ -324,6 +325,7 @@ pub fn mirrored_pattern_with(
         prevent_overlap: true,
         mirror,
         on_axis_share,
+        class_separation: 0.0,
         seed,
     };
     let lattice = Lattice::block(TILE);

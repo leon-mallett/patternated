@@ -662,6 +662,12 @@ fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
                 prevent_overlap: params.prevent_overlap,
                 mirror,
                 on_axis_share: params.on_axis_share.clamp(0.0, 1.0),
+                // No control for this in the shell yet, so a scatter the app
+                // creates gets the sampler's long-standing behaviour. The
+                // update path below mutates named fields and leaves this one
+                // alone, so a document that arrives carrying a value keeps it
+                // and is not quietly reset by moving a slider.
+                class_separation: 0.0,
                 rotation_jitter_deg: params.rotation_jitter_deg,
                 scale_range: (params.scale_range[0], params.scale_range[1]),
                 mix,

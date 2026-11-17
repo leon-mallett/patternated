@@ -11,6 +11,11 @@ The three grid documents must be identical apart from a single field, and the
 two colourway documents identical apart from the palette. If that stops being
 true the pictures still render and the captions start lying.
 
+Every scatter here sets `class_separation: 1.0`. Without it the *set* comes
+out as blue noise while each individual motif is close to Poisson, so the eye,
+which groups by shape and colour rather than by set, sees clusters and lines
+running through them. See `ScatterParams::class_separation`.
+
 The first half is a written style brief, held as code so the five read as one hand:
 
   Flat colour only. No gradients, no shading, no texture, no outline: shapes
@@ -188,7 +193,8 @@ doc("night-strewn.json", {
                      bloom=0.8, sprig=0.78, seedhead=0.8, bud=0.9, berry=0.8),
     "design_palette": palette(DAY),
     "scatter": {
-        "density": 0.52, "prevent_overlap": True, "mirror": "none",
+        "density": 0.72, "prevent_overlap": True, "mirror": "none",
+        "class_separation": 1.0,
         "on_axis_share": 0.0, "rotation_jitter_deg": 26.0,
         "scale_range": [0.85, 1.15],
         "mix": mix(("bloom", 2.0), ("sprig", 1.6), ("seedhead", 1.3),
@@ -228,7 +234,8 @@ for name, field, value in [("grid-block.json", None, None),
 COLOURWAY = {
     "motifs": motifs("bloom", "sprig", "berry", "bud"),
     "scatter": {
-        "density": 0.26, "prevent_overlap": True, "mirror": "none",
+        "density": 0.46, "prevent_overlap": True, "mirror": "none",
+        "class_separation": 1.0,
         "on_axis_share": 0.0, "rotation_jitter_deg": 20.0,
         "scale_range": [0.9, 1.1],
         "mix": mix(("bloom", 2.0), ("sprig", 1.5), ("berry", 1.5), ("bud", 2.0)),
@@ -284,7 +291,8 @@ CROSSINGS = _cross([
 doc("ground-tartan.json", {
     "motifs": motifs("bud", "berry", bud=0.8, berry=0.75),
     "scatter": {
-        "density": 0.11, "prevent_overlap": True, "mirror": "none",
+        "density": 0.15, "prevent_overlap": True, "mirror": "none",
+        "class_separation": 1.0,
         "on_axis_share": 0.0, "rotation_jitter_deg": 0.0,
         "scale_range": [1.0, 1.0],
         "mix": mix(("bud", 2.0), ("berry", 1.0)), "seed": 9,
@@ -304,7 +312,8 @@ doc("ground-tartan.json", {
 doc("ground-texture.json", {
     "motifs": motifs("seedhead"),
     "scatter": {
-        "density": 0.10, "prevent_overlap": True, "mirror": "none",
+        "density": 0.14, "prevent_overlap": True, "mirror": "none",
+        "class_separation": 1.0,
         "on_axis_share": 0.0, "rotation_jitter_deg": 0.0,
         "scale_range": [1.0, 1.0], "mix": mix(("seedhead", 1.0)), "seed": 31,
     },
@@ -319,7 +328,8 @@ doc("ground-texture.json", {
 doc("ground-ornament.json", {
     "motifs": motifs("berry", "bud"),
     "scatter": {
-        "density": 0.17, "prevent_overlap": True, "mirror": "none",
+        "density": 0.23, "prevent_overlap": True, "mirror": "none",
+        "class_separation": 1.0,
         "on_axis_share": 0.0, "rotation_jitter_deg": 14.0,
         "scale_range": [0.9, 1.1],
         "mix": mix(("berry", 1.6), ("bud", 1.0)), "seed": 17,
@@ -338,7 +348,8 @@ doc("ditsy.json", {
     "motifs": motifs("sprig", "bud", "seedhead",
                      sprig=0.42, bud=0.6, seedhead=0.45),
     "scatter": {
-        "density": 0.30, "prevent_overlap": True, "mirror": "none",
+        "density": 0.42, "prevent_overlap": True, "mirror": "none",
+        "class_separation": 1.0,
         "on_axis_share": 0.0, "rotation_jitter_deg": 24.0,
         "scale_range": [0.85, 1.15],
         "mix": mix(("sprig", 1.4), ("bud", 2.4), ("seedhead", 1.0)),
@@ -355,7 +366,13 @@ doc("ditsy.json", {
 doc("damask.json", {
     "motifs": motifs("bloom", "leaf", "sprig", "berry", "bud"),
     "scatter": {
-        "density": 0.70, "prevent_overlap": True, "mirror": "side-to-side",
+        "density": 0.80, "prevent_overlap": True, "mirror": "side-to-side",
+        # Lower than everything else here on purpose. A mirror is formal
+        # because it is symmetrical, and holding each motif away from its own
+        # kind pulls against that; at full strength the damask stopped
+        # reading as one. The cell is half the tile as well, so there is half
+        # the room to do it in.
+        "class_separation": 0.35,
         "on_axis_share": 0.35, "rotation_jitter_deg": 0.0,
         "scale_range": [0.85, 1.05],
         "mix": mix(("bloom", 2.0), ("leaf", 1.4), ("sprig", 1.4),

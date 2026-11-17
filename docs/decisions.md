@@ -2213,3 +2213,66 @@ the entire point of the exercise.
 release: afterwards, a changed identifier breaks auto-updates and macOS treats
 the result as a different application. There are no releases yet, so it was
 free today and would not have been later.
+
+---
+
+## A scatter spaces every motif, not only every placement
+
+**Decided.** `ScatterParams::class_separation` asks the sampler to hold two
+placements of the *same* motif further apart than it holds any two placements.
+Zero by default, which is the behaviour the sampler has always had and leaves
+every existing document byte-identical. The showcase documents set 1.
+
+**Why.** Poisson-disc sampling makes the set of placements blue noise, which is
+what it is for and what it was doing correctly. But the motif is drawn
+independently at each candidate, so the subset wearing any one motif is a
+random subset of a blue-noise set, and a random subset of blue noise is not
+blue noise: it is close to Poisson, and Poisson clumps.
+
+Nobody looks at the set. A viewer groups by shape and colour, so what they see
+is the nine brass flowers, and nine points of Poisson noise read as clusters
+with lines running between them. Measured on the website's hero, a five-motif
+strewn repeat, as the spread of nearest-neighbour distances relative to their
+mean:
+
+| | spread |
+| --- | --- |
+| every placement | 0.10 |
+| blooms alone | 0.26 |
+| buds alone | 0.31 |
+| berries alone | 0.38 |
+| no structure at all | 0.52 |
+
+The whole set was near-perfect and each motif was halfway to random. With the
+setting at 1 the same document gives 0.10 for the whole set and 0.03 to 0.10
+for each motif in it.
+
+**The figure is not a constant.** A motif holding share `w` of the mix receives
+about `w` of the placements, so a blue-noise set of that motif alone would sit
+`1/sqrt(w)` times further apart than the common radius: halve the count in two
+dimensions and the spacing grows by root two. That is what 1 asks for, and the
+parameter interpolates to it. Capped at four, because a motif at a sixteenth of
+the mix would otherwise be asked for a separation wider than the tile and the
+sampler would spend every dart refusing it.
+
+**Rejected.** Detecting the clustering afterwards and reseeding, which is the
+shape of the tracking work in
+[M6](./roadmap.md#m6-mockups-and-tracking-detection) and is the right tool for
+a different problem. Tracking is a property of a layout that a different seed
+may not have. This is a property of the *sampler*, present at every seed, so
+reseeding trades one clustered layout for another. Also rejected: making it the
+default, which would change every existing pattern and every golden image. That
+is a decision about other people's output and not one to take while fixing a
+website.
+
+**Cost.** Coverage. The extra separation refuses candidates the density solver
+expected to place, so a document asking for the same density lands short and
+has to ask for more: the showcase set needed roughly a third more to hold its
+counts. The solver does not account for it, and the relationship is not
+closed-form enough to invert.
+
+**What would reopen it.** Dreamwoven, where nobody approves an order. A
+clustered print there ships on a child's pyjamas with no one in the loop, which
+is a much stronger argument for making this the default than a website is. The
+measurement to make first is whether a document written against the old
+behaviour looks worse under the new one, not better.

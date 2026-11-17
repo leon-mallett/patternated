@@ -26,9 +26,10 @@
     }
   ],
   "scatter": {
-    "density": 0.3,
+    "density": 0.42,
     "prevent_overlap": true,
     "mirror": "none",
+    "class_separation": 1.0,
     "on_axis_share": 0.0,
     "rotation_jitter_deg": 24.0,
     "scale_range": [

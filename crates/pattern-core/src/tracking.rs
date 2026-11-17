@@ -177,6 +177,7 @@ mod tests {
                 prevent_overlap: true,
                 mirror: Mirror::None,
                 on_axis_share: 0.0,
+                class_separation: 0.0,
                 seed,
             },
             TILE,
