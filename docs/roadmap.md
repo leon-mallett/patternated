@@ -124,8 +124,9 @@ trying, not by commissioning.
 
 The engine is AGPL and, until 2026-11-16, nobody could get it. The repository
 is public now; there are still no tags and no releases, so a download page is
-two gates away. The website is built but not deployed, and it went first
-because it was the only gate that waited on nobody.
+two gates away. The website is built and live at
+[patternated.com](https://patternated.com), and it went first because it was
+the only gate that waited on nobody.
 
 **1 · The repository goes public, and pull requests close the same day. Done,
 2026-11-16**, at
@@ -164,7 +165,7 @@ releases: one bucket per app, Captivated-owned domain, no egress fees. The
 signed self-updater (`~/Projects/TAURI_AUTO_UPDATER.md`) can come later; it
 reads from the same place, so nothing has to move.
 
-**4 · The site. Built 2026-11-16, out of order, and not yet deployed.**
+**4 · The site. Built 2026-11-16 out of order, live 2026-11-23.**
 `patternated.com`, registered 2026-11-14 through Cloudflare Registrar, with
 `patternated.app` held alongside it. Astro on Cloudflare Pages, which is the
 house archetype. The repository is
@@ -193,9 +194,27 @@ this repository, and the refusal of patches with its reason. That last one
 belongs on the page and not only here, or it gets discovered one refused pull
 request at a time.
 
-**What remains is a Cloudflare Pages project**, which needs the dashboard OAuth
-handshake, and the two custom domains. Until then the security headers have
-never been served by a real edge.
+**Verified against the real edge on the day it went live**, which until then
+had never happened. The seven security headers are served, `www` and `http`
+redirect to the canonical host, `_headers` is honoured so the tiles carry a
+year of `immutable` caching, and the stylesheets are served as files rather
+than inlined, which is the Astro trap the build config exists to avoid.
+
+The eleven tiles were compared by hash after download and are byte-identical to
+the ones in the site repository. That is worth checking rather than assuming,
+because Cloudflare re-encodes images when Polish is on, and the page's only
+claim is that these tiles meet themselves exactly.
+
+**One defect, introduced by the edge rather than by the build.** Cloudflare's
+Email Address Obfuscation rewrites the footer address and injects a decoder
+script into a page that declares `script-src 'none'` and ships no JavaScript of
+its own. It works today only because the CSP is `Report-Only`; enforcing the
+CSP while the feature is on would leave broken contact details in the footer
+and nothing failing loudly. The site repository's README has the detail and the
+fix, which is a dashboard setting rather than a wider policy.
+
+What remains is `patternated.app`, held alongside the `.com` and currently
+resolving to nothing. It should redirect rather than serve a second copy.
 
 **One piece of timing.** The newly-registered-domain flag is purely
 time-based, roughly two to four weeks, cleared by nothing but waiting, and it
