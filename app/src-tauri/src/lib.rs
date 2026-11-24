@@ -648,6 +648,9 @@ fn apply_layout(session: &mut Session, params: &Params) -> anyhow::Result<()> {
             prevent_overlap: params.prevent_overlap,
             row_offset,
             col_offset,
+            // No control for this in the shell yet. False keeps the layout a
+            // grid made here identical to one made before the option existed.
+            deal: false,
             rotation_jitter_deg: params.rotation_jitter_deg,
             scale_range: (params.scale_range[0], params.scale_range[1]),
             mix,

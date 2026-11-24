@@ -2276,3 +2276,51 @@ clustered print there ships on a child's pyjamas with no one in the loop, which
 is a much stronger argument for making this the default than a website is. The
 measurement to make first is whether a document written against the old
 behaviour looks worse under the new one, not better.
+
+## A grid deals its mix rather than drawing it
+
+A grid drew one motif per cell by weighted draw, the same call a scatter uses.
+That is right for a scatter and wrong for a grid, and the difference is not
+subtle once it is pointed out: a scatter hides its statistics because nobody
+can count a tossed field, while a grid has already told the eye where to look,
+so an uneven count reads as a mistake rather than as chance.
+
+Measured on fifteen subjects over thirty cells, which is the Dreamwoven hero.
+Independent draws gave counts from one to three, two or three pairs of the
+same subject sitting as neighbours, and on a fair number of seeds a subject
+that never appeared at all. Across three hundred seeds, none gave every
+subject an equal share, and the best on adjacency still left one pair
+touching.
+
+**What was built.** `GridParams::deal` apportions the cells by largest
+remainder, so counts are exact rather than expected and sum to the grid
+whatever the weights are; shuffles with the document's own generator; then
+swaps motifs between cells, which cannot change the counts, until no two of a
+kind are within reach of each other. Reach is taken from the closest pair in
+the grid rather than from the cell size, because on a half-drop the nearest
+cell in the next column is not the one with the same row number, and the
+closest pair may be across a tile edge.
+
+**Why it is not a seed search.** A seed search was the alternative and it
+works, in the sense that somebody can roll until a layout looks acceptable.
+That is a person in the loop, and Dreamwoven does not have one: a pattern is
+generated for an order and goes to cloth with nobody looking at it. A property
+that holds by construction and a property that holds on the seeds somebody
+checked are different kinds of thing, and only the first survives contact with
+an unattended pipeline.
+
+**The cost.** Dealing draws the whole hand from the generator before the cell
+loop, so every jitter value after it differs: turning the option on changes
+which motif sits in each cell *and* rerolls the rotation and scale. The cells
+themselves do not move, and a test asserts that. Giving the deal its own
+generator would have preserved the jitter and bought a comparison nobody
+makes, at the price of a second seed to explain.
+
+**Off by default**, so every existing grid document is byte-identical and the
+golden images are untouched. That is the evidence rather than the intention:
+the full suite passes unchanged.
+
+**What would reopen it.** Making it the default. The argument for is that the
+old behaviour has no advocate once it is described out loud, and the argument
+against is that it rewrites every golden image and every saved document's
+layout, which is a deliberate commit rather than a tidy-up.

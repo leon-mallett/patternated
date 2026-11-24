@@ -47,6 +47,29 @@ pub struct GridParams {
     #[serde(default = "unit_range")]
     pub scale_range: (f32, f32),
     pub motif_mix: Vec<MotifWeight>,
+    /// Deal the mix out across the cells, rather than drawing one per cell
+    /// independently.
+    ///
+    /// A weighted draw per cell is right for a scatter, where nobody can count
+    /// what they are looking at. On a grid it is wrong, and visibly so,
+    /// because the grid has already told the eye where to look: fifteen
+    /// subjects over thirty cells come out as three of one, none of another,
+    /// and two of the same side by side, and every one of those is something a
+    /// person spots immediately. The usual remedy is to reroll the seed until
+    /// it looks right, which is not a remedy at all for a print nobody
+    /// approves before it goes to cloth.
+    ///
+    /// Dealing gives each motif its share of the cells by largest remainder,
+    /// so the counts are exact rather than expected, shuffles them, and then
+    /// pulls apart any two of the same that landed as neighbours. The result
+    /// is still seeded and still reproducible; what changes is that the seed
+    /// now chooses between good arrangements rather than between good and bad
+    /// ones.
+    ///
+    /// Off by default, because it changes the layout of every grid document
+    /// that already exists.
+    #[serde(default)]
+    pub deal: bool,
     /// Keep motifs from intersecting, by shrinking them to fit their cell.
     ///
     /// A grid's cells are fixed by its rows and columns, so a motif larger than
@@ -170,7 +193,14 @@ pub fn grid_with_outcome(
     let mut rng = ChaCha8Rng::seed_from_u64(params.seed);
     let cell = Vec2::new(tile_size_mm.x / cols as f32, tile_size_mm.y / rows as f32);
 
-    let mut placements = Vec::with_capacity((rows * cols) as usize);
+    let cells = (rows * cols) as usize;
+    let hand = if params.deal {
+        Some(deal(&params.motif_mix, cells, &mut rng))
+    } else {
+        None
+    };
+
+    let mut placements = Vec::with_capacity(cells);
     for row in 0..rows {
         for col in 0..cols {
             // The shifts accumulate and wrap, so an offset of a half
@@ -181,7 +211,14 @@ pub fn grid_with_outcome(
             let x = ((col as f32 + 0.5 + shift) * cell.x).rem_euclid(tile_size_mm.x);
             let y = ((row as f32 + 0.5 + drop) * cell.y).rem_euclid(tile_size_mm.y);
 
-            let motif = crate::scatter::choose_motif_index(&params.motif_mix, &mut rng);
+            // When dealing, the hand was drawn before the loop. Otherwise the
+            // draw happens here, between the position and the jitter, exactly
+            // where it always has: moving it would change the random sequence
+            // and with it every existing grid document's output.
+            let motif = match &hand {
+                Some(h) => h[placements.len()],
+                None => crate::scatter::choose_motif_index(&params.motif_mix, &mut rng),
+            };
             placements.push(Placement {
                 motif_id: params.motif_mix[motif].motif_id.clone(),
                 position_mm: Vec2::new(x, y),
@@ -197,6 +234,10 @@ pub fn grid_with_outcome(
         }
     }
 
+    if params.deal {
+        separate_like_neighbours(&mut placements, lattice);
+    }
+
     let scale_applied = if params.prevent_overlap {
         fit_to_cells(&mut placements, params, lattice)
     } else {
@@ -210,6 +251,123 @@ pub fn grid_with_outcome(
             cols,
         },
     )
+}
+
+/// Give each motif its exact share of the cells, then shuffle.
+///
+/// Largest remainder rather than rounding, so the counts always sum to the
+/// number of cells however the weights fall. Rounding each share on its own
+/// leaves a handful of cells over or short, and whatever is done with those
+/// re-introduces the bias the deal exists to remove.
+fn deal(mix: &[MotifWeight], cells: usize, rng: &mut ChaCha8Rng) -> Vec<usize> {
+    let total: f32 = mix.iter().map(|m| m.weight.max(0.0)).sum();
+    let mut counts = vec![0usize; mix.len()];
+    let mut remainders: Vec<(f32, usize)> = Vec::with_capacity(mix.len());
+    let mut given = 0usize;
+    for (i, m) in mix.iter().enumerate() {
+        let exact = if total > 0.0 {
+            cells as f32 * m.weight.max(0.0) / total
+        } else {
+            cells as f32 / mix.len() as f32
+        };
+        counts[i] = exact.floor() as usize;
+        given += counts[i];
+        remainders.push((exact - exact.floor(), i));
+    }
+    // Ties broken by index rather than by whatever sort order happens to fall
+    // out, so the deal is the same on every platform.
+    remainders.sort_by(|a, b| {
+        b.0.partial_cmp(&a.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.1.cmp(&b.1))
+    });
+    let mut k = 0;
+    while given < cells && !remainders.is_empty() {
+        counts[remainders[k % remainders.len()].1] += 1;
+        given += 1;
+        k += 1;
+    }
+
+    let mut hand: Vec<usize> = Vec::with_capacity(cells);
+    for (i, c) in counts.iter().enumerate() {
+        hand.extend(std::iter::repeat_n(i, *c));
+    }
+    // Fisher-Yates, drawing from the document's own generator so that a deal
+    // is as reproducible as everything else here.
+    for i in (1..hand.len()).rev() {
+        let j = (crate::scatter::between_values(rng, 0.0, (i + 1) as f32) as usize).min(i);
+        hand.swap(i, j);
+    }
+    hand
+}
+
+/// Pull apart any two cells holding the same motif that landed as neighbours.
+///
+/// A shuffle gives the right number of each subject and says nothing about
+/// where they land, so two dinosaurs side by side is as likely as it ever was,
+/// and on a grid that reads as a mistake. This swaps motifs between cells,
+/// which cannot change the counts, until no two of a kind are adjacent or
+/// until no swap helps.
+///
+/// "Adjacent" is measured on the lattice torus from the closest pair in the
+/// grid, not from the cell size. On a half-drop the nearest cell in the next
+/// column is not the one with the same row number, and the closest pair may be
+/// across a tile edge, which is exactly where a designer will not notice it
+/// until the cloth arrives.
+fn separate_like_neighbours(placements: &mut [Placement], lattice: &Lattice) {
+    let n = placements.len();
+    if n < 3 {
+        return;
+    }
+    let mut closest_sq = f32::MAX;
+    for (i, a) in placements.iter().enumerate() {
+        for b in &placements[i + 1..] {
+            closest_sq = closest_sq.min(lattice_distance_sq(a.position_mm, b.position_mm, lattice));
+        }
+    }
+    // The immediate ring and nothing beyond it. On a 50 x 45 cell half-drop
+    // that is 45 mm straight down and 55 mm diagonally, and excludes the next
+    // cell but one at 84 mm.
+    let reach_sq = closest_sq * 1.45 * 1.45;
+
+    let clashes = |pl: &[Placement], i: usize| -> usize {
+        (0..pl.len())
+            .filter(|&j| {
+                j != i
+                    && pl[j].motif_id == pl[i].motif_id
+                    && lattice_distance_sq(pl[i].position_mm, pl[j].position_mm, lattice) < reach_sq
+            })
+            .count()
+    };
+
+    // Bounded. A grid that cannot be untangled is better left with a few
+    // neighbours than spun on forever, and the caller can count them.
+    for _ in 0..(n * 4) {
+        let Some(i) = (0..n).find(|&i| clashes(placements, i) > 0) else {
+            return;
+        };
+        let before = clashes(placements, i);
+        let mut swapped = false;
+        for k in 0..n {
+            if placements[k].motif_id == placements[i].motif_id {
+                continue;
+            }
+            let was = before + clashes(placements, k);
+            let a = placements[i].motif_id.clone();
+            let b = placements[k].motif_id.clone();
+            placements[i].motif_id = b.clone();
+            placements[k].motif_id = a.clone();
+            if clashes(placements, i) + clashes(placements, k) < was {
+                swapped = true;
+                break;
+            }
+            placements[i].motif_id = a;
+            placements[k].motif_id = b;
+        }
+        if !swapped {
+            return;
+        }
+    }
 }
 
 /// Shrink motifs until none of them reaches its nearest neighbour.
@@ -313,6 +471,7 @@ mod tests {
             cols,
             row_offset,
             col_offset: 0.0,
+            deal: false,
             rotation_jitter_deg: 0.0,
             scale_range: (1.0, 1.0),
             motif_mix: mix(),
@@ -365,6 +524,7 @@ mod tests {
     /// neighbourhood radius above takes in more than the immediate ring.
     fn field_of(rows: u32, cols: u32, row_offset: f32, col_offset: f32) -> (Vec<Placement>, Vec2) {
         let p = GridParams {
+            deal: false,
             col_offset,
             ..params(rows, cols, row_offset)
         };
@@ -408,6 +568,7 @@ mod tests {
         // of a column over the tile, so the next tile down starts two thirds
         // of a column adrift.
         let p = GridParams {
+            deal: false,
             rows: 5,
             ..params(5, 4, 1.0 / 3.0)
         };
@@ -486,6 +647,7 @@ mod tests {
         // A count that silently differs from the one typed is a control that
         // appears not to work.
         let p = GridParams {
+            deal: false,
             col_offset: 0.0,
             ..params(5, 4, 1.0 / 3.0)
         };
@@ -678,5 +840,161 @@ mod tests {
         let mut empty = params(2, 2, 0.0);
         empty.motif_mix.clear();
         assert!(grid(&empty, TILE, &block()).is_empty());
+    }
+
+    /// Fifteen subjects over thirty cells, dealt.
+    fn many(n: usize) -> Vec<MotifWeight> {
+        (0..n)
+            .map(|i| MotifWeight {
+                motif_id: format!("m{i}"),
+                weight: 1.0,
+                required: false,
+                natural_size_mm: Vec2::new(30.0, 30.0),
+                radius_fraction: 0.71,
+            })
+            .collect()
+    }
+
+    fn tally(placements: &[Placement]) -> std::collections::BTreeMap<String, usize> {
+        let mut t = std::collections::BTreeMap::new();
+        for p in placements {
+            *t.entry(p.motif_id.clone()).or_insert(0) += 1;
+        }
+        t
+    }
+
+    #[test]
+    fn a_deal_gives_every_motif_its_exact_share() {
+        // The point of the thing. A weighted draw gives each motif two cells
+        // *on average*, which over thirty cells means three of one and none of
+        // another often enough to see it on most seeds.
+        let tile = Vec2::new(300.0, 225.0);
+        let lattice = Lattice::block(tile);
+        for seed in 0..40u64 {
+            let p = GridParams {
+                motif_mix: many(15),
+                deal: true,
+                seed,
+                ..params(5, 6, 0.0)
+            };
+            let t = tally(&grid(&p, tile, &lattice));
+            assert_eq!(t.len(), 15, "seed {seed} lost a motif entirely");
+            assert!(
+                t.values().all(|&n| n == 2),
+                "seed {seed} did not deal evenly: {t:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_deal_respects_an_uneven_mix() {
+        // Weights still mean something: twice the weight is twice the cells,
+        // and the counts have to come out whole and sum to the grid.
+        let tile = Vec2::new(300.0, 225.0);
+        let lattice = Lattice::block(tile);
+        let mut mix = many(3);
+        mix[0].weight = 4.0;
+        mix[1].weight = 1.0;
+        mix[2].weight = 1.0;
+        let p = GridParams {
+            motif_mix: mix,
+            deal: true,
+            seed: 7,
+            ..params(5, 6, 0.0)
+        };
+        let t = tally(&grid(&p, tile, &lattice));
+        assert_eq!(t["m0"], 20);
+        assert_eq!(t["m1"], 5);
+        assert_eq!(t["m2"], 5);
+        assert_eq!(t.values().sum::<usize>(), 30);
+    }
+
+    #[test]
+    fn a_deal_does_not_put_two_of_a_kind_side_by_side() {
+        // The other half, and the half a shuffle alone does not give. Measured
+        // on the torus, so a pair that meets across a tile edge counts.
+        let tile = Vec2::new(300.0, 225.0);
+        let lattice = Lattice::block(tile);
+        for seed in 0..40u64 {
+            let p = GridParams {
+                motif_mix: many(15),
+                deal: true,
+                col_offset: 0.5,
+                seed,
+                ..params(5, 6, 0.0)
+            };
+            let pl = grid(&p, tile, &lattice);
+            let mut closest = f32::MAX;
+            for (i, a) in pl.iter().enumerate() {
+                for b in &pl[i + 1..] {
+                    closest =
+                        closest.min(lattice_distance_sq(a.position_mm, b.position_mm, &lattice));
+                }
+            }
+            let reach = closest * 1.45 * 1.45;
+            for (i, a) in pl.iter().enumerate() {
+                for b in &pl[i + 1..] {
+                    if a.motif_id == b.motif_id {
+                        assert!(
+                            lattice_distance_sq(a.position_mm, b.position_mm, &lattice) >= reach,
+                            "seed {seed}: two {} next to each other",
+                            a.motif_id
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_deal_is_deterministic() {
+        let tile = Vec2::new(300.0, 225.0);
+        let lattice = Lattice::block(tile);
+        let p = GridParams {
+            motif_mix: many(15),
+            deal: true,
+            col_offset: 0.5,
+            seed: 20261124,
+            ..params(5, 6, 0.0)
+        };
+        assert_eq!(grid(&p, tile, &lattice), grid(&p, tile, &lattice));
+    }
+
+    #[test]
+    fn dealing_changes_what_is_in_the_cells_and_not_where_they_are() {
+        // What a designer is entitled to assume when they turn it on. The
+        // grid is the grid: the cells do not move.
+        //
+        // The jitter does change, and that is not a defect. Dealing draws the
+        // whole hand from the document's generator before the loop, so every
+        // draw after it lands on a different number. Giving the deal its own
+        // generator to avoid that would buy a comparison nobody makes, at the
+        // cost of a second seed to explain.
+        let tile = Vec2::new(300.0, 225.0);
+        let lattice = Lattice::block(tile);
+        let p = GridParams {
+            motif_mix: many(4),
+            rotation_jitter_deg: 12.0,
+            scale_range: (0.9, 1.1),
+            seed: 3,
+            ..params(4, 4, 0.0)
+        };
+        let before = grid(&p, tile, &lattice);
+        let dealt = grid(
+            &GridParams {
+                deal: true,
+                ..p.clone()
+            },
+            tile,
+            &lattice,
+        );
+        assert_eq!(before.len(), dealt.len());
+        assert!(
+            before
+                .iter()
+                .zip(&dealt)
+                .all(|(a, b)| a.position_mm == b.position_mm),
+            "dealing moved the cells; it may only change which motif sits in them"
+        );
     }
 }

@@ -211,6 +211,7 @@ mod tests {
                 cols: 5,
                 row_offset: 0.0,
                 col_offset: 0.0,
+                deal: false,
                 rotation_jitter_deg: 0.0,
                 scale_range: (1.0, 1.0),
                 motif_mix: mix(),

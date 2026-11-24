@@ -208,6 +208,12 @@ pub struct GridSpec {
     /// fraction of the row spacing. What a half-drop is, on a grid.
     #[serde(default)]
     pub col_offset: f32,
+    /// Deal the mix out across the cells instead of drawing one per cell.
+    /// See [`GridParams::deal`](pattern_core::GridParams::deal): a weighted
+    /// draw is right for a scatter and wrong for a grid, because a grid has
+    /// already told the eye where to look.
+    #[serde(default)]
+    pub deal: bool,
     #[serde(default)]
     pub rotation_jitter_deg: f32,
     #[serde(default = "unit_range")]
@@ -618,6 +624,7 @@ impl Document {
                 cols: spec.cols,
                 row_offset: spec.row_offset,
                 col_offset: spec.col_offset,
+                deal: spec.deal,
                 rotation_jitter_deg: spec.rotation_jitter_deg,
                 scale_range: spec.scale_range,
                 motif_mix: mix,

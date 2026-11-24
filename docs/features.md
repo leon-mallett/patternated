@@ -84,6 +84,17 @@ was the diagonal's own rhythm.
 A grid ignores the seed for position: rerolling changes which motif sits where,
 not where the cells are. That is what "classic" means here.
 
+**A grid can deal its mix instead of drawing it.** `deal` gives each motif its
+exact share of the cells by largest remainder, shuffles them, and then swaps
+motifs between cells until no two of a kind are neighbours, measured on the
+lattice torus so a pair meeting across a tile edge counts. A weighted draw per
+cell is right for a scatter, where nobody can count what they are looking at,
+and wrong for a grid, which has already told the eye where to look: fifteen
+subjects over thirty cells come out as three of one, none of another, and two
+of the same side by side, all of which a person spots immediately. Off by
+default, because it changes the layout of every grid document that already
+exists. See [Decisions](./decisions.md#a-grid-deals-its-mix-rather-than-drawing-it).
+
 **Overlap prevention applies here too**, and differently. A grid cannot respond
 by placing fewer motifs, because its cells are fixed by the rows and columns, so
 it shrinks them to fit instead. The limit is the closest any two positions come
