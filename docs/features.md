@@ -1004,6 +1004,23 @@ The measurements are approximate standard figures rather than any one
 manufacturer's chart: right enough to judge a repeat against, and not a
 substitute for a real spec.
 
+The silhouette also comes out on its own, as SVG path data in the garment's own
+millimetres with the frame it is drawn in:
+
+```
+pattern garment pyjama-top.json     # a cut and four measurements
+pattern garment --standard          # the whole size chart
+```
+
+For anything that wants the shape rather than a picture of it. A web page that
+tiles the cloth itself and clips it to this keeps the repeat an actual repeat,
+which a picture of a garment cannot be, and it takes the geometry from the one
+place that has it: a second pyjama drawn by eye disagrees with the one the app
+shows, and true scale is the only reason to put a print on a garment at all.
+Several contours where a cut has several pieces, and both fill rules are safe,
+because a neck and a crotch are notches in their own contour rather than
+contours of their own.
+
 ## Colour management
 
 Conversion to CMYK happens in the tool, so nobody needs Photoshop to produce a
