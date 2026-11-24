@@ -118,6 +118,22 @@ enum Command {
         #[arg(long, default_value_t = 150.0)]
         dpi: f32,
     },
+
+    /// Print a garment's silhouette as SVG path data.
+    ///
+    /// For anything that wants the shape rather than a picture of it: a page
+    /// that tiles the cloth itself and clips it to a garment, a cutting
+    /// diagram, a plotter. The millimetres are the garment's own, origin at
+    /// the top left of `extent_mm`.
+    Garment {
+        /// Garment (JSON): name, across_mm, length_mm and a cut. Omit it with
+        /// --standard.
+        garment: Option<PathBuf>,
+
+        /// Print the standard size chart instead of one garment.
+        #[arg(long)]
+        standard: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -152,7 +168,51 @@ fn main() -> Result<()> {
             ground,
         } => derive_palette(&sources, colours, &ground),
         Command::Info { document, dpi } => info(&document, dpi),
+        Command::Garment { garment, standard } => outline(garment.as_deref(), standard),
     }
+}
+
+/// Print one garment, or the whole size chart, with each silhouette as a path.
+fn outline(path: Option<&Path>, standard: bool) -> Result<()> {
+    let garments: Vec<pattern_render::Garment> = match (path, standard) {
+        (Some(path), _) => {
+            let text = std::fs::read_to_string(path)
+                .with_context(|| format!("reading {}", path.display()))?;
+            vec![serde_json::from_str(&text)
+                .with_context(|| format!("{} is not a garment", path.display()))?]
+        }
+        (None, true) => pattern_render::Garment::standard(),
+        (None, false) => anyhow::bail!("give a garment JSON file, or --standard"),
+    };
+
+    // The extent and the path are both derived, and a caller needs them
+    // together: the extent is the viewBox the path is drawn in, and a path
+    // without it cannot be placed. Serialised from the garment itself so the
+    // measurements that produced the shape travel with it.
+    let described = garments
+        .iter()
+        .map(|garment| {
+            let mut value = serde_json::to_value(garment).context("serialising a garment")?;
+            let extent = garment.extent_mm();
+            let outline = garment
+                .outline_svg_path()
+                .ok_or_else(|| anyhow::anyhow!("'{}' has no silhouette", garment.name))?;
+            let object = value
+                .as_object_mut()
+                .ok_or_else(|| anyhow::anyhow!("a garment serialises to an object"))?;
+            object.insert("extent_mm".into(), serde_json::json!([extent.x, extent.y]));
+            object.insert("outline_svg_path".into(), serde_json::json!(outline));
+            Ok(value)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    // One garment asked for prints as one object, not as a list of one.
+    let out = match described.as_slice() {
+        [one] if path.is_some() => serde_json::to_string_pretty(one),
+        many => serde_json::to_string_pretty(many),
+    };
+    println!("{}", out.context("serialising the outlines")?);
+    Ok(())
 }
 
 fn render(

@@ -233,3 +233,132 @@ fn the_print_on_a_garment_is_a_repeating_unit() {
         "the swatch the mockup fills with does not tile"
     );
 }
+
+/// On-curve points of a path: the destination of each command, which is where
+/// the shape actually goes.
+///
+/// Not every number, because a control point may legitimately sit outside the
+/// frame. That is the whole reason `outline_bounds` takes a tight bound rather
+/// than `Path::bounds`, and a test that checked every number would refuse a
+/// brim that fits.
+fn on_curve(d: &str) -> Vec<(f32, f32)> {
+    let mut numbers: Vec<f32> = Vec::new();
+    let mut commands: Vec<(char, usize)> = Vec::new();
+    for token in d.split_whitespace() {
+        let (command, rest) = match token.chars().next() {
+            Some(c) if c.is_ascii_alphabetic() => (Some(c), &token[1..]),
+            _ => (None, token),
+        };
+        if let Some(c) = command {
+            commands.push((c, numbers.len()));
+        }
+        if !rest.is_empty() {
+            numbers.push(rest.parse().expect("a path holds numbers"));
+        }
+    }
+    commands
+        .iter()
+        .filter_map(|(command, first)| {
+            let pairs = match command {
+                'M' | 'L' => 1,
+                'Q' => 2,
+                'C' => 3,
+                _ => return None,
+            };
+            let at = first + (pairs - 1) * 2;
+            Some((numbers[at], numbers[at + 1]))
+        })
+        .collect()
+}
+
+#[test]
+fn a_silhouette_path_stays_inside_the_frame_it_is_measured_for() {
+    // The extent is the viewBox the path is drawn in, exactly as it is the
+    // canvas `render_mockup` draws into. Anything the path reaches past is
+    // clipped, and nothing fails: this is the same trap `outline_bounds`
+    // exists for, checked on the shape a caller is actually handed.
+    for g in Garment::standard() {
+        let d = g
+            .outline_svg_path()
+            .expect("every standard garment has a shape");
+        let extent = g.extent_mm();
+        let points = on_curve(&d);
+        assert!(
+            points.len() >= 4,
+            "'{}' came back as {} points, which is not a shape",
+            g.name,
+            points.len()
+        );
+        for (x, y) in points {
+            assert!(
+                (-0.01..=extent.x + 0.01).contains(&x) && (-0.01..=extent.y + 0.01).contains(&y),
+                "'{}' puts a point at {x}, {y}, outside its own {} x {} mm frame",
+                g.name,
+                extent.x,
+                extent.y
+            );
+        }
+    }
+}
+
+#[test]
+fn a_set_comes_back_as_one_contour_per_piece() {
+    // A neck and a crotch are notches in their own contour rather than
+    // contours of their own, which is what lets a caller punch the garment out
+    // of a backdrop with even-odd. If one of them ever became a separate
+    // contour it would be punched back in, as a hole in the cloth.
+    let contours = |name: &str| {
+        garment(name)
+            .outline_svg_path()
+            .expect("a shape")
+            .matches('M')
+            .count()
+    };
+    assert_eq!(
+        contours("T-shirt, adult M"),
+        1,
+        "a neck is not a second piece"
+    );
+    assert_eq!(contours("Trousers, adult M"), 1, "nor is a crotch");
+    assert_eq!(
+        contours("Pyjamas, age 3–4"),
+        2,
+        "a top and a pair of trousers"
+    );
+    assert_eq!(contours("Tote bag"), 3, "a bag and two handles");
+    assert_eq!(contours("Dungarees, age 3–4"), 3, "a body and two straps");
+}
+
+#[test]
+fn the_pieces_of_a_set_do_not_overlap() {
+    // The other half of what makes even-odd safe. Two contours that shared a
+    // region would cancel there, and a pair of pyjamas would come back with a
+    // hole where the trousers crossed the top.
+    let d = garment("Pyjamas, age 3–4")
+        .outline_svg_path()
+        .expect("a shape");
+    let spans: Vec<(f32, f32)> = d
+        .split('M')
+        .filter(|piece| !piece.trim().is_empty())
+        .map(|piece| {
+            // Every command here takes whole pairs, so the numbers alternate
+            // x, y from the start of the contour.
+            let xs: Vec<f32> = on_curve(&format!("M{piece}"))
+                .iter()
+                .map(|(x, _)| *x)
+                .collect();
+            (
+                xs.iter().copied().fold(f32::MAX, f32::min),
+                xs.iter().copied().fold(f32::MIN, f32::max),
+            )
+        })
+        .collect();
+
+    assert_eq!(spans.len(), 2, "a pair of pyjamas is two pieces");
+    assert!(
+        spans[0].1 < spans[1].0,
+        "the top reaches to {} and the trousers start at {}, so they overlap",
+        spans[0].1,
+        spans[1].0
+    );
+}

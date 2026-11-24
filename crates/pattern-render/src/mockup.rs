@@ -14,8 +14,8 @@
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 use tiny_skia::{
-    FillRule, FilterQuality, Paint, Path, PathBuilder, Pattern as PatternShader, Pixmap,
-    SpreadMode, Stroke, Transform,
+    FillRule, FilterQuality, Paint, Path, PathBuilder, PathSegment, Pattern as PatternShader,
+    Pixmap, SpreadMode, Stroke, Transform,
 };
 
 use crate::{render_field, MotifBank, RenderError};
@@ -272,6 +272,49 @@ impl Garment {
         covered as f32 / (SIDE * SIDE) as f32
     }
 
+    /// The silhouette as SVG path data, in millimetres, with the origin at its
+    /// top-left and [`Self::extent_mm`] for the viewBox.
+    ///
+    /// Here because the shape is wanted outside a raster. Something that tiles
+    /// the cloth itself and clips it to this keeps the repeat an actual
+    /// repeat, which a picture of a garment cannot be; and it takes the
+    /// geometry from the one place that has it rather than drawing a second
+    /// pyjama by eye, which would then disagree with the one the app shows.
+    ///
+    /// Several contours where a cut has several pieces, so the fill rule is
+    /// the caller's to choose. Non-zero is what [`render_mockup`] uses and
+    /// what these shapes are drawn for. Even-odd is also safe here and is what
+    /// a caller punching the garment out of a backdrop needs: a neck or a
+    /// crotch is a notch in its own contour rather than a contour of its own,
+    /// and no two pieces of a set overlap.
+    #[must_use]
+    pub fn outline_svg_path(&self) -> Option<String> {
+        let mut d = String::new();
+        for segment in self.outline()?.segments() {
+            if !d.is_empty() {
+                d.push(' ');
+            }
+            match segment {
+                PathSegment::MoveTo(p) => d.push_str(&format!("M{} {}", mm(p.x), mm(p.y))),
+                PathSegment::LineTo(p) => d.push_str(&format!("L{} {}", mm(p.x), mm(p.y))),
+                PathSegment::QuadTo(c, p) => {
+                    d.push_str(&format!("Q{} {} {} {}", mm(c.x), mm(c.y), mm(p.x), mm(p.y)));
+                }
+                PathSegment::CubicTo(a, b, p) => d.push_str(&format!(
+                    "C{} {} {} {} {} {}",
+                    mm(a.x),
+                    mm(a.y),
+                    mm(b.x),
+                    mm(b.y),
+                    mm(p.x),
+                    mm(p.y)
+                )),
+                PathSegment::Close => d.push('Z'),
+            }
+        }
+        Some(d)
+    }
+
     /// The silhouette, in millimetres, with the origin at its top-left.
     ///
     /// May be several contours: a tote's handles, a pair of pyjamas. They are
@@ -335,6 +378,19 @@ impl Garment {
             }
         }
         pb.finish()
+    }
+}
+
+/// A millimetre as a path writes it: two decimals at most, and no trailing
+/// zeros, so the geometry reads as the round numbers it mostly is.
+fn mm(v: f32) -> String {
+    let fixed = format!("{v:.2}");
+    let trimmed = fixed.trim_end_matches('0').trim_end_matches('.');
+    // `-0` comes out of a signed zero and means nothing to a reader.
+    if trimmed.is_empty() || trimmed == "-0" {
+        "0".to_owned()
+    } else {
+        trimmed.to_owned()
     }
 }
 
