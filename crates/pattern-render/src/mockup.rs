@@ -186,20 +186,19 @@ impl Garment {
             Cut::Panel | Cut::Legs { .. } | Cut::Dungarees { .. } | Cut::Hat { .. } => {
                 Vec2::new(self.across_mm, self.length_mm)
             }
-            Cut::Top { sleeve_mm, .. } => Vec2::new(
-                self.across_mm + sleeve_geometry(*sleeve_mm, self.length_mm).0,
-                self.length_mm,
-            ),
+            Cut::Top {
+                shoulder_mm,
+                sleeve_mm,
+            } => top_extent(self.across_mm, self.length_mm, *shoulder_mm, *sleeve_mm),
             Cut::Tote { handle_mm } => Vec2::new(self.across_mm, self.length_mm + handle_mm),
             Cut::Pyjamas {
-                sleeve_mm, rise_mm, ..
+                shoulder_mm,
+                sleeve_mm,
+                rise_mm,
             } => {
-                let top = self.across_mm + sleeve_geometry(*sleeve_mm, self.length_mm).0;
+                let top = top_extent(self.across_mm, self.length_mm, *shoulder_mm, *sleeve_mm);
                 let (trousers, trouser_length) = self.pyjama_trousers(*rise_mm);
-                Vec2::new(
-                    top + PIECE_GAP + trousers,
-                    self.length_mm.max(trouser_length),
-                )
+                Vec2::new(top.x + PIECE_GAP + trousers, top.y.max(trouser_length))
             }
         }
     }
@@ -239,25 +238,31 @@ impl Garment {
         self.outline()?.compute_tight_bounds()
     }
 
-    /// The share of its own frame the silhouette actually covers.
+    /// The silhouette as a coarse occupancy grid, `side` by `side`, stretched
+    /// into its own frame. Row by row from the top left; empty if it will not
+    /// draw.
     ///
     /// A shape measure rather than a size one, so a child's and an adult's of
-    /// the same cut agree and two different cuts do not. Taken by drawing it,
-    /// because the alternative, the area of a bounding box, is one for a
-    /// pair of legs and one for a pair of dungarees, which are not the same
-    /// shape at all.
+    /// the same cut agree and two different cuts do not. Public so a test can
+    /// say that two cuts draw different shapes, which is about the only thing
+    /// a test can say about a silhouette: the rest is judged by eye.
+    ///
+    /// Was the share of the frame covered, a single number, which is a weak
+    /// way to tell two shapes apart and in the end told a pair of pyjamas from
+    /// a hat not at all: both cover 0.5643 of their own frames. The area of a
+    /// bounding box came before that and is one for a pair of legs and one for
+    /// a pair of dungarees.
     #[must_use]
-    pub fn coverage(&self) -> f32 {
-        const SIDE: u32 = 128;
+    pub fn occupancy(&self, side: u32) -> Vec<bool> {
         let extent = self.extent_mm();
-        let (Some(outline), Some(mut canvas)) = (self.outline(), Pixmap::new(SIDE, SIDE)) else {
-            return 0.0;
+        let (Some(outline), Some(mut canvas)) = (self.outline(), Pixmap::new(side, side)) else {
+            return Vec::new();
         };
         let Some(placed) = outline.transform(Transform::from_scale(
-            SIDE as f32 / extent.x.max(1e-3),
-            SIDE as f32 / extent.y.max(1e-3),
+            side as f32 / extent.x.max(1e-3),
+            side as f32 / extent.y.max(1e-3),
         )) else {
-            return 0.0;
+            return Vec::new();
         };
         let mut paint = Paint::default();
         paint.set_color_rgba8(0, 0, 0, 255);
@@ -268,8 +273,7 @@ impl Garment {
             Transform::identity(),
             None,
         );
-        let covered = canvas.pixels().iter().filter(|p| p.alpha() > 127).count();
-        covered as f32 / (SIDE * SIDE) as f32
+        canvas.pixels().iter().map(|p| p.alpha() > 127).collect()
     }
 
     /// The silhouette as SVG path data, in millimetres, with the origin at its
@@ -357,7 +361,8 @@ impl Garment {
                 sleeve_mm,
                 rise_mm,
             } => {
-                let top_width = self.across_mm + sleeve_geometry(*sleeve_mm, self.length_mm).0;
+                let top_width =
+                    top_extent(self.across_mm, self.length_mm, *shoulder_mm, *sleeve_mm).x;
                 top_contour(
                     &mut pb,
                     0.0,
@@ -394,35 +399,105 @@ fn mm(v: f32) -> String {
     }
 }
 
-/// How far a sleeve reaches past the shoulder, as a multiple of its length.
-///
-/// A sleeve hangs at an angle rather than straight out, so it adds less width
-/// than its own length.
-const SLEEVE_REACH: f32 = 1.7;
+/// Where the underarm sits, as a share of the body's length.
+const ARMHOLE_Y: f32 = 0.30;
 
-/// How far a sleeve of any length reaches out to each side, and how far down
-/// its hem sits.
+/// How far the shoulder point sits below the neck, as a share of the length.
 ///
-/// A long sleeve hangs rather than sticking out. Reaching in proportion to its
-/// length is right for a short one and gives a long-sleeved top a T-pose three
-/// times as wide as it is tall, which reads as a shirt and defeats the only
-/// thing this view is for, because the body it is meant to be judged against
-/// becomes a narrow strip in the middle of it.
+/// A level shoulder line is half of what made the old sleeve read as a wing:
+/// the arm left the body at a corner rather than off a slope.
+const SHOULDER_SLOPE: f32 = 0.045;
+
+/// The angles a sleeve hangs at, shortest to longest, in degrees below level.
+const SLEEVE_ANGLE: (f32, f32) = (25.0, 70.0);
+
+/// The sleeve lengths those two angles belong to, as a share of the body.
+const SLEEVE_RUN: (f32, f32) = (0.2, 0.7);
+
+/// How much of the armhole's width the cuff keeps, over that same run.
 ///
-/// So the reach is capped at what a sleeve about a third of the body's length
-/// would give, and everything past that becomes drop. One function because
-/// the overall extent and the outline both need the answer and must not
-/// disagree: they each worked it out before, and a silhouette drawn wider than
-/// the frame it was measured for is clipped without anything failing.
-fn sleeve_geometry(sleeve_mm: f32, length_mm: f32) -> (f32, f32) {
-    let out = sleeve_mm.min(length_mm * 0.30);
-    let hangs = sleeve_mm > out + 1.0;
-    let hem_y = if hangs {
-        length_mm * 0.58
+/// A cap sleeve finishes near the bicep and barely narrows; a full-length one
+/// finishes at a wrist.
+const CUFF_OF_ARMHOLE: (f32, f32) = (0.85, 0.5);
+
+/// How a sleeve is posed and how it tapers.
+///
+/// The angle is a choice about the picture rather than a measurement: a flat
+/// silhouette can only be honest about the sleeve's length, and an arm has to
+/// be put somewhere. It is put further down the longer the sleeve is, from a
+/// cap sleeve standing almost out to a full-length one lying beside the body.
+/// That is how a flat lay is photographed, and it is also what keeps a
+/// long-sleeved top from becoming a T-pose three times as wide as it is tall,
+/// which would leave the body this view exists to judge a repeat against as a
+/// narrow strip down the middle.
+///
+/// The sleeve's own length is drawn undistorted either way. What used to be
+/// capped was the reach, with the remainder becoming drop and the shape
+/// tapering to a point, so there was no cuff and no arm, only a spike.
+struct SleeveShape {
+    /// Down and out from the shoulder point, for the LEFT sleeve. Unit length.
+    axis: Vec2,
+    /// Along that axis: the sleeve's own measurement, undistorted.
+    length: f32,
+    /// Half the cuff, measured across the axis.
+    cuff_half: f32,
+}
+
+/// One function because the overall extent and the outline both need the
+/// answer and must not disagree: they each worked it out separately before,
+/// and a silhouette drawn wider than the frame it was measured for is clipped
+/// without anything failing.
+fn sleeve_shape(chest: f32, length: f32, shoulder: f32, sleeve: f32) -> SleeveShape {
+    let run = if length > 0.0 {
+        (sleeve / length - SLEEVE_RUN.0) / (SLEEVE_RUN.1 - SLEEVE_RUN.0)
     } else {
-        length_mm * 0.26
-    };
-    (out * SLEEVE_REACH, hem_y)
+        0.0
+    }
+    .clamp(0.0, 1.0);
+    let angle = (SLEEVE_ANGLE.0 + run * (SLEEVE_ANGLE.1 - SLEEVE_ANGLE.0)).to_radians();
+    // The cuff is a share of the armhole rather than a figure of its own,
+    // because the armhole is the seam the sleeve is cut to. Set from the chest
+    // instead it would flare on a narrow shoulder and pinch on a broad one.
+    let armhole = Vec2::new((shoulder - chest) / 2.0, length * ARMHOLE_Y).length();
+    let keep = CUFF_OF_ARMHOLE.0 + run * (CUFF_OF_ARMHOLE.1 - CUFF_OF_ARMHOLE.0);
+    SleeveShape {
+        axis: Vec2::new(-angle.cos(), angle.sin()),
+        length: sleeve,
+        cuff_half: armhole * keep / 2.0,
+    }
+}
+
+impl SleeveShape {
+    /// Across the sleeve, away from the body. Unit length.
+    fn across(&self) -> Vec2 {
+        Vec2::new(-self.axis.y, self.axis.x)
+    }
+
+    /// The two corners of the cuff, outer first, for a sleeve hung from `s`.
+    fn cuff(&self, s: Vec2) -> (Vec2, Vec2) {
+        let end = s + self.axis * self.length;
+        let across = self.across() * self.cuff_half;
+        (end + across, end - across)
+    }
+
+    /// How far past the shoulder point the sleeve reaches, and how far below
+    /// it the lower corner of the cuff falls.
+    fn beyond_shoulder(&self) -> Vec2 {
+        let (outer, inner) = self.cuff(Vec2::ZERO);
+        Vec2::new(-outer.x.min(inner.x), outer.y.max(inner.y))
+    }
+}
+
+/// The box a top needs.
+///
+/// The sleeves decide the width, and the hem the height unless a sleeve long
+/// enough falls past it.
+fn top_extent(across: f32, length: f32, shoulder: f32, sleeve: f32) -> Vec2 {
+    let beyond = sleeve_shape(across, length, shoulder, sleeve).beyond_shoulder();
+    Vec2::new(
+        across.max(shoulder + beyond.x * 2.0),
+        length.max(length * SHOULDER_SLOPE + beyond.y),
+    )
 }
 
 /// The gap between two pieces of a set, in millimetres.
@@ -440,24 +515,55 @@ fn top_contour(
     let centre = left + width / 2.0;
     let body_half = chest / 2.0;
     let shoulder_half = shoulder / 2.0;
-    let (reach, sleeve_hem_y) = sleeve_geometry(sleeve, length);
-    let sleeve_reach = reach / 2.0;
     // Proportions of the length rather than fixed millimetres, so the shape
     // stays recognisable from a three-year-old's to an adult L.
-    let armhole_y = length * 0.30;
+    let armhole_y = length * ARMHOLE_Y;
     let neck_dip = length * 0.07;
     let neck_half = shoulder * 0.19;
+    let shoulder_y = length * SHOULDER_SLOPE;
+    let hem_half = body_half * 0.97;
 
-    pb.move_to(centre - shoulder_half, 0.0);
-    pb.line_to(centre - shoulder_half - sleeve_reach, sleeve_hem_y * 0.45);
-    pb.line_to(centre - shoulder_half - sleeve_reach * 0.86, sleeve_hem_y);
-    pb.line_to(centre - body_half, armhole_y);
-    pb.line_to(centre - body_half * 0.97, length);
-    pb.line_to(centre + body_half * 0.97, length);
-    pb.line_to(centre + body_half, armhole_y);
-    pb.line_to(centre + shoulder_half + sleeve_reach * 0.86, sleeve_hem_y);
-    pb.line_to(centre + shoulder_half + sleeve_reach, sleeve_hem_y * 0.45);
-    pb.line_to(centre + shoulder_half, 0.0);
+    let arm = sleeve_shape(chest, length, shoulder, sleeve);
+
+    // Worked out on the left and mirrored, so the two sleeves cannot drift
+    // apart under an edit to one of them.
+    let tip = Vec2::new(centre - shoulder_half, shoulder_y);
+    let armpit = Vec2::new(centre - body_half, armhole_y);
+    let (outer, inner) = arm.cuff(tip);
+    // The top of the sleeve leaves the shoulder on a curve rather than a
+    // crease. Its control point stays inside the chord's own corner, so the
+    // curve cannot bulge past the frame the extent was measured for.
+    let cap = (tip + outer) / 2.0 + arm.across() * (outer - tip).length() * 0.06;
+    // The underarm seam runs straight most of the way and then turns into the
+    // body. The armpit is a concave corner, so the quadratic rounds it with
+    // the corner itself as the control point, rather than leaving the sharp V
+    // that a sleeve meeting a side seam would otherwise be.
+    let seam = inner + (armpit - inner) * 0.72;
+    let side = armpit + (Vec2::new(centre - hem_half, length) - armpit) * 0.18;
+
+    let flip = |p: Vec2| Vec2::new(2.0 * centre - p.x, p.y);
+    let (r_tip, r_cap, r_outer, r_inner, r_seam, r_armpit, r_side) = (
+        flip(tip),
+        flip(cap),
+        flip(outer),
+        flip(inner),
+        flip(seam),
+        flip(armpit),
+        flip(side),
+    );
+
+    pb.move_to(tip.x, tip.y);
+    pb.quad_to(cap.x, cap.y, outer.x, outer.y);
+    pb.line_to(inner.x, inner.y);
+    pb.line_to(seam.x, seam.y);
+    pb.quad_to(armpit.x, armpit.y, side.x, side.y);
+    pb.line_to(centre - hem_half, length);
+    pb.line_to(centre + hem_half, length);
+    pb.line_to(r_side.x, r_side.y);
+    pb.quad_to(r_armpit.x, r_armpit.y, r_seam.x, r_seam.y);
+    pb.line_to(r_inner.x, r_inner.y);
+    pb.line_to(r_outer.x, r_outer.y);
+    pb.quad_to(r_cap.x, r_cap.y, r_tip.x, r_tip.y);
     pb.line_to(centre + neck_half, 0.0);
     pb.quad_to(centre, neck_dip, centre - neck_half, 0.0);
     pb.close();

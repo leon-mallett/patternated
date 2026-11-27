@@ -182,16 +182,23 @@ fn an_extent_says_what_each_cut_actually_needs() {
 
 #[test]
 fn no_two_cuts_draw_the_same_shape() {
+    // Thirty-two squared, and a hundredth of it has to differ. The closest
+    // real pair is legs against panel, at 28 cells of 1024: a pair of trousers
+    // stretched into its own frame IS nearly a rectangle, and the crotch is
+    // the whole of the difference. Everything else is 158 cells apart or more.
+    const SIDE: u32 = 32;
     // A silhouette is judged by eye, and the one thing a test can say about a
     // set of them is that they are a set: a cut whose arm fell through to
     // another's would be trousers that rendered as a cushion, and the numbers
     // would all still be right.
     //
-    // Compared as the share of its own frame the silhouette covers when it is
-    // drawn: a square panel fills it, a pair of legs does not. The area of a
-    // *bounding box* was the first attempt and is one for legs and one for
-    // dungarees, which are not remotely the same shape.
-    let mut by_cut: Vec<(&'static str, f32)> = Vec::new();
+    // Compared cell by cell rather than by the share of the frame each one
+    // fills. That share was the second attempt, after the area of a bounding
+    // box, which is one for legs and one for dungarees. It lasted longer and
+    // failed the same way: one number cannot say two shapes are different, and
+    // a pair of pyjamas and a hat turned out to cover 0.5643 of their frames
+    // each, being nothing like each other.
+    let mut by_cut: Vec<(&'static str, Vec<bool>)> = Vec::new();
     for g in Garment::standard() {
         let label = match g.cut {
             Cut::Panel => "panel",
@@ -205,15 +212,21 @@ fn no_two_cuts_draw_the_same_shape() {
         if by_cut.iter().any(|(seen, _)| *seen == label) {
             continue;
         }
-        by_cut.push((label, g.coverage()));
+        by_cut.push((label, g.occupancy(SIDE)));
     }
 
     assert_eq!(by_cut.len(), 7, "a cut is missing from the size chart");
-    for (i, (a, fill_a)) in by_cut.iter().enumerate() {
-        for (b, fill_b) in by_cut.iter().skip(i + 1) {
+    for (i, (a, grid_a)) in by_cut.iter().enumerate() {
+        for (b, grid_b) in by_cut.iter().skip(i + 1) {
+            let differ = grid_a
+                .iter()
+                .zip(grid_b)
+                .filter(|(one, two)| one != two)
+                .count();
             assert!(
-                (fill_a - fill_b).abs() > 0.01,
-                "{a} and {b} fill their frames identically ({fill_a:.4})"
+                differ * 100 >= (SIDE * SIDE) as usize,
+                "{a} and {b} draw the same shape: {differ} cells of {} differ",
+                SIDE * SIDE
             );
         }
     }
@@ -361,4 +374,66 @@ fn the_pieces_of_a_set_do_not_overlap() {
         spans[0].1,
         spans[1].0
     );
+}
+
+/// The cuff of the left sleeve: how wide it is, and how far down it reaches.
+///
+/// Found rather than looked up, so the test is about the shape rather than
+/// about the code that drew it. Everything on the outline past the chest
+/// belongs to a sleeve, and the two points furthest out there are the corners
+/// of the cuff: the underarm seam turns back towards the body well inside
+/// them.
+fn cuff(g: &Garment) -> (f32, f32) {
+    let d = g.outline_svg_path().expect("a top draws something");
+    let past_the_chest = g.extent_mm().x / 2.0 - g.across_mm / 2.0;
+    let mut sleeve: Vec<(f32, f32)> = on_curve(&d)
+        .into_iter()
+        .filter(|(x, _)| *x < past_the_chest)
+        .collect();
+    sleeve.sort_by(|a, b| a.0.total_cmp(&b.0));
+    assert!(
+        sleeve.len() >= 2,
+        "{}: a top with sleeves reaches past its own chest",
+        g.name
+    );
+    let (outer, inner) = (sleeve[0], sleeve[1]);
+    (
+        (outer.0 - inner.0).hypot(outer.1 - inner.1),
+        outer.1.max(inner.1),
+    )
+}
+
+#[test]
+fn a_longer_sleeve_hangs_lower_and_ends_narrower() {
+    // The silhouette is judged by eye; this holds the direction it was judged
+    // in. The second half is the one that matters: a sleeve drawn as a wedge
+    // tapering to a point, which is what this was until 2026-11-27, has no
+    // cuff to measure at any length, and nothing in the numbers said so.
+    let top = |sleeve_mm: f32| Garment {
+        name: format!("{sleeve_mm:.0} mm sleeve"),
+        across_mm: 330.0,
+        length_mm: 420.0,
+        cut: Cut::Top {
+            shoulder_mm: 285.0,
+            sleeve_mm,
+        },
+    };
+
+    let (short_cuff, short_hang) = cuff(&top(110.0));
+    let (long_cuff, long_hang) = cuff(&top(280.0));
+
+    assert!(
+        long_hang > short_hang + 20.0,
+        "a 280 mm sleeve reaches {long_hang:.0} mm down and a 110 mm one {short_hang:.0} mm"
+    );
+    assert!(
+        long_cuff + 5.0 < short_cuff,
+        "a 280 mm sleeve ends {long_cuff:.0} mm across and a 110 mm one {short_cuff:.0} mm"
+    );
+    for (label, width) in [("110", short_cuff), ("280", long_cuff)] {
+        assert!(
+            width > 30.0,
+            "the {label} mm sleeve ends {width:.0} mm across, which is a point rather than a cuff"
+        );
+    }
 }

@@ -985,11 +985,19 @@ a top, the hip on trousers, the brim on a hat: one number that means the same
 thing for every shape, because it is also what a repeat is scaled against when
 a design is [cut for a garment](#a-repeat-is-for-a-garment).
 
-A long sleeve hangs rather than sticking out. Reaching in proportion to its
-length is right for a short sleeve and gives a long-sleeved top a T-pose three
-times as wide as it is tall, which defeats the only thing this view is for,
-because the body it is meant to be judged against becomes a strip in the
-middle.
+A sleeve hangs further down the longer it is: a cap sleeve stands almost
+straight out, a full-length one lies beside the body. That is how a flat lay is
+photographed, and it is also what stops a long-sleeved top becoming a T-pose
+three times as wide as it is tall, which defeats the only thing this view is
+for, because the body it is meant to be judged against becomes a strip in the
+middle. The sleeve's own length is drawn undistorted either way; only the angle
+it is hung at moves.
+
+The sleeve was a wedge tapering to a point until 2026-11-27. It was the right
+width and the right drop, and it read as a bat's wing, because there was no
+cuff and the arm left a level shoulder at a corner. It now has a sloped
+shoulder, a cuff cut to a share of the armhole it hangs from, and a rounded
+armpit.
 
 A silhouette rather than a photograph. Warping a print onto folds is a much
 larger piece of work, and it would make the one thing this exists for, the
